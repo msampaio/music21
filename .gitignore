@@ -1,0 +1,4 @@
+*.pyc
+music21/doc/html
+buildDoc
+
