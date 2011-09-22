@@ -10,7 +10,6 @@
 # License:      LGPL
 #-------------------------------------------------------------------------------
 
-
 # base -- the convention within music21 is that __init__ files contain:
 #    from base import *
 
@@ -82,8 +81,6 @@ try:
 except ImportError:
     _missingImport.append('scipy')
 
-
-
 try:
     import PIL
 except ImportError:
@@ -109,13 +106,8 @@ if len(_missingImport) > 0:
         header='music21:')
 
 
-
-
-
-
 # define whether weakrefs are used for storage of object locations
 WEAKREF_ACTIVE = True
-
 
 #-------------------------------------------------------------------------------
 class Music21Exception(Exception):
@@ -138,24 +130,32 @@ class GroupException(Music21Exception):
 # make subclass of set once that is defined properly
 class Groups(list):   
     '''A list of strings used to identify associations that an element might 
-    have. Enforces that all elements must be strings
+    have. Enforces that all elements must be strings, and that the same element cannot be provided more than once.
     
     >>> g = Groups()
     >>> g.append("hello")
     >>> g[0]
     'hello'
-    
+    >>> g.append("hello") # not added as already present
+    >>> len(g)
+    1
+    >>> g
+    ['hello']
+        
     >>> g.append(5)
     Traceback (most recent call last):
     GroupException: Only strings can be used as list names
     '''
+    # TODO: presently groups can be cased-differentiated; this may 
+    # need to be made case independent
     def append(self, value):
         if isinstance(value, basestring):
-            list.append(self, value)
+            # do not permit the same entry more than once
+            if not list.__contains__(self, value): 
+                list.append(self, value)
         else:
             raise GroupException("Only strings can be used as list names")
             
-
     def __setitem__(self, i, y):
         if isinstance(y, basestring):
             list.__setitem__(self, i, y)
@@ -168,6 +168,8 @@ class Groups(list):
         >>> a = Groups()
         >>> a.append('red')
         >>> a.append('green')
+        >>> a
+        ['red', 'green']
         >>> b = Groups()
         >>> b.append('green')
         >>> b.append('red')
@@ -190,7 +192,6 @@ class Groups(list):
             return False
         else:
             return True
-
 
 
 #-------------------------------------------------------------------------------
@@ -1796,14 +1797,10 @@ class Music21Object(JSONSerializer):
         # accessed with _getDuration(); this is a performance optimization
         if "duration" in keywords:
             self.duration = keywords["duration"]
-#         else:
-#             self.duration = duration.Duration(0)
-
         if "groups" in keywords and keywords["groups"] is not None:
             self.groups = keywords["groups"]
         else:
             self.groups = Groups()
-        
         if "locations" in keywords:
             self._definedContexts = keywords["locations"]
         else:
@@ -1861,6 +1858,8 @@ class Music21Object(JSONSerializer):
         >>> ("flute" in n.groups, "flute" in b.groups)
         (False, True)
         '''
+        #environLocal.printDebug(['calling Music21Object.__deepcopy__', self])
+
         # call class to get a new, empty instance
         new = self.__class__()
         #environLocal.printDebug(['Music21Object.__deepcopy__', self, id(self)])
