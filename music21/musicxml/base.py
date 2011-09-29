@@ -41,7 +41,7 @@ environLocal = environment.Environment(_MOD)
 # are >= to this value
 # if changes are made here that are not compatible, the m21 version number
 # needs to be increased and this number needs to be set to that value
-VERSION_MINIMUM = (0, 3, 5) 
+VERSION_MINIMUM = (0, 3, 8) 
 
 
 #-------------------------------------------------------------------------------
@@ -190,9 +190,9 @@ class TagLib(object):
 
         # store tag, charDataBool, className
         # charDataBool is if this tag stores char data
-        # order here is based on most-often used, found through empircal tests
+        # order here is based on most-often used, found through empirical tests
         # all tags under collection must be defined here, even if they do not   
-        # have an ojbect
+        # have an object but are defined only as simple entities
         _tags = [
 ('voice', True), 
 ('note', False, Note), 
@@ -241,9 +241,6 @@ class TagLib(object):
 ('right-margin', True),  
 ('left-margin', True),  
 ('system-distance', True),  
-
-
-
 
 ('metronome', False, Metronome), # no char data
 ('beat-unit', True, BeatUnit),
@@ -330,7 +327,23 @@ class TagLib(object):
 ('score-instrument', False, ScoreInstrument), 
 ('instrument-name', True), 
 ('instrument-abbreviation', True), 
-('part-name', True), 
+('part-name', True),
+
+('harmony', False, Harmony), 
+('inversion', True), 
+('function', True), 
+('root', False, Root), 
+('root-step', True), 
+('root-alter', True), 
+('kind', True, Kind), 
+('bass', False, Bass), 
+('bass-step', True), 
+('bass-alter', True), 
+('degree', False, Degree), 
+('degree-value', True, DegreeValue), 
+('degree-alter', True, DegreeAlter), 
+('degree-type', True, DegreeType), 
+ 
 ('midi-instrument', False, MIDIInstrument),
 ('midi-channel', True), 
 ('midi-program', True), 
@@ -2281,6 +2294,140 @@ class TimeModification(MusicXMLElement):
         return c
 
 
+#-------------------------------------------------------------------------------
+# Harmony and components
+# tags/objects defined here:
+# harmony, root, kind, bass, degree, degree-value, degree-alter, degree-type
+
+# the following tags are simple entities:
+# inversion, function,
+# root-step, root-alter, bass-step, bass-alter,
+
+class Harmony(MusicXMLElementList):
+    '''A harmony tag stores a root, kind 
+    '''
+    def __init__(self):
+        MusicXMLElementList.__init__(self)
+        self._tag = 'harmony'
+
+        self.rootObj = None # object
+        self.function = None # a string, I, II, iii
+        self.kindObj = None # object
+        self.inversion = None # non negative integer, 0 for root
+        self.bassObj = None # object
+        self.degreeObj = None # object
+    
+        self.componentList = [] # list of HarmonyChord objects?
+
+        self._crossReference['kindObj'] = ['kind']
+        self._crossReference['rootObj'] = ['root']
+        self._crossReference['bassObj'] = ['bass']
+        self._crossReference['degreeObj'] = ['degree']
+
+    def _getComponents(self):
+        c = []
+        c = c + self.componentList
+        c.append(self.rootObj)
+        c.append(('function', self.function))
+        c.append(self.kindObj)
+        c.append(('inversion', self.inversion)) 
+        c.append(self.bassObj)
+        c.append(self.degreeObj)
+        return c
+
+class Root(MusicXMLElement):
+    '''A root defines a pitch, with a step and an alter
+    '''
+    def __init__(self):
+        MusicXMLElement.__init__(self)
+        self._tag = 'root'
+        # simple entities
+        self.rootStep = None 
+        self.rootAlter = None
+
+    def _getComponents(self):
+        c = []
+        # as simple entities, must provide tag name here
+        c.append(('root-step', self.rootStep))
+        c.append(('root-alter', self.rootAlter))
+        return c
+
+class Bass(MusicXMLElement):
+    '''A root defines a pitch, with a step and an alter
+    '''
+    def __init__(self):
+        MusicXMLElement.__init__(self)
+        self._tag = 'bass'
+        # simple entities
+        self.bassStep = None 
+        self.bassAlter = None
+
+    def _getComponents(self):
+        c = []
+        # as simple elements, must provide tag name here
+        c.append(('bass-step', self.bassStep))
+        c.append(('bass-alter', self.bassAlter))
+        return c
+
+class Kind(MusicXMLElement):
+    '''A harmony tag stores a root, kind 
+    '''
+    def __init__(self):
+        MusicXMLElement.__init__(self)
+        self._tag = 'kind'
+        # the type of chord, common values are 'dominant', 'major', etc
+        self.charData = None 
+        # The text attribute describes how the kind should be spelled if not using symbols
+        self._attr['text'] = None # can be the text as displayed, like 7
+        self._attr['use-symbols'] = None  # use or no
+        self._attr['stack-degrees'] = None # yes or no
+        self._attr['parentheses-degrees'] = None # yes or no
+        self._attr['bracket-degrees'] = None # yes or no
+        # not added: print-style, haligh, and valign attributeGroups
+
+class Degree(MusicXMLElementList):
+    '''The degree type is used to add, alter, or subtract individual notes in the chord.
+    '''
+    def __init__(self):
+        MusicXMLElementList.__init__(self)
+        self._tag = 'degree'
+        self.componentList = [] # triples of degree value, alter, type
+
+    def _getComponents(self):
+        c = []
+        c = c + self.componentList
+        return c
+
+class DegreeValue(MusicXMLElement):
+    '''Stores 1 for root, 3 for third, etc
+    '''
+    def __init__(self):
+        MusicXMLElement.__init__(self)
+        self._tag = 'degree-value'
+        self.charData = None # stores 
+
+class DegreeAlter(MusicXMLElement):
+    '''Chromatic alteration of current degree
+    '''
+    def __init__(self):
+        MusicXMLElement.__init__(self)
+        self._tag = 'degree-alter'
+        self.charData = None # stores semitones values, 1, -1, etc
+        # if +/- should be used instead of flat/sharp
+        self._attr['plus-minus'] = None 
+
+class DegreeType(MusicXMLElement):
+    '''addition, alteration, subtraction relative to the kind of current chord
+    '''
+    def __init__(self):
+        MusicXMLElement.__init__(self)
+        self._tag = 'degree-type'
+        self.charData = None # add, alter, subtract
+
+
+#-------------------------------------------------------------------------------
+
+
 class Tuplet(MusicXMLElement):
     def __init__(self):
         MusicXMLElement.__init__(self)
@@ -2456,7 +2603,9 @@ class Handler(xml.sax.ContentHandler):
         # stores version of m21 used to create this file
         self._scoreObj = Score(music21.VERSION) 
 
-        # component objects
+        # component objects; these might be better stored
+        # in a dictionary, where _activeTags['tagName'] = None
+
         self._creatorObj = None
         self._workObj = None
         self._identificationObj = None
@@ -2542,6 +2691,15 @@ class Handler(xml.sax.ContentHandler):
         self._beatUnitObj = None
         self._beatUnitDotObj = None
         self._perMinuteObj = None
+
+        self._harmonyObj = None
+        self._rootObj = None
+        self._kindObj = None
+        self._bassObj = None
+        self._degreeObj = None
+        self._degreeValueObj = None
+        self._degreeAlterObj = None
+        self._degreeTypeObj = None
 
         self._printObj = None
         self._pageLayoutObj = None
@@ -2800,6 +2958,32 @@ class Handler(xml.sax.ContentHandler):
             self._perMinuteObj = PerMinute() # no attrs
 
 
+        elif name == 'harmony':
+            self._harmonyObj = Harmony()
+            self._harmonyObj.loadAttrs(attrs)
+        elif name == 'root':
+            self._rootObj = Root()
+            self._rootObj.loadAttrs(attrs)
+        elif name == 'bass':
+            self._bassObj = Bass()
+            self._bassObj.loadAttrs(attrs)
+        elif name == 'kind':
+            self._kindObj = Kind()
+            self._kindObj.loadAttrs(attrs)
+        elif name == 'degree':
+            self._degreeObj = Degree()
+            self._degreeObj.loadAttrs(attrs)
+        elif name == 'degree-value':
+            self._degreeValueObj = DegreeValue()
+            self._degreeValueObj.loadAttrs(attrs)
+        elif name == 'degree-alter':
+            self._degreeAlterObj = DegreeAlter()
+            self._degreeAlterObj.loadAttrs(attrs)
+        elif name == 'degree-type':
+            self._degreeTypeObj = DegreeType()
+            self._degreeTypeObj.loadAttrs(attrs)
+
+
         elif name == 'score-partwise':
             self._scoreObj.loadAttrs(attrs)
             self._scoreObj.format = 'score-partwise'
@@ -2904,7 +3088,6 @@ class Handler(xml.sax.ContentHandler):
         elif name == 'repeat': 
             self._repeatObj = Repeat()
             self._repeatObj.loadAttrs(attrs)
-
 
 
 
@@ -3146,6 +3329,54 @@ class Handler(xml.sax.ContentHandler):
             self._noteObj.graceObj = self._graceObj
             self._graceObj = None
 
+        # harmony and related objects
+        elif name == 'harmony':
+            self._measureObj.componentList.append(self._harmonyObj)
+            self._harmonyObj = None
+
+        elif name == 'root':
+            self._harmonyObj.rootObj = self._rootObj
+            self._rootObj = None
+        elif name == 'root-step':
+            self._rootObj.rootStep = self._currentTag.charData
+        elif name == 'root-alter':
+            self._rootObj.rootAlter = self._currentTag.charData
+
+        elif name == 'inversion':
+            self._harmonyObj.inversion = self._currentTag.charData
+        elif name == 'function':
+            self._harmonyObj.function = self._currentTag.charData
+
+        elif name == 'bass':
+            self._harmonyObj.bassObj = self._bassObj
+            self._bassObj = None
+        elif name == 'bass-step':
+            self._bassObj.bassStep = self._currentTag.charData
+        elif name == 'bass-alter':
+            self._bassObj.bassAlter = self._currentTag.charData
+
+        elif name == 'kind':
+            self._kindObj.charData = self._currentTag.charData
+            self._harmonyObj.kindObj = self._kindObj
+            self._kindObj = None
+
+        elif name == 'degree':
+            self._harmonyObj.degreeObj = self._degreeObj
+            self._degreeObj = None
+        elif name == 'degree-value':
+            self._degreeValueObj.charData = self._currentTag.charData
+            self._degreeObj.componentList.append(self._degreeValueObj)
+            self._degreeValueObj = None
+        elif name == 'degree-alter':
+            self._degreeAlterObj.charData = self._currentTag.charData
+            self._degreeObj.componentList.append(self._degreeAlterObj)
+            self._degreeAlterObj = None
+        elif name == 'degree-type':
+            self._degreeTypeObj.charData = self._currentTag.charData
+            self._degreeObj.componentList.append(self._degreeTypeObj)
+            self._degreeTypeObj = None
+
+
 
         # the position of print through sys-dist may not be optimized
         elif name == 'print':
@@ -3216,7 +3447,6 @@ class Handler(xml.sax.ContentHandler):
             self._notationsObj.componentList.append(self._technicalObj)
             self._technicalObj = None
 
-
         elif name == 'offset':
             if self._directionObj is not None:
                 #environLocal.printDebug(['got an offset tag for a directionObj', self._currentTag.charData])
@@ -3224,7 +3454,6 @@ class Handler(xml.sax.ContentHandler):
             else: # ignoring figured-bass
                 environLocal.printDebug(['got an offset tag but no open directionObj', self._currentTag.charData])
                 pass
-
 
         elif name == 'words':
             if self._directionTypeObj is not None: 
@@ -3435,6 +3664,7 @@ class Handler(xml.sax.ContentHandler):
 
         elif name == 'transpose':
             self._attributesObj.transposeObj = self._transposeObj
+            #environLocal.printDebug(['setting transpose object', self._transposeObj])
             self._transposeObj = None
 
         elif name == 'diatonic':
@@ -3447,7 +3677,7 @@ class Handler(xml.sax.ContentHandler):
             self._transposeObj.octaveChange = self._currentTag.charData
 
         elif name == 'double': 
-            self._transposeObj.double = True
+            self._transposeObj.double = self._currentTag.charData
 
         elif name == 'time':
             self._attributesObj.timeList.append(self._timeObj)
@@ -3634,19 +3864,6 @@ class Document(object):
         print(self.score)
         print()
         print(self.score.toxml(None, None, 1))
-
-# no longer needed 
-#     def reprPolyphony(self):
-#         # create an event list by measure
-#         for part in self.score.componentList:
-#             print('+'*20 + ' ' + 'part-id', part.get('id'))
-#             for measure in part.componentList:
-#                 print(' '*10 + '+'*10 + ' ' + 'measure-no', measure.get('number'))
-#                 for note in measure.componentList:
-#                     # skip forward and backward objects
-#                     if note.tag != 'note': continue
-#                     #startStr = str(note.external['start']).ljust(5)
-#                     print(' '*20 + ' ' + 'note', startStr, note)
 
     #---------------------------------------------------------------------------
     def write(self, fp):
@@ -4375,10 +4592,67 @@ class Test(unittest.TestCase):
                         self.assertEqual(c.repeatObj.get('direction'), 'backward')
                         self.assertEqual(c.repeatObj.get('times'), None)
                         #print c.repeatObj.direction
-
-
         s = corpus.parse('opus18no1/movement3', extList=['.xml'])
 
+
+    def testHarmonyA(self):
+        k = Kind()
+        k.charData = 'major'
+        k.set('text', ' ') # set as an empty string to hide
+
+        r = Root()
+        r.set('rootStep', 'B')
+        r.set('rootAlter', '-1')
+
+        b = Bass()
+        b.set('bassStep', 'D')
+        b.set('bassAlter', None)
+
+        d = Degree()
+        dv = DegreeValue()
+        dv.set('charData', 5)
+        da = DegreeAlter()
+        da.set('charData', 1)
+        dt = DegreeType() # add, alter, subtract
+        dt.set('charData', 'alter')
+
+        d.append(dv)
+        d.append(da)
+        d.append(dt)
+
+        h = Harmony()       
+        h.set('root', r)
+        h.set('kind', k)
+        h.set('bass', b)
+        h.set('inversion', 1)
+        h.set('degree', d)
+        h.set('function', 'V')
+
+        #print h.xmlStr()
+
+        expected = """<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE score-partwise
+  PUBLIC '-//Recordare//DTD MusicXML 2.0 Partwise//EN'
+  'http://www.musicxml.org/dtds/partwise.dtd'>
+<harmony>
+  <root>
+    <root-step>B</root-step>
+    <root-alter>-1</root-alter>
+  </root>
+  <function>V</function>
+  <kind text=" ">major</kind>
+  <inversion>1</inversion>
+  <bass>
+    <bass-step>D</bass-step>
+  </bass>
+  <degree>
+    <degree-value>5</degree-value>
+    <degree-alter>1</degree-alter>
+    <degree-type>alter</degree-type>
+  </degree>
+</harmony>
+"""
+        self._compareXml(h, expected)
 
 
 #-------------------------------------------------------------------------------
@@ -4388,23 +4662,26 @@ if __name__ == "__main__":
     reload(sys)
     sys.setdefaultencoding("utf-8")
 
+    music21.mainTest(Test)
 
-    if len(sys.argv) != 2:
-        music21.mainTest(Test)
-
-
-    elif len(sys.argv) == 2:
-        #te = TestExternal()
-        t = Test()
-        t.testBarlineRepeat()
-
-#         if os.path.isdir(sys.argv[1]): 
-#             pass
-#             #te.testInputDirectory(sys.argv[1])
-#         else: # assume it is a single file
-#             #te.testOpen(sys.argv[1])
-
-
+# 
+# 
+#     if len(sys.argv) != 2:
+#         music21.mainTest(Test)
+# 
+# 
+#     elif len(sys.argv) == 2:
+#         #te = TestExternal()
+#         t = Test()
+#         t.testBarlineRepeat()
+# 
+# #         if os.path.isdir(sys.argv[1]): 
+# #             pass
+# #             #te.testInputDirectory(sys.argv[1])
+# #         else: # assume it is a single file
+# #             #te.testOpen(sys.argv[1])
+# 
+# 
 
 
 #------------------------------------------------------------------------------

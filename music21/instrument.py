@@ -73,6 +73,7 @@ class Instrument(music21.Music21Object):
         self.lowestNote = None
         self.highestNote = None
 
+        # define interval to go from written to sounding
         self.transposition = None
 
     def __str__(self):
@@ -631,7 +632,7 @@ class Oboe(WoodwindInstrument):
 
 class EnglishHorn(WoodwindInstrument):
     def __init__(self):
-        BrassInstrument.__init__(self)
+        WoodwindInstrument.__init__(self)
 
         self.instrumentName = 'English Horn'
         self.instrumentAbbreviation = 'Eng Hn'
@@ -649,6 +650,7 @@ class Clarinet(WoodwindInstrument):
         self.midiProgram = 71
 
         self.lowestNote = pitch.Pitch('E3')
+        # sounds a M2 lower than written
         self.transposition = interval.Interval('M-2')
 
 class BassClarinet(Clarinet):

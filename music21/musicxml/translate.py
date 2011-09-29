@@ -64,6 +64,48 @@ def configureMxPartGroupFromStaffGroup(staffGroup):
     return mxPartGroup
 
 
+def mxTransposeToInterval(mxTranspose):
+    '''Convert a MusicXML Transpose object to a music21 Interval object.
+
+    >>> from music21 import *
+    >>> t = musicxml.Transpose()
+    >>> t.diatonic = -1
+    >>> t.chromatic = -2
+    >>> musicxml.translate.mxTransposeToInterval(t)
+    <music21.interval.Interval M-2>
+
+    >>> t = musicxml.Transpose()
+    >>> t.diatonic = -5
+    >>> t.chromatic = -9
+    >>> musicxml.translate.mxTransposeToInterval(t)
+    <music21.interval.Interval M-6>
+
+    '''
+    from music21 import interval
+
+    if mxTranspose.diatonic is not None:        
+        ds = int(mxTranspose.diatonic)
+        # cannot create a diatonic interval w/o specifier (maj/min)
+        generic = interval.GenericInterval(ds)
+
+    if mxTranspose.chromatic is not None:        
+        cs = int(mxTranspose.chromatic)
+
+    oc = 0
+    if mxTranspose.octaveChange is not None:        
+        oc = int(mxTranspose.octaveChange) * 12
+        
+    # NOTE: presently not dealing with double
+    # doubled one octave down from what is currently written 
+    # (as is the case for mixed cello / bass parts in orchestral literature)
+
+    post = interval.Interval(cs + oc)
+    # TODO: check that diatonic conforms to chromatic; if not
+    # flip spelling to find a match
+    return post
+
+
+
 def mxToTempoIndication(mxMetronome, mxWords=None):
     '''Given an mxMetronome, convert to either a TempoIndication subclass, either a tempo.MetronomeMark or tempo.MetricModulation. 
 
@@ -1114,6 +1156,150 @@ def mxToRepeatExpression(mxDirection):
     pass
     # note: this may not be needed, as mx text expressions are converted to repeat objects in measure processing
 
+#-------------------------------------------------------------------------------
+# Harmony
+
+def mxToHarmony(mxHarmony):
+    #environLocal.printDebug(['mxToHarmony():', mxHarmony])
+    from music21 import harmony
+    from music21 import pitch
+
+    h = harmony.Harmony()
+
+    mxKind = mxHarmony.get('kind')
+    if mxKind is not None:
+        h.kind = mxKind.charData
+        mxKindText = mxKind.get('text')
+        if mxKindText is not None:
+            h.kindStr = mxKindText
+    
+    mxRoot = mxHarmony.get('root')
+    if mxRoot is not None:
+        r = pitch.Pitch(mxRoot.get('rootStep'))
+        if mxRoot.get('rootAlter') is not None:
+            # can provide integer to create accidental on pitch
+            r.accidental = pitch.Accidental(int(mxRoot.get('rootAlter')))
+        # set Pitch object on Harmony
+        h.root = r
+
+    mxBass = mxHarmony.get('bass')
+    if mxBass is not None:
+        b = pitch.Pitch(mxBass.get('bassStep'))
+        if mxBass.get('bassAlter') is not None:
+            # can provide integer to create accidental on pitch
+            b.accidental = pitch.Accidental(int(mxRoot.get('bassAlter')))
+        # set Pitch object on Harmony
+        h.bass = b
+
+    mxInversion = mxHarmony.get('inversion')
+    if mxInversion is not None:
+        h.inversion = int(mxInversion) # must be an int
+
+    mxFunction = mxHarmony.get('function')
+    if mxFunction is not None:
+        h.romanNumeral = mxFunction # goes to roman property
+
+    mxDegree = mxHarmony.get('degree')
+    if mxDegree is not None: # a list of components
+        harmonyDegrees = []
+        hd = None
+        for mxSub in mxDegree.componentList:
+            # this is the assumed order of triples
+            if isinstance(mxSub, musicxmlMod.DegreeValue):
+                if hd is not None: # already set
+                    harmonyDegrees.append(hd)
+                    hd = None
+                if hd is None:
+                    hd = harmony.HarmonyDegree() 
+                hd.degree = int(mxSub.charData)
+            elif isinstance(mxSub, musicxmlMod.DegreeAlter):
+                hd.interval = int(mxSub.charData)
+            elif isinstance(mxSub, musicxmlMod.DegreeType):
+                hd.type = int(mxSub.charData)
+            else:
+                raise TranslateException('found unexpected object in degree tag: %s' % mxSub)
+        # must get last on loop exit
+        if hd is not None: 
+            harmonyDegrees.append(hd)
+        for hd in harmonyDegrees:
+            h.addHarmonyDegree(hd)
+
+    #environLocal.printDebug(['mxToHarmony(): Harmony object', h])
+    return h
+    
+
+def harmonyToMx(h):
+    '''
+    >>> from music21 import *
+    >>> h = harmony.Harmony()
+    >>> h.root = 'E-'
+    >>> h.bass = 'B-'
+    >>> h.inversion = 2
+    >>> h.romanNumeral = 'I64'
+    >>> h.kind = 'major'
+    >>> h.kindStr = 'M'
+    >>> h
+    <music21.harmony.Harmony kind=major (M) root=E- bass=B- inversion=2>
+    >>> mxHarmony = musicxml.translate.harmonyToMx(h)
+    >>> mxHarmony
+    <harmony <root root-step=E root-alter=-1> function=I64 <kind text=M charData=major> inversion=2 <bass bass-step=B bass-alter=-1>>
+
+    >>> hd = harmony.HarmonyDegree()
+    >>> hd.type = 'alter'
+    >>> hd.interval = -1
+    >>> hd.degree = 3
+    >>> h.addHarmonyDegree(hd)
+
+    >>> mxHarmony = musicxml.translate.harmonyToMx(h)
+    >>> mxHarmony
+    <harmony <root root-step=E root-alter=-1> function=I64 <kind text=M charData=major> inversion=2 <bass bass-step=B bass-alter=-1> <degree <degree-value charData=3> <degree-alter charData=-1> <degree-type charData=alter>>>        
+    '''
+    mxHarmony = musicxmlMod.Harmony()
+
+    mxKind = musicxmlMod.Kind()
+    mxKind.set('charData', h.kind)
+    mxKind.set('text', h.kindStr)
+    mxHarmony.set('kind', mxKind)
+
+    # can assign None to these if None
+    mxHarmony.set('inversion', h.inversion)
+    if h.romanNumeral is not None:
+        mxHarmony.set('function', h.romanNumeral.figure)
+
+    if h.root is not None:        
+        mxRoot = musicxmlMod.Root()
+        mxRoot.set('rootStep', h.root.step)
+        if  h.root.accidental is not None:
+            mxRoot.set('rootAlter', int(h.root.accidental.alter))
+        mxHarmony.set('root', mxRoot)
+
+    if h.bass is not None:        
+        mxBass = musicxmlMod.Bass()
+        mxBass.set('bassStep', h.bass.step)
+        if  h.bass.accidental is not None:
+            mxBass.set('bassAlter', int(h.bass.accidental.alter))
+        mxHarmony.set('bass', mxBass)
+
+    if len(h.getHarmonyDegrees()) > 0:
+        mxDegree = musicxmlMod.Degree()
+        for hd in h.getHarmonyDegrees():
+            # types should be compatible
+            mxDegreeValue = musicxmlMod.DegreeValue()
+            mxDegreeValue.set('charData', hd.degree)
+            mxDegree.componentList.append(mxDegreeValue)
+            if hd.interval is not None:
+                mxDegreeAlter = musicxmlMod.DegreeAlter()
+                # will return -1 for '-a1'
+                mxDegreeAlter.set('charData', hd.interval.chromatic.directed)
+                mxDegree.componentList.append(mxDegreeAlter)
+
+            mxDegreeType = musicxmlMod.DegreeType()
+            mxDegreeType.set('charData', hd.type)
+            mxDegree.componentList.append(mxDegreeType)
+
+        mxHarmony.set('degree', mxDegree)
+    # degree only thing left
+    return mxHarmony
 
 #-------------------------------------------------------------------------------
 # Instruments
@@ -1178,6 +1364,10 @@ def instrumentToMx(i):
 
 
 def mxToInstrument(mxScorePart, inputM21=None):
+
+    # TODO: to get and fill transposition, need to get corresponding
+    # part, and look for <transpose> object in Measure attributes, 
+    # presumably in Measure 1
     if inputM21 is None:
         i = instrument.Instrument()
     else:
@@ -1971,6 +2161,10 @@ def measureToMx(m, spannerBundle=None):
                 mxDirection = dynamicToMx(obj)
                 mxDirection.offset = mxOffset 
                 mxMeasure.insert(0, mxDirection)
+
+            elif 'Harmony' in classes:
+                mxMeasure.componentList.append(harmonyToMx(obj))
+
             elif 'Segno' in classes:
                 mxOffset = int(defaults.divisionsPerQuarter * 
                            obj.getOffsetBySite(mFlat))
@@ -2080,6 +2274,7 @@ def mxToMeasure(mxMeasure, spannerBundle=None, inputM21=None):
     from music21 import stream
     from music21 import chord
     from music21 import dynamics
+    from music21 import harmony
     from music21 import key
     from music21 import note
     from music21 import layout
@@ -2150,7 +2345,7 @@ def mxToMeasure(mxMeasure, spannerBundle=None, inputM21=None):
             m._insertCore(0, ts)
             #m.timeSignature = meter.TimeSignature()
             #m.timeSignature.mx = mxSub
-    if mxAttributesInternal is True and len(mxAttributes.clefList) != 0:
+    if mxAttributesInternal and len(mxAttributes.clefList) != 0:
         for mxSub in mxAttributes.clefList:
             cl = clef.Clef()
             cl.mx = mxSub
@@ -2158,7 +2353,7 @@ def mxToMeasure(mxMeasure, spannerBundle=None, inputM21=None):
             m._insertCore(0, cl)
             #m.clef = clef.Clef()
             #m.clef.mx = mxSub
-    if mxAttributesInternal is True and len(mxAttributes.keyList) != 0:
+    if mxAttributesInternal and len(mxAttributes.keyList) != 0:
         for mxSub in mxAttributes.keyList:
             ks = key.KeySignature()
             ks.mx = mxSub
@@ -2166,6 +2361,13 @@ def mxToMeasure(mxMeasure, spannerBundle=None, inputM21=None):
             m._insertCore(0, ks)
             #m.keySignature = key.KeySignature()
             #m.keySignature.mx = mxSub
+
+    # transposition may be defined for a Part in the Measure attributes
+    transposition = None
+    if mxAttributesInternal and mxAttributes.transposeObj is not None:
+        # get interval object
+        transposition = mxTransposeToInterval(mxAttributes.transposeObj)
+        environLocal.printDebug(['mxToMeasure: got transposition', transposition])
 
     if mxAttributes.divisions is not None:
         divisions = mxAttributes.divisions
@@ -2198,6 +2400,7 @@ def mxToMeasure(mxMeasure, spannerBundle=None, inputM21=None):
             mxObjNext = mxMeasure[i+1]
         else:
             mxObjNext = None
+        #environLocal.printDebug(['handling', mxObj])
 
         # NOTE: tests have shown that using isinstance() here is much faster
         # than checking the .tag attribute.
@@ -2226,8 +2429,7 @@ def mxToMeasure(mxMeasure, spannerBundle=None, inputM21=None):
                     addPageLayout = False
             except xmlnode.XMLNodeException:
                 pass
-            
-            if addPageLayout == False:
+            if not addPageLayout:
                 try:
                     addPageLayout = mxPrint.get('page-number')
                     if addPageLayout is not None:
@@ -2236,15 +2438,11 @@ def mxToMeasure(mxMeasure, spannerBundle=None, inputM21=None):
                         addPageLayout = False
                 except xmlnode.XMLNodeException:
                     addPageLayout = False
-
-            if addPageLayout == False:
+            if not addPageLayout:
                 for layoutType in mxPrint.componentList:
                     if isinstance(layoutType, musicxmlMod.PageLayout):
                         addPageLayout = True
-                        break
-
-            
-            
+                        break            
             try:   
                 addSystemLayout = mxPrint.get('new-system')
                 if addSystemLayout is not None:
@@ -2253,21 +2451,17 @@ def mxToMeasure(mxMeasure, spannerBundle=None, inputM21=None):
                     addSystemLayout = False
             except xmlnode.XMLNodeException:
                 pass
-            
-            if addSystemLayout == False:
+            if not addSystemLayout:
                 for layoutType in mxPrint.componentList:
                     if isinstance(layoutType, musicxmlMod.SystemLayout):
                         addSystemLayout = True
                         break
-
-            
             if addPageLayout:
                 pl = layout.PageLayout()
                 pl.mx = mxPrint
                 # store at zero position
                 m._insertCore(0, pl)
-
-            if addSystemLayout == True or addPageLayout != True:
+            if addSystemLayout or not addPageLayout:
                 sl = layout.SystemLayout()
                 sl.mx = mxPrint
                 # store at zero position
@@ -2480,6 +2674,13 @@ def mxToMeasure(mxMeasure, spannerBundle=None, inputM21=None):
                         _addToStaffReference(mxObj, te, staffReference)
                         m._insertCore(offsetMeasureNote + offsetDirection, te)
 
+        elif isinstance(mxObj, musicxmlMod.Harmony):
+            mxHarmony = mxObj
+            h = mxToHarmony(mxHarmony)
+            _addToStaffReference(mxObj, h, staffReference)
+            m._insertCore(offsetMeasureNote, h)
+
+
     #environLocal.printDebug(['staffReference', staffReference])
     # if we have voices and/or if we used backup/forward, we may have
     # empty space in the stream
@@ -2490,7 +2691,7 @@ def mxToMeasure(mxMeasure, spannerBundle=None, inputM21=None):
             v._elementsChanged()
     m._elementsChanged()
 
-    return m, staffReference
+    return m, staffReference, transposition
 
 def measureToMusicXML(m):
     '''Translate a music21 Measure into a complete MusicXML string representation.
@@ -2892,12 +3093,16 @@ def mxToStreamPart(mxScore, partId, spannerBundle=None, inputM21=None):
     # create a new music21 instrument
     instrumentObj = instrument.Instrument()
     if mxInstrument is not None:
+        # need an mxScorePart here   
+        #mxToInstrument(mxScorePart)
         instrumentObj.mx = mxInstrument
-
     # add part id as group
     instrumentObj.groups.append(partId)
 
     streamPart = stream.Part() # create a part instance for each part
+    # always assume at sounding, unless transposition is defined in attributes
+    streamPart.atSoundingPitch = True
+
     # set part id to stream best name
     if instrumentObj.bestName() is not None:
         streamPart.id = instrumentObj.bestName()
@@ -2908,7 +3113,15 @@ def mxToStreamPart(mxScore, partId, spannerBundle=None, inputM21=None):
     oMeasure = 0.0
     lastTimeSignature = None
     for mxMeasure in mxPart:
-        m, staffReference = mxToMeasure(mxMeasure, spannerBundle=spannerBundle)
+        # t here is transposition, if defined; otherwise it is None
+        m, staffReference, t = mxToMeasure(mxMeasure, 
+                               spannerBundle=spannerBundle)
+        if t is not None:
+            instrumentObj.transposition = t
+            # if a transposition is defined in musicxml, we assume it is
+            # at written pitch
+            streamPart.atSoundingPitch = False
+
         # there will be one for each measure
         staffReferenceList.append(staffReference)
 
@@ -3875,6 +4088,135 @@ spirit</words>
         match = '<part-group number="2" type="stop"/>'
         self.assertEqual(raw.find(match) > 0, True)
 
+
+    def testInstrumentTranspositionA(self):
+
+        from music21.musicxml import testPrimitive        
+        from music21 import converter
+
+        s = converter.parse(testPrimitive.transposingInstruments72a)
+        i1 = s.parts[0].flat.getElementsByClass('Instrument')[0]
+        i2 = s.parts[1].flat.getElementsByClass('Instrument')[0]
+        i3 = s.parts[2].flat.getElementsByClass('Instrument')[0]
+
+        self.assertEqual(str(i1.transposition), '<music21.interval.Interval M-2>')
+        self.assertEqual(str(i2.transposition), '<music21.interval.Interval M-6>')
+
+        #s.show()
+
+
+    def testHarmonyA(self):
+
+        from music21.musicxml import testPrimitive        
+        from music21 import converter, corpus
+
+        s = corpus.parse('leadSheet/berlinAlexandersRagtime.xml')
+        self.assertEqual(len(s.flat.getElementsByClass('Harmony')), 19)
+
+        match = [h.kind for h in s.flat.getElementsByClass('Harmony')]
+        self.assertEqual(match, [u'major', u'dominant', u'major', u'major', u'major', u'major', u'dominant', u'major', u'dominant', u'major', u'dominant', u'major', u'dominant', u'major', u'dominant', u'major', u'dominant', u'major', u'major'])
+
+        match = [str(h.root) for h in s.flat.getElementsByClass('Harmony')]
+        self.assertEqual(match, ['F', 'C', 'F', 'B-', 'F', 'C', 'G', 'C', 'C', 'F', 'C', 'F', 'F', 'B-', 'F', 'F', 'C', 'F', 'C'])
+
+        s = corpus.parse('monteverdi/madrigal.3.12.xml')
+        self.assertEqual(len(s.flat.getElementsByClass('Harmony')), 10)
+
+        s = corpus.parse('leadSheet/fosterBrownHair.xml')
+        self.assertEqual(len(s.flat.getElementsByClass('Harmony')), 40)
+
+        #s.show()
+    def testHarmonyB(self):
+        from music21 import stream, harmony, key
+        s = stream.Stream()
+        s.append(key.KeySignature(-2))
+        
+        h1 = harmony.Harmony()
+        h1.root = 'c'
+        h1.kind = 'minor-seventh'
+        h1.kindStr = 'm7'
+        h1.duration.quarterLength = 4
+        s.append(h1)
+        
+        h2 = harmony.Harmony()
+        h2.root = 'f'
+        h2.kind = 'dominant'
+        h2.kindStr = '7'
+        h2.duration.quarterLength = 4
+        s.append(h2)
+        
+        h3 = harmony.Harmony()
+        h3.root = 'b-'
+        h3.kind = 'major-seventh'
+        h3.kindStr = 'Maj7'
+        h3.duration.quarterLength = 4
+        s.append(h3)
+        
+        h4 = harmony.Harmony()
+        h4.root = 'e-'
+        h4.kind = 'major-seventh'
+        h4.kindStr = 'Maj7'
+        h4.duration.quarterLength = 4
+        s.append(h4)
+        
+        h5 = harmony.Harmony()
+        h5.root = 'a'
+        h5.kind = 'half-diminished'
+        h5.kindStr = 'm7b5'
+        h5.duration.quarterLength = 4
+        s.append(h5)
+        
+        h6 = harmony.Harmony()
+        h6.root = 'd'
+        h6.kind = 'dominant'
+        h6.kindStr = '7'
+        h6.duration.quarterLength = 4
+        s.append(h6)
+        
+        h7 = harmony.Harmony()
+        h7.root = 'g'
+        h7.kind = 'minor-sixth'
+        h7.kindStr = 'm6'
+        h7.duration.quarterLength = 4
+        s.append(h7)
+        
+        #s.show()
+        raw = s.musicxml
+        self.assertEqual(raw.find('<kind text="m7">minor-seventh</kind>') > 0, True)
+        self.assertEqual(raw.find('<kind text="7">dominant</kind>') > 0, True)
+        self.assertEqual(raw.find('<kind text="Maj7">major-seventh</kind>') > 0, True)
+        self.assertEqual(raw.find('<kind text="Maj7">major-seventh</kind>') > 0, True)
+        self.assertEqual(raw.find('<kind text="m7b5">half-diminished</kind>') > 0, True)
+
+        self.assertEqual(raw.find('<root-step>C</root-step>') > 0, True)
+        self.assertEqual(raw.find('<root-alter>-1</root-alter>') > 0, True)
+
+
+    def testHarmonyC(self):
+
+        from music21 import harmony, stream
+
+        h = harmony.Harmony()
+        h.root = 'E-'
+        h.bass = 'B-'
+        h.inversion = 2
+        #h.romanNumeral = 'I64'
+        h.kind = 'major'
+        h.kindStr = 'M'
+        
+        hd = harmony.HarmonyDegree()
+        hd.type = 'alter'
+        hd.interval = -1
+        hd.degree = 3
+        h.addHarmonyDegree(hd)
+        
+        s = stream.Stream()
+        s.append(h)
+        #s.show()
+        raw = s.musicxml
+        self.assertEqual(raw.find('<root-alter>-1</root-alter>') > 0, True)
+        self.assertEqual(raw.find('<degree-value>3</degree-value>') > 0, True)
+        self.assertEqual(raw.find('<degree-type>alter</degree-type>') > 0, True)
 
 
 if __name__ == "__main__":
