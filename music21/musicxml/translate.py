@@ -80,14 +80,19 @@ def mxTransposeToInterval(mxTranspose):
     >>> musicxml.translate.mxTransposeToInterval(t)
     <music21.interval.Interval M-6>
 
+    >>> t = musicxml.Transpose()
+    >>> t.diatonic = 3 # a type of 4th
+    >>> t.chromatic = 6
+    >>> musicxml.translate.mxTransposeToInterval(t)
+    <music21.interval.Interval A4>
+
     '''
     from music21 import interval
 
+    ds = None
     if mxTranspose.diatonic is not None:        
         ds = int(mxTranspose.diatonic)
-        # cannot create a diatonic interval w/o specifier (maj/min)
-        generic = interval.GenericInterval(ds)
-
+    cs = None
     if mxTranspose.chromatic is not None:        
         cs = int(mxTranspose.chromatic)
 
@@ -99,11 +104,53 @@ def mxTransposeToInterval(mxTranspose):
     # doubled one octave down from what is currently written 
     # (as is the case for mixed cello / bass parts in orchestral literature)
 
-    post = interval.Interval(cs + oc)
-    # TODO: check that diatonic conforms to chromatic; if not
-    # flip spelling to find a match
+    if ds is not None and cs is not None:
+        # diatonic step can be used as a generic specifier here if 
+        # shifted 1 away from zero
+        if ds < 0:
+            post = interval.intervalFromGenericAndChromatic(ds-1, cs+oc)
+        else:
+            post = interval.intervalFromGenericAndChromatic(ds+1, cs+oc)
+    else: # assume we have chromatic; may not be correct spelling
+        post = interval.Interval(cs + oc)
     return post
 
+def intervalToMXTranspose(int):
+    '''Convert a music21 Interval into a musicxml transposition specification
+    
+    >>> from music21 import *
+    >>> musicxml.translate.intervalToMXTranspose(interval.Interval('m6'))
+    <transpose diatonic=5 chromatic=8>
+    >>> musicxml.translate.intervalToMXTranspose(interval.Interval('-M6'))
+    <transpose diatonic=-5 chromatic=-9>
+    '''
+    mxTranspose = musicxmlMod.Transpose()
+
+    rawSemitones = int.chromatic.semitones # will be directed
+    octShift = 0
+    if abs(rawSemitones) > 12:
+        octShift, semitones = divmod(rawSemitones, 12)
+    else:
+        semitones = rawSemitones
+
+    rawGeneric = int.diatonic.generic.directed
+    if octShift != 0:
+        # need to shift 7 for each octave; sign will be correct
+        generic = rawGeneric + (octShift * 7)
+    else:
+        generic = rawGeneric
+
+    # must implement the necessary shifts
+    if int.generic.directed > 0:
+        mxTranspose.diatonic = generic - 1
+    elif int.generic.directed < 0:    
+        mxTranspose.diatonic = generic + 1
+
+    mxTranspose.chromatic = semitones
+
+    if octShift != 0:
+        mxTranspose.octaveChange = octShift
+    return mxTranspose
 
 
 def mxToTempoIndication(mxMetronome, mxWords=None):
@@ -561,7 +608,7 @@ def mxToLyric(mxLyric, inputM21=None):
 #-------------------------------------------------------------------------------
 # Durations
 
-def mxToDuration(mxNote, inputM21):
+def mxToDuration(mxNote, inputM21=None):
     '''Translate a MusicXML :class:`~music21.musicxml.Note` object to a music21 :class:`~music21.duration.Duration` object. 
 
     >>> from music21 import *
@@ -838,9 +885,9 @@ def timeSignatureToMx(ts):
 
     >>> from music21 import *
     >>> a = meter.TimeSignature('3/4')
-    >>> b = a.mx
+    >>> b = timeSignatureToMx(a)
     >>> a = meter.TimeSignature('3/4+2/4')
-    >>> b = a.mx
+    >>> b = timeSignatureToMx(a)
     '''
     #mxTimeList = []
     mxTime = musicxmlMod.Time()
@@ -874,7 +921,7 @@ def mxToTimeSignature(mxTimeList, inputM21=None):
     >>> b = musicxml.Attributes()
     >>> b.timeList.append(a)
     >>> c = meter.TimeSignature()
-    >>> c.mx = b.timeList
+    >>> mxToTimeSignature(b.timeList, c)
     >>> c.numerator
     4
     '''
@@ -934,7 +981,7 @@ def dynamicToMx(d):
     >>> from music21 import *
     >>> a = dynamics.Dynamic('ppp')
     >>> a._positionRelativeY = -10
-    >>> b = a.mx
+    >>> b = dynamicToMx(a)
     >>> b[0][0][0].get('tag')
     'ppp'
     '''
@@ -969,7 +1016,7 @@ def mxToDynamicList(mxDirection):
     >>> mxDirectionType.append(mxDynamics)
     >>> mxDirection.append(mxDirectionType)
     >>> a = dynamics.Dynamic()
-    >>> a.mx = mxDirection
+    >>> a = musicxml.translate.mxToDynamicList(mxDirection)[0]
     >>> a.value
     'ff'
     >>> a.englishName
@@ -1187,7 +1234,7 @@ def mxToHarmony(mxHarmony):
         b = pitch.Pitch(mxBass.get('bassStep'))
         if mxBass.get('bassAlter') is not None:
             # can provide integer to create accidental on pitch
-            b.accidental = pitch.Accidental(int(mxRoot.get('bassAlter')))
+            b.accidental = pitch.Accidental(int(mxBass.get('bassAlter')))
         # set Pitch object on Harmony
         h.bass = b
 
@@ -1309,7 +1356,7 @@ def instrumentToMx(i):
     '''
     >>> from music21 import *
     >>> i = instrument.Celesta()
-    >>> mxScorePart = i.mx
+    >>> mxScorePart = instrumentToMx(i)
     >>> len(mxScorePart.scoreInstrumentList)
     1
     >>> mxScorePart.scoreInstrumentList[0].instrumentName
@@ -1364,10 +1411,8 @@ def instrumentToMx(i):
 
 
 def mxToInstrument(mxScorePart, inputM21=None):
-
-    # TODO: to get and fill transposition, need to get corresponding
-    # part, and look for <transpose> object in Measure attributes, 
-    # presumably in Measure 1
+    # note: transposition values is not set in this operation, but in 
+    # mxToStreamPart
     if inputM21 is None:
         i = instrument.Instrument()
     else:
@@ -1414,7 +1459,7 @@ def chordToMx(c):
     >>> e = a.pitches = [b, c, d]
     >>> len(e)
     3
-    >>> mxNoteList = a.mx
+    >>> mxNoteList = chordToMx(a)
     >>> len(mxNoteList) # get three mxNotes
     3
     >>> mxNoteList[0].get('chord')
@@ -1430,7 +1475,7 @@ def chordToMx(c):
     >>> h = pitch.Pitch('g3')
     >>> i = chord.Chord([h, g])
     >>> i.quarterLength = 2
-    >>> listOfMxNotes = i.mx
+    >>> listOfMxNotes = chordToMx(i)
     >>> listOfMxNotes[0].get('chord')
     False
     >>> listOfMxNotes[1].noteheadObj.get('charData')
@@ -1441,8 +1486,10 @@ def chordToMx(c):
     #environLocal.printDebug(['chordToMx', c])
     mxNoteList = []
     durPos = 0 # may have more than one dur
-    durPosLast = len(c.duration.mx) - 1
-    for mxNoteBase in c.duration.mx: # returns a list of mxNote objs
+    mxDurationNotes = durationToMx(c.duration)
+    #durPosLast = len(c.duration.mx) - 1
+    durPosLast = len(mxDurationNotes) - 1
+    for mxNoteBase in mxDurationNotes: # returns a list of mxNote objs
         # merge method returns a new object
         chordPos = 0
         mxNoteChordGroup = []
@@ -1576,7 +1623,9 @@ def mxToChord(mxNoteList, inputM21=None):
         c = inputM21
 
     # assume that first chord is the same duration for all parts
-    c.duration.mx = mxNoteList[0]
+    #c.duration.mx = mxNoteList[0]
+    mxToDuration(mxNoteList[0], c.duration)
+
     pitches = []
     ties = [] # store equally spaced list; use None if not defined
     noteheads = [] # store notehead attributes that correspond with pitches
@@ -1781,8 +1830,8 @@ def noteToMxNotes(n, spannerBundle=None):
     #mxNotehead = musicxmlMod.Notehead()
     #mxNotehead.set('charData', defaults.noteheadUnpitched)
 
-
-    for mxNote in n.duration.mx: # returns a list of mxNote objs
+    for mxNote in durationToMx(n.duration): # returns a list of mxNote objs
+    #for mxNote in n.duration.mx: # returns a list of mxNote objs
         # merge method returns a new object; but can use existing here
         mxNote = mxNote.merge(pitchMx, returnDeepcopy=False)
         # get color from within .editorial using attribute
@@ -1912,7 +1961,8 @@ def mxToNote(mxNote, spannerBundle=None, inputM21=None):
         environLocal.printDebug(['got mxNote with an mxGrace', 'duration', mxNote.get('duration')])
 
     n.pitch.mx = mxNote # required info will be taken from entire note
-    n.duration.mx = mxNote
+    #n.duration.mx = mxNote
+    mxToDuration(mxNote, n.duration)
     n.beams.mx = mxNote.beamList
     
     mxStem = mxNote.get('stem')
@@ -1991,7 +2041,7 @@ def restToMxNotes(r):
     '''Translate a :class:`~music21.note.Rest` to a MusicXML :class:`~music21.musicxml.Note` object configured with a :class:`~music21.musicxml.Rest`.
     '''
     mxNoteList = []
-    for mxNote in r.duration.mx: # returns a list of mxNote objs
+    for mxNote in durationToMx(r.duration): # returns a list of mxNote objs
         # merge method returns a new object
         mxRest = musicxmlMod.Rest()
         mxRest.setDefaults()
@@ -2020,7 +2070,8 @@ def mxToRest(mxNote, inputM21=None):
         r = inputM21
 
     try:
-        r.duration.mx = mxNote
+        #r.duration.mx = mxNote
+        mxToDuration(mxNote, r.duration)
     except duration.DurationException:
         environLocal.printDebug(['failed extaction of duration from musicxml', 'mxNote:', mxNote, r])
         raise
@@ -2032,7 +2083,7 @@ def mxToRest(mxNote, inputM21=None):
 # Measures
 
 
-def measureToMx(m, spannerBundle=None):
+def measureToMx(m, spannerBundle=None, mxTranspose=None):
     '''Translate a :class:`~music21.stream.Measure` to a MusicXML :class:`~music21.musicxml.Measure` object.
     '''
     #environLocal.printDebug(['measureToMx(): got spannerBundle:', spannerBundle])
@@ -2075,6 +2126,10 @@ def measureToMx(m, spannerBundle=None):
     # best to only set dvisions here, as clef, time sig, meter are not
     # required for each measure
     mxAttributes.setDefaultDivisions()
+
+    # set the mxAttributes transposition; this assumes it is 
+    # constant for an entire Part
+    mxAttributes.transposeObj = mxTranspose # may be None
 
     # may need to look here at the parent, and try to find
     # the clef in the clef last defined in the parent
@@ -2367,7 +2422,7 @@ def mxToMeasure(mxMeasure, spannerBundle=None, inputM21=None):
     if mxAttributesInternal and mxAttributes.transposeObj is not None:
         # get interval object
         transposition = mxTransposeToInterval(mxAttributes.transposeObj)
-        environLocal.printDebug(['mxToMeasure: got transposition', transposition])
+        #environLocal.printDebug(['mxToMeasure: got transposition', transposition])
 
     if mxAttributes.divisions is not None:
         divisions = mxAttributes.divisions
@@ -2771,11 +2826,17 @@ def streamPartToMx(part, instObj=None, meterStream=None,
         instObj.partIdRandomize()
 
     #environLocal.printDebug(['calling Stream._getMXPart', repr(instObj), instObj.partId])
-
+    if part.atSoundingPitch in [False]:
+        # if not at sounding pitch, encode transposition from instrument
+        if instObj.transposition is None:
+            raise TranslateException('cannot get transposition for a part that is not at sounding pitch.')
+        mxTranspose = intervalToMXTranspose(instObj.transposition)
+    else:
+        mxTranspose = None   
     # instrument object returns a configured mxScorePart, that may
     # also include midi or score instrument definitions
-    mxScorePart = instObj.mx
-
+    #mxScorePart = instObj.mx
+    mxScorePart = instrumentToMx(instObj)
     #environLocal.printDebug(['calling Stream._getMXPart', 'mxScorePart', mxScorePart, mxScorePart.get('id')])
 
     mxPart = musicxmlMod.Part()
@@ -2835,9 +2896,13 @@ def streamPartToMx(part, instObj=None, meterStream=None,
 
 
     # for each measure, call .mx to get the musicxml representation
-    for obj in measureStream:
-        #mxPart.append(obj.mx)
-        mxPart.append(measureToMx(obj, spannerBundle=spannerBundle))
+    for i, obj in enumerate(measureStream):
+        # note: assuming constant transposition
+        if i == 0: # just keep transpose for first measure
+            mxPart.append(measureToMx(obj, spannerBundle=spannerBundle, 
+                     mxTranspose=mxTranspose))
+        else:
+            mxPart.append(measureToMx(obj, spannerBundle=spannerBundle))
 
     # might to post processing after adding all measures to the Stream
     # TODO: need to find all MetricModulations and updateByContext
@@ -3088,14 +3153,14 @@ def mxToStreamPart(mxScore, partId, spannerBundle=None, inputM21=None):
         spannerBundle = spanner.SpannerBundle()
 
     mxPart = mxScore.getPart(partId)
-    mxInstrument = mxScore.getInstrument(partId)
+    mxInstrument = mxScore.getScorePart(partId)
 
     # create a new music21 instrument
     instrumentObj = instrument.Instrument()
-    if mxInstrument is not None:
+    if mxInstrument is not None: # mxInstrument is a ScorePart
         # need an mxScorePart here   
-        #mxToInstrument(mxScorePart)
-        instrumentObj.mx = mxInstrument
+        mxToInstrument(mxInstrument, instrumentObj)
+        #instrumentObj.mx = mxInstrument
     # add part id as group
     instrumentObj.groups.append(partId)
 
@@ -4103,6 +4168,12 @@ spirit</words>
         self.assertEqual(str(i2.transposition), '<music21.interval.Interval M-6>')
 
         #s.show()
+        # check output
+        raw = s.musicxml
+        self.assertEqual(raw.find('<diatonic>-5</diatonic>') > 0, True)
+        self.assertEqual(raw.find('<chromatic>-9</chromatic>') > 0, True)
+        self.assertEqual(raw.find('<diatonic>-1</diatonic>') > 0, True)
+        self.assertEqual(raw.find('<chromatic>-2</chromatic>') > 0, True)
 
 
     def testHarmonyA(self):

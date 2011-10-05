@@ -427,16 +427,19 @@ def chordToMidiEvents(inputM21, includeDeltaTime=True):
     eventList = []
     c = inputM21
 
-    defaultVolume = volume.Volume()
 
     # temporary storage for setting correspondance
     noteOn = []
     noteOff = [] 
+
+    chordVolume = c.volume # use if component volume are not defined
+    hasComponentVolumes = c.hasComponentVolumes()
+
     for i in range(len(c)):
     #for i in range(len(c.pitches)):
         chordComponent = c[i]
         #pitchObj = c.pitches[i]
-        pitchObj = chordComponent['pitch']
+        #noteObj = chordComponent
         if includeDeltaTime:
             dt = midiModule.DeltaTime(mt)
             # for a chord, only the first delta time should have the offset
@@ -449,18 +452,15 @@ def chordToMidiEvents(inputM21, includeDeltaTime=True):
         me.type = "NOTE_ON"
         me.channel = 1
         me.time = None # not required
-        me.pitch = pitchObj.midi
-        if not pitchObj.isTwelveTone():
-            me.centShift =  pitchObj.getCentShiftFromMidi()
-        if 'volume' in chordComponent.keys():
-            if chordComponent['volume'] is not None:
-                me.velocity = chordComponent['volume'].velocity
-            else:
-                me.velocity = int(round(
-                                chordComponent['volume'].realized * 127))
-        else: # no volume information, use default
-            me.velocity = int(round(defaultVolume.realized * 127))
-            
+        me.pitch = chordComponent.pitch.midi
+        if not chordComponent.pitch.isTwelveTone():
+            me.centShift = chordComponent.pitch.getCentShiftFromMidi()
+        #if 'volume' in chordComponent.keys():
+        
+        if hasComponentVolumes:
+            me.velocity = int(round(chordComponent.volume.realized * 127))
+        else:
+            me.velocity = int(round(chordVolume.realized * 127))
         eventList.append(me)
         noteOn.append(me)
 
@@ -2212,7 +2212,7 @@ class Test(unittest.TestCase):
         
     def testMidiExportVelocityB(self):
         import random
-        from music21 import stream, chord, note
+        from music21 import stream, chord, note, volume
         
         s1 = stream.Stream()
         shift = [0, 6, 12]
@@ -2225,8 +2225,12 @@ class Test(unittest.TestCase):
                 c = note.Rest()
             else:
                 c = chord.Chord(['c3', 'd-4', 'g5'])
-                for i, v in enumerate(c.volume):
+                vChord = []
+                for i, cSub in enumerate(c):
+                    v = volume.Volume()
                     v.velocityScalar = amps[(j+shift[i]) % len(amps)]
+                    vChord.append(v)
+                c.volume = vChord # can set to list
             c.duration.quarterLength = ql
             s1.append(c)
         

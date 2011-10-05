@@ -674,19 +674,24 @@ class NotRest(GeneralNote):
         # else return None
 
     #---------------------------------------------------------------------------
-    def _getVolume(self):
+    def _getVolume(self, forceParent=None):
         # lazy volume creation
         if self._volume is None:
-            # when creating the volume object, set the parent as sellf
-            self._volume = volume.Volume(parent=self)
+            if forceParent is None:
+                # when creating the volume object, set the parent as sellf
+                self._volume = volume.Volume(parent=self)
+            else:
+                self._volume = volume.Volume(parent=forceParent)
         return self._volume
 
-    def _setVolume(self, volumeObj):
+    def _setVolume(self, volumeObj, setParent=True):
+        # setParent is only False when Chords bundling Notes
         # test by looking for method
         if hasattr(volumeObj, "getDynamicContext"):
-            if volumeObj.parent is not None:
-                raise NotRestException('cannot set a volume object that has a defined parent: %s' % volumeObj.parent)
-            volumeObj.parent = self # set to self
+            if setParent:
+                if volumeObj.parent is not None:
+                    raise NotRestException('cannot set a volume object that has a defined parent: %s' % volumeObj.parent)
+                volumeObj.parent = self # set to self
             self._volume = volumeObj
         else:
             raise Exception('this must be a Volume object, not %s' % volumeObj)
@@ -810,14 +815,6 @@ class Note(NotRest):
                     # Tie objects if present compare only type
                     if self.tie == other.tie:
                         return True
-#                     else:
-#                         environLocal.printDebug('not matching note on tie')
-#                 else:
-#                     environLocal.printDebug('not matching note on articulations')
-#             else:
-#                 environLocal.printDebug('not matching note on duration')
-#         else:
-#             environLocal.printDebug('not matching note on pitch')
         return False
 
     def __ne__(self, other):
@@ -1521,6 +1518,7 @@ class Test(unittest.TestCase):
 
 
     def testMusicXMLOutput(self):
+        from music21 import musicxml
         mxNotes = []
         for pitchName, durType in [('g#', 'quarter'), ('g#', 'half'), 
                 ('g#', 'quarter'), ('g#', 'quarter'), ('g#', 'quarter')]:
@@ -1529,7 +1527,9 @@ class Test(unittest.TestCase):
             p = pitch.Pitch(pitchName)
 
             # a lost of one ore more notes (tied groups)
-            for mxNote in dur.mx: # returns a list of mxNote objs
+            # returns a list of mxNote objs
+            for mxNote in musicxml.translate.durationToMx(dur): 
+            #for mxNote in dur.mx: # returns a list of mxNote objs
                 # merger returns a new object
                 mxNotes.append(mxNote.merge(p.mx))
 
