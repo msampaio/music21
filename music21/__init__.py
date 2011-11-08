@@ -44,10 +44,12 @@ __all__ = ['base',
 
            # sub folders
            'abc', 'abj', 'analysis', 'audioSearch',
-           'chant',
+
+           'chant', 'classCache', 
            'composition', 'configure',
            'counterpoint', 'corpus', 
            'demos', 'doc', 'figuredBass', 'humdrum', 'harmony', 
+           'languageExcerpts',
            'lily', 'musicxml', 
            'noteworthy','romanText', 'test', 'trecento', 'midi', 
            

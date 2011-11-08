@@ -540,7 +540,7 @@ class ConverterMusicXML(object):
                 #environLocal.printDebug(['pickled file version is compatible', c.score.m21Version])
             else:
                 try:
-                    environLocal.printDebug(['pickled file version is not compatible', c.score.m21Version])
+                    environLocal.printDebug(['pickled file version is not compatible' , c.score.m21Version])
                 except AttributeError:
                     # some old pickles have no versions
                     pass
@@ -908,10 +908,10 @@ class Converter(object):
         >>> jeanieStream.parts[0].measure(2).show('text')
         {0.0} <music21.bar.Repeat direction=start>
         {0.0} <music21.clef.TrebleClef>
-        {0.0} <music21.instrument.Instrument P1:...>
+        {0.0} <music21.instrument.Instrument P1: : >
         {0.0} <music21.key.KeySignature of no sharps or flats>
         {0.0} <music21.meter.TimeSignature 4/4>
-        {0.0} <music21.harmony.Harmony kind=major () root=F bass=None inversion=None>
+        {0.0} <music21.harmony.ChordSymbol kind=major () root=F bass=None inversion=None duration=0.0>
         {0.0} <music21.note.Note C>
         {3.0} <music21.note.Note A>
         '''
@@ -923,7 +923,7 @@ class Converter(object):
 
         # If we give the URL to a Wikifonia main page,
         # redirect to musicxml page:
-        matchedWikifonia = re.search("www.wikifonia.org/node/(\d+)", url)
+        matchedWikifonia = re.search("wikifonia.org/node/(\d+)", url)
         if matchedWikifonia:
             url = 'http://static.wikifonia.org/' + matchedWikifonia.group(1) + '/musicxml.xml'
 

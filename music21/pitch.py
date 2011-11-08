@@ -3487,7 +3487,8 @@ class Pitch(music21.Music21Object):
 
 
         If `cautionaryNotImmediateRepeat` is True, cautionary accidentals will be displayed 
-        for an altered pitch even if that pitch had already been displayed as altered. 
+        for an altered pitch even if that pitch had already been displayed as altered (unless
+        it's an immediate repetition).
 
 
         If `lastNoteWasTied` is True then this note will be treated as immediately following a tie.
@@ -3598,7 +3599,13 @@ class Pitch(music21.Music21Object):
         # comparing this pitch to the past pitches; if we find a match
         # in terms of name, then decide what to do
 
+        ## are we only comparing a list of past pitches all of
+        ## which are the same as this one and in the same measure?
+        ## if so, set continuousRepeatsInMeasure to True
+        ## else, set to False
         
+        ## figure out if this pitch is in the measure (pPastInMeasure = True)
+        ## or not.
         for i in reversed(range(len(pitchPastAll))):            
             # is the past pitch in the measure or out of the measure?
             if i < outOfMeasureLength:
@@ -3701,6 +3708,19 @@ class Pitch(music21.Music21Object):
                     if self.accidental == None:
                         self.accidental = Accidental('natural')
                     self.accidental.displayStatus = True
+
+                # cautionaryNotImmediateRepeat == False
+                # but the previous note was not in this measure,
+                # so do the previous step anyhow
+                elif (self._stepInKeySignature(alteredPitches) == True
+                      and cautionaryNotImmediateRepeat == False
+                      and pPastInMeasure == False):
+                    if self.accidental == None:
+                        self.accidental = Accidental('natural')
+                    self.accidental.displayStatus = True
+
+                
+                
                 # other cases: already natural in past usage, do not need 
                 # natural again (and not in key sig)
                 else:
@@ -3856,7 +3876,7 @@ class Pitch(music21.Music21Object):
             
         noteOut = note.Note(soundingPitch.nameWithOctave)
         noteOut.noteheadParen = True
-        noteOut.noteheadFill = 'filled'
+        noteOut.noteheadFill = 'yes'
         noteOut.stemDirection = 'noStem'
         
         note1 = note.Note(pitchList[0].nameWithOctave)
@@ -4232,6 +4252,34 @@ class Test(unittest.TestCase):
         a4.updateAccidentalDisplay(past, cautionaryPitchClass=False)
         self.assertEqual(a4.accidental, None)
 
+    def testAccidentalsCautionary(self):
+        '''
+        a nasty test from Jose about octave leaps, cautionaryNotImmediateRepeat = False
+        and key signature conflicts
+        '''
+        from music21 import tinyNotation, key
+        bm = tinyNotation.TinyNotationStream("fn1 fn1 e-8 e'-8 fn4 en4 e'n4", "4/4")
+        bm.insert(0, key.KeySignature(1))
+        bm.makeNotation(inPlace=True, cautionaryNotImmediateRepeat=False)
+        bm.flat.notes
+        assert(bm.flat.notes[0].accidental.name == 'natural')     # Fn
+        assert(bm.flat.notes[0].accidental.displayStatus == True)
+        assert(bm.flat.notes[1].accidental.name == 'natural')     # Fn
+        assert(bm.flat.notes[1].accidental.displayStatus == True)
+        assert(bm.flat.notes[2].accidental.name == 'flat')        # E-4
+        assert(bm.flat.notes[2].accidental.displayStatus == True)
+        assert(bm.flat.notes[3].accidental.name == 'flat')        # E-5
+        assert(bm.flat.notes[3].accidental.displayStatus == True)
+        assert(bm.flat.notes[4].accidental.name == 'natural')     # En4 
+        assert(bm.flat.notes[4].accidental.displayStatus == True)
+        assert(bm.flat.notes[5].accidental.name == 'natural')     # En4 
+        assert(bm.flat.notes[5].accidental.displayStatus == True)
+
+        assert(bm.flat.notes[6].accidental != None)               # En5
+        assert(bm.flat.notes[6].accidental.name == 'natural')
+        assert(bm.flat.notes[6].accidental.displayStatus == True)
+    
+        return
 
 
     def testPitchEquality(self):

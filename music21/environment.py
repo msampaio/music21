@@ -304,7 +304,11 @@ class Environment(object):
             return os.path.join(dir, 'music21-settings.xml')
         elif platform in ['nix', 'darwin']:
             # alt : os.path.expanduser('~') 
-            dir = os.environ['HOME']
+            if 'HOME' in os.environ.keys(): # might not exist if running as nobody in a webserver...
+                dir = os.environ['HOME']
+            else:
+                dir = '/tmp/'
+            
             return os.path.join(dir, '.music21rc')
 
         # darwin specific option
@@ -505,7 +509,11 @@ class Environment(object):
             # pass list to common.formatStr
             msg = common.formatStr(*msg, format=format)
             sys.stderr.write(msg)
-    
+
+    def pd(self, msg, statusLevel=common.DEBUG_USER, format=None):
+        '''Shortcut for printDebug. Useful as is typed frequently.
+        '''
+        self.printDebug(msg=msg, statusLevel=statusLevel, format=format)
 
     def warn(self, msg, header=None):
         '''To print a warning to the user, send a list of strings to this

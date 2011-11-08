@@ -27,7 +27,7 @@ available after importing music21.
 <class 'music21.base.Music21Object'>
 
 >>> music21.VERSION_STR
-'0.3.7.a11'
+'0.6.1.b1'
 
 Alternatively, after doing a complete import, these classes are available
 under the module "base":
@@ -39,8 +39,8 @@ under the module "base":
 
 #-------------------------------------------------------------------------------
 # string and tuple must be the same
-VERSION = (0, 3, 7)
-VERSION_STR = "%s.%s.%s.a11" % (VERSION[0], VERSION[1], VERSION[2])
+VERSION = (0, 6, 1)
+VERSION_STR = "%s.%s.%s.b1" % (VERSION[0], VERSION[1], VERSION[2])
 #-------------------------------------------------------------------------------
 
 import codecs
@@ -86,13 +86,13 @@ try:
 except ImportError:
     _missingImport.append('PIL')
 
-try:
-    import pyaudio
-except ImportError:
-    _missingImport.append('pyaudio')
-except SystemExit:
-    _missingImport.append('pyaudio')
-    sys.stderr.write('pyaudio is installed but PortAudio is not -- re-download pyaudio at http://people.csail.mit.edu/hubert/pyaudio/')
+# as this is only needed for one module, and error messages print
+# to standard io, this has been removed
+# try:
+#     import pyaudio
+# except (ImportError, SystemExit):
+#     _missingImport.append('pyaudio')
+    #sys.stderr.write('pyaudio is installed but PortAudio is not -- re-download pyaudio at http://people.csail.mit.edu/hubert/pyaudio/')
 
 # try:
 #     import abjad
@@ -457,23 +457,23 @@ class DefinedContexts(object):
         # do not need to set this as is default
         if idKey is None and obj is not None:
             idKey = id(obj)
+
+        updateNotAdd = False
+        if idKey in self._definedContexts.keys():
+            updateNotAdd = True 
+
         if offset is not None: # a location, not a context
-            if idKey not in self._locationKeys: 
+            if idKey not in self._locationKeys:                 
                 self._locationKeys.append(idKey)
         #environLocal.printDebug(['adding obj', obj, idKey])
         # weak refs were being passed in __deepcopy__ calling this method
         # __deepcopy__ no longer call this method, so we can assume that
         # we will not get weakrefs
 
-        if obj is None:
-            objRef = None
-        else:
+        objRef = None
+        if obj is not None:
             classString = obj.classes[0] # get last class
             objRef = self._prepareObject(obj)
-
-        updateNotAdd = False
-        if idKey in self._definedContexts.keys():
-            updateNotAdd = True
 
         if updateNotAdd:
             dict = self._definedContexts[idKey]
@@ -1167,9 +1167,6 @@ class DefinedContexts(object):
         121.5
         '''
         post = self._getOffsetBySiteId(siteId) 
-        #post = self._definedContexts[siteId]['offset']
-#         if post is None: # 
-#             raise DefinedContextsException('an entry for this object (%s) is not stored in DefinedContexts' % siteId)
         return post
 
 
@@ -2548,6 +2545,7 @@ class Music21Object(JSONSerializer):
     
     def _setActiveSite(self, site):
         #environLocal.printDebug(['_setActiveSite() called:', 'self', self, 'site', site])
+
         # NOTE: this is a performance intensive call
         if site is not None: 
             siteId = id(site)
@@ -3081,7 +3079,7 @@ class Music21Object(JSONSerializer):
 
 
     def splitAtQuarterLength(self, quarterLength, retainOrigin=True, 
-        addTies=True, displayTiedAccidentals=False):
+        addTies=True, displayTiedAccidentals=False, delta=1e-06):
         '''
         Split an Element into two Elements at a provided 
         QuarterLength into the Element.
@@ -3123,7 +3121,7 @@ class Music21Object(JSONSerializer):
         if self.duration == None:
             raise Exception('cannot split an element that has a Duration of None')
 
-        if quarterLength > self.duration.quarterLength:
+        if quarterLength - delta > self.duration.quarterLength:
             raise duration.DurationException(
             "cannot split a duration (%s) at this quarterLength (%s)" % (
             self.duration.quarterLength, quarterLength))
@@ -3157,6 +3155,10 @@ class Music21Object(JSONSerializer):
                     e.expressions.append(thisExpression)
                     eRemain.expressions.append(thisExpression)
 
+        if quarterLength < delta:
+            quarterLength == 0
+        elif abs(quarterLength - self.duration.quarterLength) < delta:
+            quarterLength = self.duration.quarterLength
 
         lenEnd = self.duration.quarterLength - quarterLength
         lenStart = self.duration.quarterLength - lenEnd
@@ -3173,7 +3175,6 @@ class Music21Object(JSONSerializer):
         # some higher-level classes need this functionality
         # set ties
         if addTies and ('Note' in e.classes or 
-            'Chord' in e.classes or 
             'Unpitched' in e.classes):
 
             forceEndTieType = 'stop'
@@ -3192,9 +3193,34 @@ class Music21Object(JSONSerializer):
                     forceEndTieType = 'continue'
                     # keep continue if already set
             else:
-                e.tie = tie.Tie('start') # need a tie objects
+                e.tie = tie.Tie('start') # need a tie object
 
             eRemain.tie = tie.Tie(forceEndTieType)
+
+        elif addTies and 'Chord' in e.classes:
+            for i in range(len(e._components)):
+                component = e._components[i]
+                remainComponent = eRemain._components[i]
+                forceEndTieType = 'stop'
+                if component.tie != None:
+                    # the last tie of what was formally a start should
+                    # continue
+                    if component.tie.type == 'start':
+                        # keep start  if already set
+                        forceEndTieType = 'continue'
+                    # a stop was ending a previous tie; we know that
+                    # the first is now a continue
+                    elif component.tie.type == 'stop':
+                        forceEndTieType = 'stop'
+                        component.tie.type = 'continue' 
+                    elif component.tie.type == 'continue':
+                        forceEndTieType = 'continue'
+                        # keep continue if already set
+                else:
+                    component.tie = tie.Tie('start') # need a tie object
+    
+                remainComponent.tie = tie.Tie(forceEndTieType)
+            
     
         # hide accidentals on tied notes where previous note
         # had an accidental that was shown
@@ -3221,7 +3247,7 @@ class Music21Object(JSONSerializer):
         >>> n.quarterLength = 3
         >>> post = n.splitByQuarterLengths([1,1,1])
         >>> [n.quarterLength for n in post]
-        [1, 1, 1]
+        [1.0, 1.0, 1.0]
         '''
         if self.duration == None:
             raise Music21ObjectException('cannot split an element that has a Duration of None')

@@ -87,10 +87,16 @@ class RomanNumeralException(music21.Music21Exception):
 #-------------------------------------------------------------------------------
 class RomanNumeral(chord.Chord):
     '''
+    A RomanNumeral object is a specialized type of :class:`~music21.chord.Chord` object
+    that stores the function and scale degree of a chord within a 
+    :class:`~music21.key.Key` (if no Key is given then it exists as a theoretical, keyless
+    RomanNumeral; e.g., V in any key. but when realized, keyless RomanNumerals are
+    treated as if they are in C major).
+    
     
     >>> from music21 import *
     >>> V = roman.RomanNumeral('V') # could also use 5
-    >>> V.quality
+    >>> V.quality   # TODO: document better! what is inherited from Chord and what is new here...
     'major'
     >>> V.inversion()
     0
@@ -232,6 +238,23 @@ class RomanNumeral(chord.Chord):
     >>> r.pitches
     [C#5, F#5, A5]
 
+
+    Dominant 7ths can be specified by putting d7 at end:
+
+    >>> r = roman.RomanNumeral('bVIId7', key.Key('B-'))
+    >>> r.figure
+    'bVIId7'
+    >>> r.pitches
+    [A-5, C6, E-6, G-6]
+    >>> r = roman.RomanNumeral('VId7')
+    >>> r.figure
+    'VId7'
+    >>> r.setKeyOrScale(key.Key('B-'))
+    >>> r.pitches
+    [G5, B5, D6, F6]
+
+
+
     >>> r2 = roman.RomanNumeral('V42/V7/vi', key.Key('C'))
     >>> r2.pitches
     [A4, B4, D#5, F#5]
@@ -249,6 +272,26 @@ class RomanNumeral(chord.Chord):
     >>> rn3 = roman.RomanNumeral('III', dminor)
     >>> rn3.pitches
     [F4, A4, C5]
+
+
+    Should be the same as above no matter when the key is set:
+    
+    >>> r = roman.RomanNumeral('VId7', key.Key('B-'))
+    >>> r.pitches
+    [G5, B5, D6, F6]
+    >>> r.setKeyOrScale(key.Key('B-'))
+    >>> r.pitches
+    [G5, B5, D6, F6]
+    
+
+    This was getting B-flat.
+
+    >>> r = roman.RomanNumeral('VId7')
+    >>> r.setKeyOrScale(key.Key('B-'))
+    >>> r.pitches
+    [G5, B5, D6, F6]
+
+    
     
     '''
 
@@ -332,6 +375,9 @@ class RomanNumeral(chord.Chord):
     def _parseFigure(self, prelimFigure):
         '''
         '''
+        if prelimFigure == 'VId7':
+            pass
+        
         if not common.isStr(prelimFigure):
             raise RomanException('got a non-string figure: %r', prelimFigure)
 
@@ -427,6 +473,10 @@ class RomanNumeral(chord.Chord):
         elif figure.startswith('+'):
             figure = figure[1:]
             shouldBe = 'augmented'
+        elif figure.endswith('d7'):
+            figure = figure[:-2] + '7'
+            shouldBe = 'dominant-seventh'
+        
         elif self.caseMatters and romanNumeralAlone.upper() == romanNumeralAlone:
             shouldBe = 'major'
         elif self.caseMatters and romanNumeralAlone.lower() == romanNumeralAlone:
@@ -547,6 +597,8 @@ class RomanNumeral(chord.Chord):
             correctSemitones = (3, 6, 10)
         elif shouldBe == 'augmented':
             correctSemitones = (4, 8)
+        elif shouldBe == 'dominant-seventh':
+            correctSemitones = (4, 7, 10)
         else:
             return
 

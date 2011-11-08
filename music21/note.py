@@ -43,8 +43,9 @@ _MOD = "note.py"
 environLocal = environment.Environment(_MOD)
 
 
+noteheadTypeNames = ['slash', 'triangle', 'diamond', 'square', 'cross', 'x' , 'circle-x', 'inverted triangle', 'arrow down', 'arrow up', 'slashed', 'back slashed', 'normal', 'cluster', 'none', 'do', 're', 'mi', 'fa', 'so', 'la', 'ti', 'circle dot', 'left triangle', 'rectangle']
 
-
+stemDirectionNames = ['up', 'down', 'noStem', 'double', 'unspecified', 'none']
 
 #-------------------------------------------------------------------------------
 class LyricException(Exception):
@@ -186,8 +187,7 @@ class GeneralNote(music21.Music21Object):
         if "lyric" in keywords:
             self.addLyric(keywords['lyric'])
 
-        # note: Chord inherits this object, and thus has one Tie object
-        # chords may need Tie objects for each pitch
+        # note: Chords handle ties differently
         self.tie = None # store a Tie object
 
     def compactNoteInfo(self):
@@ -403,7 +403,7 @@ class GeneralNote(music21.Music21Object):
         >>> n.quarterLength = 3
         >>> n.augmentOrDiminish(2)
         >>> n.quarterLength
-        6
+        6.0
 
         >>> c = chord.Chord(['g#','A#','d'])
         >>> n.quarterLength = 2
@@ -562,7 +562,6 @@ class NotRest(GeneralNote):
     
     # unspecified means that there may be a stem, but its orientation
     # has not been declared. 
-    # TODO: import from MusicXML
     
     def __init__(self, *arguments, **keywords):
         GeneralNote.__init__(self, **keywords)
@@ -584,30 +583,60 @@ class NotRest(GeneralNote):
         return new
 
     def _getStemDirection(self):
-        '''Returns the stem direction.
-        '''
         return self._stemDirection
     
     def _setStemDirection(self, direction):
-        '''Sets the stem direction to the specified value.
-        
-        Accepted values are 'up', 'down', 'noStem', 'double', or 'unspecified'.
-        '''
+        if direction is None:
+            direction = None # allow setting to none or None
+        elif direction == 'none':
+            direction = 'noStem' # allow setting to none or None
+        elif direction not in stemDirectionNames:
+            raise NotRestException('not a valid stem direction name: %s' % direction)
         self._stemDirection = direction
         
-    stemDirection = property(_getStemDirection, _setStemDirection)
+    stemDirection = property(_getStemDirection, _setStemDirection, doc=
+        '''Get or set the stem direction of this NotRest object. Valid stem direction names are found in note.stemDirectionNames (see below).
+
+        >>> from music21 import *
+        >>> note.stemDirectionNames
+        ['up', 'down', 'noStem', 'double', 'unspecified', 'none']
+
+        >>> n = note.Note()
+        >>> n.stemDirection = 'noStem'
+        >>> n.stemDirection
+        'noStem'
+        >>> n.stemDirection = 'junk'
+        Traceback (most recent call last):
+        NotRestException: not a valid stem direction name: junk
+        ''')
+
 
     def _getNotehead(self):
-        '''Return the Notehead type.
-        '''
         return self._notehead
 
     def _setNotehead(self, value):
-        '''Sets the notehead to the specified value.
-        '''
+        if value in ['none', None, '']: 
+            value = None # allow setting to none or None
+        elif value not in noteheadTypeNames:
+            raise NotRestException('not a valid notehead type name: %s' % repr(value))
         self._notehead = value
 
-    notehead = property(_getNotehead, _setNotehead)
+    notehead = property(_getNotehead, _setNotehead, doc=
+        '''Get or set the notehead of this NotRest object. Valid notehead type names are found in note.noteheadTypeNames (see below):
+
+        >>> from music21 import *
+        >>> note.noteheadTypeNames
+        ['slash', 'triangle', 'diamond', 'square', 'cross', 'x', 'circle-x', 'inverted triangle', 'arrow down', 'arrow up', 'slashed', 'back slashed', 'normal', 'cluster', 'none', 'do', 're', 'mi', 'fa', 'so', 'la', 'ti', 'circle dot', 'left triangle', 'rectangle']
+
+        >>> n = note.Note()
+        >>> n.notehead = 'diamond'
+        >>> n.notehead
+        'diamond'
+        >>> n.notehead = 'junk'
+        Traceback (most recent call last):
+        NotRestException: not a valid notehead type name: 'junk'
+        ''')
+
     
     def _getNoteheadFill(self):
         '''Return the Notehead fill type.
@@ -615,20 +644,41 @@ class NotRest(GeneralNote):
         return self._noteheadFill
 
     def _setNoteheadFill(self, value):
+        if value == 'none' or value is None: 
+            value = None # allow setting to none or None
+        if value == 'filled':
+            value = 'yes'
+        elif value not in ['default', 'yes', 'no']:
+            raise NotRestException('not a valid notehead fill value: %s' % value)
         self._noteheadFill = value
 
-    noteheadFill = property(_getNoteheadFill, _setNoteheadFill)
+    noteheadFill = property(_getNoteheadFill, _setNoteheadFill, doc='''
+        Get or set the note head fill status of this NotRest. Valid note head fill values are yes, no, default, and None.
+
+        >>> from music21 import *
+        >>> n = note.Note()
+        >>> n.noteheadFill = 'no'
+        >>> n.noteheadFill
+        'no'
+        >>> n.noteheadFill = 'junk'
+        Traceback (most recent call last):
+        NotRestException: not a valid notehead fill value: junk
+        ''')
     
+
     def _getNoteheadParen(self):
-        '''Return whether or not the notehead has parenthesis around it.
-        '''
         return self._noteheadParen
 
     def _setNoteheadParen(self, value):
+        # TODO: check for valid values: yes and no?
         self._noteheadParen = value
 
-    noteheadParen = property(_getNoteheadParen, _setNoteheadParen)
+    noteheadParen = property(_getNoteheadParen, _setNoteheadParen, doc='''
+        Get or set the note head fill status fo this NotRest.
+        ''')
     
+
+
     def _isGrace(self):
         # duration must not be linked and quarterLength must be zero
         if self.duration.quarterLength == 0 and not self.duration.isLinked:
@@ -684,20 +734,39 @@ class NotRest(GeneralNote):
                 self._volume = volume.Volume(parent=forceParent)
         return self._volume
 
-    def _setVolume(self, volumeObj, setParent=True):
+    def _setVolume(self, value, setParent=True):
         # setParent is only False when Chords bundling Notes
         # test by looking for method
-        if hasattr(volumeObj, "getDynamicContext"):
+        if hasattr(value, "getDynamicContext"):
             if setParent:
-                if volumeObj.parent is not None:
-                    raise NotRestException('cannot set a volume object that has a defined parent: %s' % volumeObj.parent)
-                volumeObj.parent = self # set to self
-            self._volume = volumeObj
+                if value.parent is not None:
+                    raise NotRestException('cannot set a volume object that has a defined parent: %s' % value.parent)
+                value.parent = self # set to self
+            self._volume = value
+        elif common.isNum(value) and setParent:
+            # if we can define the parent, we can set from numbers
+            # call local getVolume will set parent appropriately
+            vol = self._getVolume()
+            if value < 1: # assume a scalar
+                vol.velocityScalar = value                        
+            else: # assume velocity
+                vol.velocity = value
+  
         else:
-            raise Exception('this must be a Volume object, not %s' % volumeObj)
+            raise Exception('this must be a Volume object, not %s' % value)
 
     volume = property(_getVolume, _setVolume, 
-        doc = '''Get and set the volume of this object as a Volume object.
+        doc = '''Get and set the :class:`~music21.volume.Volume` object of this object. Volume objects are created on demand.
+
+        >>> from music21 import *
+        >>> n1 = note.Note()
+        >>> n1.volume.velocity = 120
+        >>> n2 = note.Note()
+        >>> n2.volume = 80 # can directly set a velocity value
+        >>> s = stream.Stream()
+        >>> s.append([n1, n2])
+        >>> [n.volume.velocity for n in s.notes]
+        [120, 80]
         ''')
 
 

@@ -198,7 +198,6 @@ class FeatureExtractor(object):
             self._feature.normalize()
         return self._feature    
 
-
     def getBlankFeature(self):
         '''Return a properly configured plain feature as a place holder
 
@@ -211,8 +210,6 @@ class FeatureExtractor(object):
         self._fillFeatureAttributes(f) 
         f.prepareVectors() # will vector with necessary zeros
         return f
-
-
 
 
 #-------------------------------------------------------------------------------
@@ -289,6 +286,11 @@ class StreamForms(object):
         elif key in ['flat.getElementsByClass.KeySignature']:
             self._forms['flat.getElementsByClass.KeySignature'] = self._base.flat.getElementsByClass('KeySignature')
             return self._forms['flat.getElementsByClass.KeySignature']
+
+        elif key in ['flat.getElementsByClass.Harmony']:
+            self._forms['flat.getElementsByClass.Harmony'] = self._base.flat.getElementsByClass('Harmony')
+            return self._forms['flat.getElementsByClass.Harmony']
+
 
         elif key in ['metronomeMarkBoundaries']: # already flat
             self._forms['metronomeMarkBoundaries'] = self._base.metronomeMarkBoundaries()
@@ -447,8 +449,16 @@ class StreamForms(object):
 
 
         elif key in ['flat.analyzedKey']:
-            self._forms['analyzedKey'] = self.__getitem__('flat').analyze('key')
+            # this will use default weightings
+            self._forms['analyzedKey'] = self.__getitem__('flat').analyze(
+                                         method='key')
             return self._forms['analyzedKey']
+
+        elif key in ['flat.tonalCertainty']:
+            # this will use default weightings
+            foundKey = self.__getitem__('flat.analyzedKey')
+            self._forms['flat.tonalCertainty'] = foundKey.tonalCertainty()         
+            return self._forms['flat.tonalCertainty']
         
         elif key in ['metadata']:
             self._forms['metadata'] = self._base.metadata
@@ -463,6 +473,10 @@ class StreamForms(object):
                     post.append(bundle)
             self._forms['secondsMap'] = post
             return self._forms['secondsMap']
+
+        elif key in ['assembledLyrics']:
+            self._forms['assembledLyrics'] = music21.text.assembleLyrics(self._base)
+            return self._forms['assembledLyrics']
         
         else:
             raise AttributeError('no such attribute: %s' % key)
@@ -516,7 +530,6 @@ class DataInstance(object):
         if hasattr(self.stream, 'voices'):
             for v in self.stream.voices:
                 self._formsByPart.append(StreamForms(v))
-
 
     def setClassLabel(self, classLabel, classValue=None):
         '''Set the class label, as well as the class value if known. The class label is the attribute name used to define the class of this data instance.
@@ -897,7 +910,6 @@ class DataSet(object):
             post.append(True)
         return post
 
-
     def getClassPositionLabels(self, includeId=True):
         '''Return column labels for the presence of a class definition
 
@@ -917,7 +929,6 @@ class DataSet(object):
         if self._classLabel is not None:
             post.append(True)
         return post
-
 
     def addData(self, dataOrStreamOrPath, classValue=None, id=None):
         '''Add a Stream, DataInstance, or path to a corpus or local file to this data set.
@@ -948,7 +959,6 @@ class DataSet(object):
         self.dataInstances.append(di)
         self.streams.append(s)
 
-
     def process(self):
         '''Process all Data with all FeatureExtractors. Processed data is stored internally as numerous Feature objects. 
         '''
@@ -969,7 +979,6 @@ class DataSet(object):
                 row.append(fReturned) # get feature and store
             # rows will align with data the order of DataInstances
             self._features.append(row)
-
 
     def getFeaturesAsList(self, includeClassLabel=True, includeId=True):
         '''Get processed data as a list of lists, merging any sub-lists in multi-dimensional features. 
@@ -1052,14 +1061,7 @@ class DataSet(object):
         
 
 
-
-
-
-
-
-
 #-------------------------------------------------------------------------------
-
 def extractorsById(idOrList, library=['jSymbolic', 'native']):
     '''Given one or more :class:`~music21.features.FeatureExtractor` ids, return the appropriate  subclass. An optional `library` argument can be added to define which module is used. Current options are jSymbolic and native.
 
@@ -1078,7 +1080,7 @@ def extractorsById(idOrList, library=['jSymbolic', 'native']):
     
     >>> y = [x.id for x in features.extractorsById('all')]
     >>> y[0:3], y[-3:-1]
-    (['M1', 'M2', 'M3'], ['CS11', 'MD1'])
+    (['M1', 'M2', 'M3'], ['MD1', 'MC1'])
 
     '''
     from music21.features import jSymbolic
@@ -1163,12 +1165,12 @@ class Test(unittest.TestCase):
 
         #di['chordify'].show('t')
         self.assertEqual(len(di['chordify']), 6)
-        self.assertEqual(len(di['chordify.getElementsByClass.Chord']), 24)
+        self.assertEqual(len(di['chordify.getElementsByClass.Chord']), 30)
 
 
-        self.assertEqual(di['chordifySetClassHistogram'], {'2-2': 3, '2-3': 4, '3-9': 1, '2-4': 4, '2-5': 4, '1-1': 7, '4-13': 1})
+        self.assertEqual(di['chordifySetClassHistogram'], {'2-2': 3, '2-3': 4, '2-4': 4, '2-5': 6, '1-1': 13})
 
-        self.assertEqual(di['chordifyPitchClassSetHistogram'], {'<A>': 4, '<2A>': 2, '<09>': 1, '<03>': 1, '<3>': 1, '<37>': 1, '<79>': 3, '<58>': 1, '<7A>': 1, '<0>': 1, '<59>': 1, '<2358>': 1, '<35A>': 1, '<5A>': 4, '<5>': 1})
+        self.assertEqual(di['chordifyPitchClassSetHistogram'], {'<8>': 2, '<3A>': 2, '<A>': 4, '<2A>': 2, '<09>': 1, '<03>': 1, '<3>': 2, '<37>': 1, '<79>': 3, '<58>': 1, '<7A>': 1, '<0>': 1, '<59>': 1, '<2>': 1, '<5A>': 4, '<5>': 3})
 
         self.assertEqual(di['chordifyTypesHistogram'], {'isMinorTriad': 0, 'isAugmentedTriad': 0, 'isTriad': 0, 'isSeventh': 0, 'isDiminishedTriad': 0, 'isDiminishedSeventh': 0, 'isIncompleteMajorTriad': 4, 'isHalfDiminishedSeventh': 0, 'isMajorTriad': 0, 'isDominantSeventh': 0, 'isIncompleteMinorTriad': 4})
 
@@ -1354,9 +1356,9 @@ class Test(unittest.TestCase):
 
         # process with all feature extractors, store all features
         ds.process()
-        ds.write(format='tab')
-        ds.write(format='csv')
-        ds.write(format='arff')
+        ds.getString(format='tab')
+        ds.getString(format='csv')
+        ds.getString(format='arff')
 
 
 

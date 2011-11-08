@@ -16,6 +16,11 @@ import unittest
 
 import music21
 from music21 import common
+from music21 import dynamics
+
+from music21 import environment
+_MOD = "volume.py"  
+environLocal = environment.Environment(_MOD)
 
 
 
@@ -30,7 +35,8 @@ class Volume(object):
     >>> from music21 import *
     >>> v = volume.Volume()     
     '''
-    def __init__(self, parent=None, velocity=None, velocityScalar=None):
+    def __init__(self, parent=None, velocity=None, velocityScalar=None, 
+                velocityIsRelative=True):
 
         # store a reference to the parent, as we use this to do context 
         # will use property; if None will leave as None
@@ -41,6 +47,11 @@ class Volume(object):
             self.velocity = velocity
         elif velocityScalar is not None:
             self.velocityScalar = velocityScalar
+
+        self._cachedRealized = None
+
+        #  replace with a property
+        self.velocityIsRelative = velocityIsRelative
 
     def __deepcopy__(self, memo=None):
         '''Need to manage copying of weak ref; when copying, do not copy weak ref, but keep as a reference to the same object. 
@@ -77,6 +88,7 @@ class Volume(object):
     parent = property(_getParent, _setParent, doc = '''
         Get or set the parent, which must be a note.NotRest subclass. The parent is wrapped in a weak reference.
         ''')
+
 
     def _getVelocity(self):
         return self._velocity
@@ -124,6 +136,8 @@ class Volume(object):
 
         Note that this value is derived from the set velocity value. Floating point error seen here will not be found in the velocity value. 
 
+        When setting this value, an integer-based velocity value will be derived and stored. 
+
         >>> from music21 import *
         >>> n = note.Note()
         >>> n.volume.velocityScalar = .5
@@ -155,7 +169,6 @@ class Volume(object):
         # TODO: find wedges and crescendi too
         return self.getContextByClass('Dynamic')
 
-
     def mergeAttributes(self, other):
         '''Given another Volume object, gather all attributes except parent. Values are always copied, not passed by reference. 
 
@@ -174,25 +187,127 @@ class Volume(object):
         '''
         if other is not None:      
             self._velocity = other._velocity
+            self.velocityIsRelative = other.velocityIsRelative
         
 
-    def getRealized(self, dynamicContext=True, useVelocity=True, 
-        useArticulations=True, baseLevel=0.70866):
-        '''Get a realized unit-interval scalar for this Volume. This scalar is to be applied to the final amplitude scalar, whatever that may be.
+    def getRealized(self, useDynamicContext=True, useVelocity=True,
+        useArticulations=True, baseLevel=0.5, clip=True):
+        '''Get a realized unit-interval scalar for this Volume. This scalar is to be applied to the dynamic range of whatever output is available, whatever that may be. 
+
+        The `baseLevel` value is a middle value between 0 and 1 that all scalars modify. This also becomes the default value for unspecified dynamics. When scalars (between 0 and 1) are used, their values are doubled, such that mid-values (around .5, which become 1) make no change. 
  
         This can optionally take into account `dynamicContext`, `useVelocity`, and `useArticulation`.
+
+        If `useDynamicContext` is True, a context search for a dynamic will be done, else dynamics are ignored. Alternatively, the useDynamicContext may supply a Dyanmic object that will be used instead of a context search.
+
+        If `useArticulations` is True and parent is not None, any articulations found on that parent will be used to adjust the volume. Alternatively, the `useArticulations` parameter may supply a list of articulations that will be used instead of that available on a parent.
+
+        The `velocityIsRelative` tag determines if the velocity value includes contextual values, such as dynamics and and accents, or not. 
+
+        >>> from music21 import stream, volume, note
+        >>> s = stream.Stream()
+        >>> s.repeatAppend(note.Note('d3', quarterLength=.5), 8)
+        >>> s.insert([0, dynamics.Dynamic('p'), 1, dynamics.Dynamic('mp'), 2, dynamics.Dynamic('mf'), 3, dynamics.Dynamic('f')])
+
+        >>> s.notes[0].volume.getRealized()
+        0.42519...
+        >>> s.notes[1].volume.getRealized()
+        0.42519...
+        >>> s.notes[2].volume.getRealized()
+        0.63779...
+        >>> s.notes[7].volume.getRealized()
+        0.99212...
+
+        >>> # velocity, if set, will be scaled by dyanmics
+        >>> s.notes[7].volume.velocity = 20
+        >>> s.notes[7].volume.getRealized()
+        0.22047...
+
+        >>> # unless we set the velocity to not be relative
+        >>> s.notes[7].volume.velocityIsRelative = False
+        >>> s.notes[7].volume.getRealized()
+        0.1574803...
         '''
+        #velocityIsRelative might be best set at import. e.g., from MIDI, 
+        # velocityIsRelative is False, but in other applications, it may not 
+        # be
+
         val = baseLevel
-        if dynamicContext:
-            pass
+        dm = None  # no dynamic mark
+ 
+        # velocity is checked first; the range between 0 and 1 is doubled, 
+        # to 0 to 2. a velocityScalar of .7 thus scales the base value of 
+        # .5 by 1.4 to become .7
         if useVelocity:
             if self._velocity is not None:
-                # if velocity is already set, it should full determine output
-                val = self.velocityScalar
-        if useArticulations:
-            pass
+                if not self.velocityIsRelative:
+                    # if velocity is not relateive 
+                    # it should fully determines output independent of anything
+                    # else
+                    val = self.velocityScalar
+                else:
+                    val = val * (self.velocityScalar * 2.0)
+            # this value provides a good default velocity, as .5 is low
+            # this not a scalar application but a shift.
+            else: # target :0.70866
+                val += 0.20866
+
+        # only change the val from here if velocity is relative 
+        if self.velocityIsRelative:                    
+            if useDynamicContext is not False:
+                if hasattr(useDynamicContext, 
+                    'classes') and 'Dynamic' in useDynamicContext.classes:
+                    dm = useDynamicContext # it is a dynamic
+                elif self.parent is not None:
+                    dm = self.getDynamicContext() # dm may be None
+                else:
+                    environLocal.pd(['getRealized():', 
+                    'useDynamicContext is True but no dynamic supplied or found in context'])
+                if dm is not None:
+                    # double scalare (so range is between 0 and 1) and scale 
+                    # t he current val (around the base)
+                    val = val * (dm.volumeScalar * 2.0)
+            # userArticulations can be a list of 1 or more articulation objects
+            # as well as True/False
+            if useArticulations is not False:
+                am = None
+                if common.isListLike(useArticulations):
+                    am = useArticulations
+                elif hasattr(useArticulations, 
+                    'classes') and 'Articulation' in useArticulations.classes:
+                    am = [useArticulations] # place in a list
+                elif self.parent is not None:
+                    am = self.parent.articulations
+                if am is not None:
+                    for a in am:
+                        # add in volume shift for all articulations
+                        val += a.volumeShift
+            
+        if clip: # limit between 0 and 1
+            if val > 1:
+                val = 1.0
+            elif val < 0:
+                val = 0.0
         # might to rebalance range after scalings       
+
+        # always update cached result each time this is called
+        self._cachedRealized = val
         return val
+
+    def getRealizedStr(self, useDynamicContext=True, useVelocity=True,
+        useArticulations=True, baseLevel=0.5, clip=True):
+        '''Return the realized as rounded and formatted string value. Useful for testing. 
+
+        >>> from music21 import *
+        >>> v = volume.Volume(velocity=64)
+        >>> v.getRealizedStr()
+        '0.5'
+        '''  
+        val = self.getRealized(useDynamicContext=useDynamicContext, 
+                    useVelocity=useVelocity, useArticulations=useArticulations, 
+                    baseLevel=baseLevel, clip=clip)
+        return str(round(val, 2))
+
 
     realized = property(getRealized, doc='''
         Return the realized unit-interval scalar for this Volume
@@ -200,6 +315,99 @@ class Volume(object):
         >>> from music21 import *
         >>> 
         ''')
+
+    
+    def _getCachedRealized(self):
+        if self._cachedRealized is None:
+            self._cachedRealized = self.getRealized()
+        return self._cachedRealized
+
+    cachedRealized = property(_getCachedRealized, doc='''
+        Return the cached realized value of this volume. This will be the last realized value or, if that value has not been set, a newly realized value. If the caller knows that the realized values have all been recently set, using this property will add significant performance boost.
+
+        >>> from music21 import *
+        >>> v = volume.Volume(velocity=128)
+        >>> v.cachedRealized
+        1.0
+        ''')
+
+    def _getCachedRealizedStr(self):
+        return str(round(self._getCachedRealized(), 2))
+
+    cachedRealizedStr = property(_getCachedRealizedStr, doc='''
+        Convenience property for testing.
+
+        >>> from music21 import *
+        >>> v = volume.Volume(velocity=128)
+        >>> v.cachedRealizedStr
+        '1.0'
+        ''')
+
+#-------------------------------------------------------------------------------
+# utility stream processing methods
+
+
+def realizeVolume(srcStream, setAbsoluteVelocity=False,         
+            useDynamicContext=True, useVelocity=True, useArticulations=True):
+    '''Given a Stream with one level of dynamics (e.g., a Part, or two Staffs that share Dyanmics), destructively modify it to set all realized volume levels. These values will be stored in the Volume object as `cachedRealized` values. 
+
+    This is a top-down routine, as opposed to bottom-up values available with context searches on Volume. This thus offers a performance benefit. 
+
+    This is always done in place; for the option of non-in place processing, see Stream.realizeVolume().
+
+    If setAbsoluteVelocity is True, the realized values will overwrite all existing velocity values, and the Volume objects velocityIsRelative parameters will be set to False.
+
+    
+    '''
+    # get dynamic map
+    flatSrc = srcStream.flat # assuming sorted
+
+    # check for any dyanmics
+    dyanmicsAvailable = False
+    if len(flatSrc.getElementsByClass('Dynamic')) > 0:
+        dyanmicsAvailable = True
+    else: # no dynamics available
+        if useDynamicContext is True: # only if True, and non avail, override
+            useDynamicContext = False
+
+    if dyanmicsAvailable:
+        # extend durations of all dyanmics
+        # doing this in place as this is a destructive opperation
+        boundaries = flatSrc.extendDurationAndGetBoundaries('Dynamic', inPlace=True)
+        bKeys = boundaries.keys()
+        bKeys.sort() # sort
+
+    # assuming stream is sorted
+    # storing last releven index lets us always start form the last-used
+    # key, avoiding searching through entire list every time
+    lastRelevantKeyIndex = 0
+    for e in flatSrc: # iterate over all elements
+        if hasattr(e, 'volume') and 'NotRest' in e.classes:
+            # try to find a dynamic
+            eStart = e.getOffsetBySite(flatSrc)
+    
+            # get the most recent dynamic
+            if dyanmicsAvailable and useDynamicContext is True:
+                dm = False # set to not search dynamic context
+                for k in range(lastRelevantKeyIndex, len(bKeys)):
+                    start, end = bKeys[k]
+                    if eStart >= start and eStart < end:
+                        # store so as to start in the same position
+                        # for next element
+                        lastRelevantKeyIndex = k
+                        dm = boundaries[bKeys[k]]
+                        break
+            else: # permit supplying a single dynamic context for all materia
+                dm = useDynamicContext
+            # this returns a value, but all we need to do is to set the 
+            # cached values stored internally
+            val = e.volume.getRealized(useDynamicContext=dm, useVelocity=True, 
+                  useArticulations=True)
+            if setAbsoluteVelocity:
+                e.volume.velocityIsRelative = False
+                # set to velocity scalar
+                e.volume.velocityScalar = val
+
 
         
 #-------------------------------------------------------------------------------
@@ -268,7 +476,148 @@ class Test(unittest.TestCase):
 
         self.assertEqual(v1.parent, n1)
         self.assertEqual(v1Copy.parent, n1)
+
+
+    def testGetRealizedA(self):
+        from music21 import volume, dynamics
+
+        v1 = volume.Volume(velocity=64)
+        self.assertEqual(v1.getRealizedStr(), '0.5')
+
+        d1 = dynamics.Dynamic('p')
+        self.assertEqual(v1.getRealizedStr(useDynamicContext=d1), '0.3')
+
+        d1 = dynamics.Dynamic('ppp')
+        self.assertEqual(v1.getRealizedStr(useDynamicContext=d1), '0.1')
+
+
+        d1 = dynamics.Dynamic('fff')
+        self.assertEqual(v1.getRealizedStr(useDynamicContext=d1), '0.91')
+
+
+        # if vel is at max, can scale down with a dyanmic
+        v1 = volume.Volume(velocity=127)
+        d1 = dynamics.Dynamic('fff')
+        self.assertEqual(v1.getRealizedStr(useDynamicContext=d1), '1.0')
+
+        d1 = dynamics.Dynamic('ppp')
+        self.assertEqual(v1.getRealizedStr(useDynamicContext=d1), '0.2')
+        d1 = dynamics.Dynamic('mp')
+        self.assertEqual(v1.getRealizedStr(useDynamicContext=d1), '0.9')
+        d1 = dynamics.Dynamic('p')
+        self.assertEqual(v1.getRealizedStr(useDynamicContext=d1), '0.6')
+
+
+    def testGetRealizedB(self):
         
+
+        from music21 import volume, dynamics, articulations
+
+        v1 = volume.Volume(velocity=64)
+        self.assertEqual(v1.getRealizedStr(), '0.5')
+
+        a1 = articulations.StrongAccent()
+        self.assertEqual(v1.getRealizedStr(useArticulations=a1), '0.65')
+
+        a1 = articulations.Accent()
+        self.assertEqual(v1.getRealizedStr(useArticulations=a1), '0.6')
+
+#         d1 = dynamics.Dynamic('ppp')
+#         self.assertEqual(v1.getRealizedStr(useDynamicContext=d1), '0.1')
+
+
+
+
+
+    def testRealizeVolumeA(self):
+        from music21 import stream, dynamics, note, volume
+
+        s = stream.Stream()
+        s.repeatAppend(note.Note('g3'), 16)
+
+        # before insertion of dyanmics
+        match = [n.volume.cachedRealizedStr for n in s.notes]
+        self.assertEqual(match, ['0.71', '0.71', '0.71', '0.71', '0.71', '0.71', '0.71', '0.71', '0.71', '0.71', '0.71', '0.71', '0.71', '0.71', '0.71', '0.71'])
+
+        for i, d in enumerate(['pp', 'p', 'mp', 'f', 'mf', 'ff', 'ppp', 'mf']):
+            s.insert(i*2, dynamics.Dynamic(d))
+
+        # cached will be out of date in regard to new dynamics
+        match = [n.volume.cachedRealizedStr for n in s.notes]
+        self.assertEqual(match, ['0.71', '0.71', '0.71', '0.71', '0.71', '0.71', '0.71', '0.71', '0.71', '0.71', '0.71', '0.71', '0.71', '0.71', '0.71', '0.71'])
+
+        # calling realize will set all to new cached values
+        volume.realizeVolume(s)
+        match = [n.volume.cachedRealizedStr for n in s.notes]
+        self.assertEqual(match, ['0.21', '0.21', '0.43', '0.43', '0.64', '0.64', '0.99', '0.99', '0.78', '0.78', '1.0', '1.0', '0.14', '0.14', '0.78', '0.78'])
+
+        # we can get the same results without using realizeVolume, though
+        # this uses slower context searches
+        s = stream.Stream()
+        s.repeatAppend(note.Note('g3'), 16)
+
+        for i, d in enumerate(['pp', 'p', 'mp', 'f', 'mf', 'ff', 'ppp', 'mf']):
+            s.insert(i*2, dynamics.Dynamic(d))
+        match = [n.volume.cachedRealizedStr for n in s.notes]
+        self.assertEqual(match, ['0.21', '0.21', '0.43', '0.43', '0.64', '0.64', '0.99', '0.99', '0.78', '0.78', '1.0', '1.0', '0.14', '0.14', '0.78', '0.78'])
+
+        # loooking at raw velocity values
+        match = [n.volume.velocity for n in s.notes]
+        self.assertEqual(match, [None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None])
+
+        # can set velocity with realized values
+        volume.realizeVolume(s, setAbsoluteVelocity=True)
+        match = [n.volume.velocity for n in s.notes]
+        self.assertEqual(match, [27, 27, 54, 54, 81, 81, 126, 126, 99, 99, 127, 127, 18, 18, 99, 99])
+
+        #s.show('midi')
+
+    def testRealizeVolumeB(self):
+        from music21 import corpus, dynamics
+        s = corpus.parse('bwv66.6')
+        
+        durUnit = s.highestTime  // 8 # let floor
+        dyns = ['pp', 'p', 'mp', 'f', 'mf', 'ff', 'f', 'mf']
+        
+        for i, p in enumerate(s.parts):
+            for j, d in enumerate(dyns):
+                oTarget = j*durUnit
+                # placing dynamics in Measure requires extra handling
+                m = p.getElementsByOffset(oTarget, 
+                    mustBeginInSpan=False).getElementsByClass('Measure')[0]
+                oInsert = oTarget - m.getOffsetBySite(p)
+                m.insert(oInsert, dynamics.Dynamic(d))
+            # shift 2 places each time
+            dyns = dyns[2:] + dyns[:2]
+        
+        #s.show()
+        #s.show('midi')
+        match = [n.volume.cachedRealizedStr for n in s.parts[0].flat.notes]
+        self.assertEqual(match, ['0.21', '0.21', '0.21', '0.21', '0.21', '0.43', '0.43', '0.43', '0.43', '0.64', '0.64', '0.64', '0.64', '0.64', '0.99', '0.99', '0.99', '0.99', '0.78', '0.78', '0.78', '0.78', '1.0', '1.0', '1.0', '1.0', '0.99', '0.99', '0.99', '0.99', '0.78', '0.78', '0.78', '0.78', '0.78', '0.78', '0.78'])
+
+        match = [n.volume.cachedRealizedStr for n in s.parts[1].flat.notes]
+        self.assertEqual(match, ['0.64', '0.64', '0.64', '0.64', '0.99', '0.99', '0.99', '0.99', '0.99', '0.78', '0.78', '0.78', '0.78', '0.78', '1.0', '1.0', '1.0', '1.0', '0.99', '0.99', '0.99', '0.99', '0.99', '0.78', '0.78', '0.78', '0.78', '0.21', '0.21', '0.21', '0.21', '0.21', '0.21', '0.43', '0.43', '0.43', '0.43', '0.43', '0.43', '0.43', '0.43', '0.43'])
+
+        match = [n.volume.cachedRealizedStr for n in s.parts[3].flat.notes]
+        self.assertEqual(match, ['0.99', '0.99', '0.99', '0.99', '0.99', '0.78', '0.78', '0.78', '0.78', '0.78', '0.21', '0.21', '0.21', '0.21', '0.21', '0.43', '0.43', '0.43', '0.43', '0.43', '0.43', '0.43', '0.64', '0.64', '0.64', '0.64', '0.99', '0.99', '0.99', '0.99', '0.78', '0.78', '0.78', '0.78', '0.78', '1.0', '1.0', '1.0', '1.0', '1.0', '1.0'])
+
+
+    def testRealizeVolumeC(self):
+        from music21 import stream, note, dynamics, articulations
+
+        s = stream.Stream()
+        s.repeatAppend(note.Note('g3'), 16)
+
+        for i in range(0, 16, 3):
+            s.notes[i].articulations.append(articulations.Accent())
+        for i in range(0, 16, 4):
+            s.notes[i].articulations.append(articulations.StrongAccent())
+
+        match = [n.volume.cachedRealizedStr for n in s.notes]
+        self.assertEqual(match, ['0.96', '0.71', '0.71', '0.81', '0.86', '0.71', '0.81', '0.71', '0.86', '0.81', '0.71', '0.71', '0.96', '0.71', '0.71', '0.81'])
+        #s.show()
+        #s.show('midi')
+
 
 
 #-------------------------------------------------------------------------------

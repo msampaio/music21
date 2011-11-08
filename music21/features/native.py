@@ -42,7 +42,7 @@ environLocal = environment.Environment(_MOD)
 # luca gloria:
 # searching for numbers of hits
 # vowel metrical postiion
-# idea of language/text specific
+# idea of language/text specific # DONE
 
 # essen locale and elevation
 
@@ -52,6 +52,9 @@ environLocal = environment.Environment(_MOD)
 # key detection on windowed segments
 # prevalence m/M over 4 bar windwows
 
+# key ambiguity list
+# correlation coefficient
+# harmony realization also adds pitches not available in midi
 
 
 #-------------------------------------------------------------------------------
@@ -138,7 +141,31 @@ class QualityFeature(featuresModule.FeatureExtractor):
 
         self._feature.vector[0] = keyFeature
     
-    
+
+#-------------------------------------------------------------------------------
+class TonalCertainty(featuresModule.FeatureExtractor):
+    '''
+    >>> from music21 import *
+    >>> s = corpus.parse('hwv56/movement3-05.md')
+    >>> fe = features.native.TonalCertainty(s)
+    >>> f = fe.extract()
+    >>> f.vector
+    [1.18093058...]
+
+    '''
+    id = 'K1' # TODO: need id
+    def __init__(self, dataOrStream=None, *arguments, **keywords):
+        featuresModule.FeatureExtractor.__init__(self, dataOrStream=dataOrStream,  *arguments, **keywords)
+
+        self.name = 'Tonal Certainty'
+        self.description = 'A floating point magnitude value that suggest tonal certainty based on automatic key analysis.'
+        self.dimensions = 1
+        self.discrete = False 
+
+    def _process(self):
+        '''Do processing necessary, storing result in _feature.
+        '''
+        self._feature.vector[0] = self.data['flat.tonalCertainty']
 
 
 #-------------------------------------------------------------------------------
@@ -303,7 +330,7 @@ class UniquePitchClassSetSimultaneities(featuresModule.FeatureExtractor):
     >>> s = corpus.parse('hwv56/movement3-05.md')
     >>> fe = features.native.UniquePitchClassSetSimultaneities(s)
     >>> fe.extract().vector
-    [15]
+    [16]
     '''
     id = 'CS1'
     def __init__(self, dataOrStream=None, *arguments, **keywords):
@@ -333,7 +360,7 @@ class UniqueSetClassSimultaneities(featuresModule.FeatureExtractor):
     >>> s = corpus.parse('hwv56/movement3-05.md')
     >>> fe = features.native.UniqueSetClassSimultaneities(s)
     >>> fe.extract().vector
-    [7]
+    [5]
     '''
     id = 'CS2'
     def __init__(self, dataOrStream=None, *arguments, **keywords):
@@ -364,7 +391,7 @@ class MostCommonPitchClassSetSimultaneityPrevalence(
     >>> s = corpus.parse('hwv56/movement3-05.md')
     >>> fe = features.native.MostCommonPitchClassSetSimultaneityPrevalence(s)
     >>> fe.extract().vector
-    [0.166666666...]
+    [0.1333333333333...]
     '''
     id = 'CS3'
     def __init__(self, dataOrStream=None, *arguments, **keywords):
@@ -397,11 +424,11 @@ class MostCommonSetClassSimultaneityPrevalence(featuresModule.FeatureExtractor):
     >>> s = corpus.parse('hwv56/movement3-05.md')
     >>> fe = features.native.MostCommonSetClassSimultaneityPrevalence(s)
     >>> fe.extract().vector
-    [0.2916...]
+    [0.43333333...]
     >>> s2 = corpus.parse('schoenberg/opus19', 6)
     >>> fe2 = features.native.MostCommonSetClassSimultaneityPrevalence(s2)
     >>> fe2.extract().vector
-    [0.20833...]
+    [0.184...]
     '''
     id = 'CS4'
     def __init__(self, dataOrStream=None, *arguments, **keywords):
@@ -434,7 +461,7 @@ class MajorTriadSimultaneityPrevalence(featuresModule.FeatureExtractor):
     >>> s = corpus.parse('hwv56/movement3-05.md')
     >>> fe = features.native.MajorTriadSimultaneityPrevalence(s)
     >>> fe.extract().vector
-    [0.1666666666...]
+    [0.1333333...]
     '''
     id = 'CS5'
     def __init__(self, dataOrStream=None, *arguments, **keywords):
@@ -464,7 +491,7 @@ class MinorTriadSimultaneityPrevalence(featuresModule.FeatureExtractor):
     >>> s = corpus.parse('hwv56/movement3-05.md')
     >>> fe = features.native.MinorTriadSimultaneityPrevalence(s)
     >>> fe.extract().vector # same as major in this work
-    [0.1666666666...]
+    [0.13333333...]
     '''
     id = 'CS6'
     def __init__(self, dataOrStream=None, *arguments, **keywords):
@@ -522,7 +549,7 @@ class DiminishedTriadSimultaneityPrevalence(featuresModule.FeatureExtractor):
     >>> s = corpus.parse('bwv66.6')
     >>> fe = features.native.DiminishedTriadSimultaneityPrevalence(s)
     >>> fe.extract().vector 
-    [0.020408163265...]
+    [0.018867924528...]
     '''
     id = 'CS8'
     def __init__(self, dataOrStream=None, *arguments, **keywords):
@@ -553,11 +580,11 @@ class TriadSimultaneityPrevalence(featuresModule.FeatureExtractor):
     >>> s = corpus.parse('bwv66.6')
     >>> fe = features.native.TriadSimultaneityPrevalence(s)
     >>> fe.extract().vector 
-    [0.7142857142...]
+    [0.71698...]
     >>> s2 = corpus.parse('schoenberg/opus19', 2)
     >>> fe2 = features.native.TriadSimultaneityPrevalence(s2)
     >>> fe2.extract().vector
-    [0.023255...]
+    [0.022727...]
     '''
     id = 'CS9'
     def __init__(self, dataOrStream=None, *arguments, **keywords):
@@ -630,7 +657,7 @@ class IncorrectlySpelledTriadPrevalence(featuresModule.FeatureExtractor):
     >>> s = corpus.parse('mozart/k155', 2)
     >>> fe = features.native.IncorrectlySpelledTriadPrevalence(s)
     >>> fe.extract().vector 
-    [0.00769...]
+    [0.00746...]
     '''
     id = 'CS11'
     def __init__(self, dataOrStream=None, *arguments, **keywords):
@@ -662,6 +689,75 @@ class IncorrectlySpelledTriadPrevalence(featuresModule.FeatureExtractor):
         self._feature.vector[0] = totalIncorrectlySpelled / float(totalForteTriads)
 
 
+class ChordBassMotionFeature(featuresModule.FeatureExtractor):
+    '''
+    A twelve element feature that reports the fraction
+    of all chord motion of music21.harmony.Harmony objects
+    that move up by i-half-steps. (a half-step motion down would
+    be stored in i = 11).  i = 0 is always 0.0 since consecutive
+    chords on the same pitch are ignored (unless there are 0 or 1 harmonies, in which case it is 1)
+       
+    Sample test on the beatles' "here comes the sun"
+    
+    >>> from music21 import *
+    >>> s = converter.parse('http://wikifonia.org/node/8859') # here comes the sun
+    >>> fe = features.native.ChordBassMotionFeature(s)
+    >>> fe.extract().vector 
+    [0.0, 0.05..., 0.14..., 0.03..., 0.06..., 0.3..., 0.008..., 0.303..., 0.0, 0.0, 0.07..., 0.008...]
+
+    
+    '''
+    id = 'CS12'
+    def __init__(self, dataOrStream=None, *arguments, **keywords):
+        featuresModule.FeatureExtractor.__init__(self, dataOrStream=dataOrStream,  *arguments, **keywords)
+
+        self.name = 'Chord Bass Motion'
+        self.description = '12-element vector showing the fraction of chords that move by x semitones (where x=0 is always 0 unless there are 0 or 1 harmonies, in which case it is 1).'
+        self.dimensions = 12
+        self.discrete = False 
+
+    def _process(self):
+        '''Do processing necessary, storing result in _feature.
+        '''
+        # use for total number of chords
+        harms = self.data['flat.getElementsByClass.Harmony']
+
+        totMotion = [0,0,0,0,0,0,0,0,0,0,0,0]
+        totalHarmonicMotion = 0
+        lastHarm = None
+        
+        for thisHarm in harms:
+            if lastHarm is None:
+                lastHarm = thisHarm
+            else:
+                if lastHarm.bass is not None:
+                    lastBass = lastHarm.bass
+                else:
+                    lastBass = lastHarm.root
+                    
+                if thisHarm.bass is not None:
+                    thisBass = thisHarm.bass
+                else:
+                    thisBass = thisHarm.root
+                    
+                if lastBass.pitchClass == thisBass.pitchClass:
+                    pass
+                else:
+                    halfStepMotion = (lastBass.pitchClass - thisBass.pitchClass) % 12
+                    totMotion[halfStepMotion] += 1
+                    totalHarmonicMotion += 1
+                    lastHarm = thisHarm
+                    
+        if totalHarmonicMotion == 0:
+            vector = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        else:
+            totHarmonicMotionFraction = [0.0, 0,0, 0,0,0, 0,0,0, 0,0,0]
+            for i in range(1, 12):
+                totHarmonicMotionFraction[i] = float(totMotion[i]) / totalHarmonicMotion
+            vector = totHarmonicMotionFraction
+
+
+        self._feature.vector = vector
 
 
 #-------------------------------------------------------------------------------
@@ -785,6 +881,43 @@ class LandiniCadence(featuresModule.FeatureExtractor):
 
 
 
+#------------------------------------------------------------------------------
+# text features
+
+class LanguageFeature(featuresModule.FeatureExtractor):
+    '''
+    language of text as a number
+    the number is the index of text.LanguageDetector.languageCodes + 1
+    or 0 if there is no language.
+
+    
+    Detect that the language of "For unto us a child is born" is English.
+
+    >>> from music21 import *
+    >>> s = corpus.parse('handel/hwv56/movement1-13.md') 
+    >>> fe = features.native.LanguageFeature(s)
+    >>> fe.extract().vector
+    [1]
+    '''
+    id = 'TX1'
+
+    def __init__(self, dataOrStream=None, *arguments, **keywords):
+        featuresModule.FeatureExtractor.__init__(self, dataOrStream=dataOrStream,  *arguments, **keywords)
+
+        self.name = 'Language Feature'
+        self.description = 'Languge of the lyrics of the piece given as a numeric value from text.LanguageDetector.mostLikelyLanguageNumeric().'
+        self.dimensions = 1
+        self.discrete = True
+        self.languageDetector = music21.text.LanguageDetector()
+    def _process(self):
+        '''Do processing necessary, storing result in _feature.
+        '''
+        storedLyrics = self.data['assembledLyrics']
+        self._feature.vector[0] = self.languageDetector.mostLikelyLanguageNumeric(storedLyrics)
+
+
+
+
 #-------------------------------------------------------------------------------
 
 
@@ -792,6 +925,8 @@ class LandiniCadence(featuresModule.FeatureExtractor):
 
 featureExtractors = [
 QualityFeature, #p22
+
+TonalCertainty, #k1
 
 UniqueNoteQuarterLengths, # ql1
 MostCommonNoteQuarterLength, # ql2
@@ -809,10 +944,13 @@ DiminishedTriadSimultaneityPrevalence, # cs8
 TriadSimultaneityPrevalence, # cs9
 DiminishedSeventhSimultaneityPrevalence, # cs10
 IncorrectlySpelledTriadPrevalence, # cs11
+ChordBassMotionFeature, #cs12
 
 ComposerPopularity, #md1
 
 LandiniCadence, #mc1
+
+LanguageFeature, #tx1
 ]
 
 

@@ -12,11 +12,12 @@
 '''Utility constants, dictionaries, functions, and objects used throughout music21.
 '''
 
-# should NOT import music21 or anything like that except in doctests.
+# should NOT import music21 or anything like that, except in doctests.
 import re
 import copy
 import math, types, sys, os
 import unittest, doctest
+import fractions
 import decimal
 import time
 import weakref
@@ -82,18 +83,21 @@ VALID_AUTO_DOWNLOAD = ['ask', 'deny', 'allow']
 
 def getMissingImportStr(modNameList):
     '''
+    Given a list of missing module names, returns a nicely-formatted message to the user
+    that gives instructions on how to expand music21 with optional packages.
+    
     >>> getMissingImportStr(['PIL'])
-    'Missing optional package PIL; see http://mit.edu/music21/installAdditional.html'
+    'Certain music21 functions might need the optional package PIL; if you run into errors, install it by following the instructions at http://mit.edu/music21/doc/html/installAdditional.html'
     >>> getMissingImportStr(['PIL', 'numpy'])
-    'Missing optional packages PIL, numpy; see http://mit.edu/music21/installAdditional.html'
+    'Certain music21 functions might need these optional packages: PIL, numpy; if you run into errors, install it by following the instructions at http://mit.edu/music21/doc/html/installAdditional.html'
 
     '''
     if len(modNameList) == 0:
         return None
     elif len(modNameList) == 1:
-        return 'Missing optional package %s; see http://mit.edu/music21/installAdditional.html' % modNameList[0]
+        return 'Certain music21 functions might need the optional package %s; if you run into errors, install it by following the instructions at http://mit.edu/music21/doc/html/installAdditional.html' % modNameList[0]
     else:
-        return 'Missing optional packages %s; see http://mit.edu/music21/installAdditional.html' % ', '.join(modNameList)
+        return 'Certain music21 functions might need these optional packages: %s; if you run into errors, install it by following the instructions at http://mit.edu/music21/doc/html/installAdditional.html' % ', '.join(modNameList)
 
 #-------------------------------------------------------------------------------
 def findFormat(fmt):
@@ -124,10 +128,24 @@ def findFormat(fmt):
     ('midi', '.mid')
     >>> findFormat('abc')
     ('abc', '.abc')
-    >>> findFormat('md')
-    ('musedata', '.md')
     >>> findFormat('scl')
     ('scala', '.scl')
+
+
+    Works the same whether you have a leading dot or not:
+    
+
+    >>> findFormat('md')
+    ('musedata', '.md')
+    >>> findFormat('.md')
+    ('musedata', '.md')
+    
+    
+    If you give something we can't deal with, returns a Tuple of None, None:
+    
+    >>> findFormat('wpd')
+    (None, None)
+    
     '''
     # make lower case, as some lilypond processing used upper case
     fmt = fmt.lower().strip()
@@ -286,6 +304,31 @@ def basicallyEqual(a, b):
 
 basicallyEquals = basicallyEqual
 
+def cleanupFloat(floatNum, maxDenominator=1000):
+    '''
+    Cleans up a floating point number by converting
+    it to a fractions.Fraction object limited to
+    a denominator of maxDenominator
+    
+    >>> from music21 import *
+    >>> common.cleanupFloat(0.33333327824)
+    0.333333333333...
+    
+    >>> common.cleanupFloat(0.142857)
+    0.1428571428571...
+
+    >>> common.cleanupFloat(1.5)
+    1.5
+    
+    '''
+    # this form only works w/ python2.7
+    #f = fractions.Fraction(floatNum).limit_denominator(maxDenominator)
+
+    # this works w/ python2.6, 2.7
+    f = fractions.Fraction.from_float(
+        floatNum).limit_denominator(maxDenominator)
+    return float(f)
+
 def almostEquals(x, y = 0.0, grain=1e-7):
     '''
     The following four routines work for comparisons between floats that are normally inconsistent.
@@ -338,11 +381,21 @@ def nearestCommonFraction(x, grain=1e-2):
     return x
 
 
-def greaterThan(x, y = 0.0):
+def greaterThan(x, y = 0.0, grain=1e-7):
     '''
     greaterThan returns True if x is greater than and not almostEquals y
+
+    >>> from music21 import *
+    >>> common.greaterThan(5, 4)
+    True
+    >>> common.greaterThan(5.05, 5.02)
+    True
+    >>> common.greaterThan(5.000000000005, 5.000000000006)
+    False
+    >>> common.greaterThan(5.000000000006, 5.000000000005)
+    False
     '''
-    if x < y or almostEquals(x, y): 
+    if x < y or almostEquals(x, y, grain): 
         return False
     else: 
         return True
@@ -357,11 +410,24 @@ def greaterThanOrEqual(x, y=0.0, grain=1e-7):
         return False
 
 
-def lessThan(x, y = 0.0):
+def lessThan(x, y = 0.0, grain=1e-7):
     '''
     lessThan -- returns True if x is less than and not almostEquals y
+
+    >>> from music21 import *
+    >>> common.lessThan(5, 4)
+    False
+    >>> common.lessThan(5.2, 5.5)
+    True
+    >>> common.lessThan(5.2, 5.5, grain=1)
+    False
+    >>> common.lessThan(5.000000000005, 5.000000000006)
+    False
+    >>> common.lessThan(5.000000000006, 5.000000000005)
+    False
+
     '''
-    if x > y or almostEquals(x, y): 
+    if x > y or almostEquals(x, y, grain): 
         return False
     else: 
         return True    
@@ -601,7 +667,7 @@ def getNumFromStr(usrStr, numbers='0123456789'):
             found.append(char)
         else:
             remain.append(char)
-    # returns numbers, and then characeters
+    # returns numbers, and then characters
     return ''.join(found), ''.join(remain)
 
 
@@ -982,21 +1048,25 @@ def fromRoman(num):
     Traceback (most recent call last):
     Music21CommonException: invalid roman numeral vx
     '''
-    if (num == 'I' or num == 'i'):
+    num = num.lower()
+    
+    if num == "":
+        raise Music21CommonException("No roman numeral specified.")
+    if (num == 'i'):
         return 1
-    elif (num == 'II' or num == 'ii'):
+    elif (num == 'ii'):
         return 2
-    elif (num == 'III' or num == 'iii'):
+    elif (num == 'iii'):
         return 3
-    elif (num == 'IV' or num == 'iv'):
+    elif (num == 'iv'):
         return 4
-    elif (num == 'V' or num == 'v'):
+    elif (num == 'v'):
         return 5
-    elif (num == 'VI' or num == 'vi'):
+    elif (num == 'vi'):
         return 6
-    elif (num == 'VII' or num == 'vii'):
+    elif (num == 'vii'):
         return 7
-    elif (num == 'VIII' or num == 'viii'):
+    elif (num == 'viii'):
         return 8
     else:
         raise Music21CommonException("invalid roman numeral %s" % (num))
@@ -1273,16 +1343,14 @@ def getPackageData():
     # include these extensions for all directories, even if they are not normally there.
     # also need to update writeManifestTemplate() in setup.py when adding
     # new file extensions
-    ext = ['txt', 'xml', 'krn', 'mxl', 'html', 'png', 
-           'css', 'js', 'pdf', 'xls', 'mid', 'abc', 'json', 'md', 
-           'zip', 'rntxt', 'command', 'scl', 'nwctxt']
+    ext = ['txt', 'xml', 'krn', 'mxl', 'pdf', 'html', 
+           'css', 'js', 'png', 'tiff', 'jpg', 'xls', 'mid', 'abc', 'json', 'md', 
+           'zip', 'rntxt', 'command', 'scl', 'nwctxt', 'wav']
 
     # need all dirs, not just packages, and relative to music21
     fpList = getPackageDir(fpMusic21=None, relative=True, remapSep=None,
                             packageOnly=False)
-
     stub = 'music21%s' % os.sep
-
     match = []
     for fp in fpList:
         # these are relative to music21 package, so remove music21
@@ -1290,7 +1358,6 @@ def getPackageData():
             continue
         elif fp.startswith(stub):
             fp = fp[fp.find(stub)+len(stub):]
-
         for e in ext:
             target = fp + os.sep + '*.%s' % e
             match.append(target)

@@ -293,6 +293,7 @@ class Chord(note.NotRest):
         >>> from music21 import *
         >>> c = chord.Chord(['c3','g#4', 'b5'])
         >>> c.volume = volume.Volume(velocity=90)
+        >>> c.volume.velocityIsRelative = False
         >>> c.midiEvents
         [<MidiEvent DeltaTime, t=0, track=None, channel=None>, <MidiEvent NOTE_ON, t=None, track=None, channel=1, pitch=48, velocity=90>, <MidiEvent DeltaTime, t=0, track=None, channel=None>, <MidiEvent NOTE_ON, t=None, track=None, channel=1, pitch=68, velocity=90>, <MidiEvent DeltaTime, t=0, track=None, channel=None>, <MidiEvent NOTE_ON, t=None, track=None, channel=1, pitch=83, velocity=90>, <MidiEvent DeltaTime, t=1024, track=None, channel=None>, <MidiEvent NOTE_OFF, t=None, track=None, channel=1, pitch=48, velocity=0>, <MidiEvent DeltaTime, t=0, track=None, channel=None>, <MidiEvent NOTE_OFF, t=None, track=None, channel=1, pitch=68, velocity=0>, <MidiEvent DeltaTime, t=0, track=None, channel=None>, <MidiEvent NOTE_OFF, t=None, track=None, channel=1, pitch=83, velocity=0>]
         ''')
@@ -446,10 +447,29 @@ class Chord(note.NotRest):
         return post
 
     def _setPitches(self, value):
+        '''
+        test that root and bass get reset after pitches change:
+        
+        >>> from music21 import *
+        >>> c = chord.Chord(['C4', 'A4', 'E5'])
+        >>> c.bass()
+        C4
+        >>> c.root()
+        A4
+        >>> c.pitches = ['C#4', 'A#4', 'E#5']
+        >>> c.bass()
+        C#4
+        >>> c.root()
+        A#4
+        
+        '''
+        
         #if value != [d['pitch'] for d in self._components]:
         if value != [d.pitch for d in self._components]:
             self._chordTablesAddressNeedsUpdating = True
         self._components = []
+        self._root = None
+        self._bass = None
         # assume we have pitch objects here
         # TODO: individual ties are not being retained here
         for p in value:
@@ -483,13 +503,6 @@ class Chord(note.NotRest):
         for d in self._components:
             if d.tie is not None:
                 return d.tie
-
-        # this finds the tie on the first pitch; it might alternatively
-        # return the first tie available 
-#         if len(self._components) > 0:
-#             if 'tie' in self._components[0].keys():
-#                 return self._components[0]['tie']
-        # otherwise, return None
         return None
 
     tie = property(_getTie, _setTie, 
@@ -508,7 +521,10 @@ class Chord(note.NotRest):
         ''')
 
     def getTie(self, p):
-        '''Given a pitch in this Chord, return an associated Tie object, or return None if not defined for that Pitch.
+        '''
+        Given a pitch in this Chord, return an 
+        associated Tie object, or return None 
+        if not defined for that Pitch.
 
         >>> from music21 import *
         >>> c1 = chord.Chord(['d', 'e-', 'b-'])
@@ -527,25 +543,8 @@ class Chord(note.NotRest):
                 return d.tie
         return None
 
-#         for d in self._components:
-#             # this is an object comparison, not equality
-#             if d['pitch'] is p:
-#                 if 'tie' in d.keys():
-#                     return d['tie']
-#                 else:
-#                     return None
-#         
-#         for d in self._components:
-#             # this is an equality comparison, not object
-#             if d['pitch'] == p:
-#                 if 'tie' in d.keys():
-#                     return d['tie']
-#                 else:
-#                     return None
-        return None
-
     def setTie(self, t, pitchTarget):
-        '''Given a tie object and a pitch in this Chord,
+        '''Given a tie object (or a tie type string) and a pitch in this Chord,
         set the pitch's tie attribute in this chord to that tie type.
         
         
@@ -597,30 +596,7 @@ class Chord(note.NotRest):
             raise ChordException('the given pitch is not in the Chord: %s' % pitchTarget)
 
 
-        # assign to first pitch by default
-#         if pitchTarget is None and len(self._components) > 0: # if no pitch target
-#             pitchTarget = self._components[0]['pitch']
-#         elif common.isStr(pitchTarget):
-#             pitchTarget = pitch.Pitch(pitchTarget)
-#         
-#         if common.isStr(t):
-#             t = tie.Tie(t)
-#         
-#         match = False
-#         for d in self._components:
-#             if d['pitch'] is pitchTarget:
-#                 d['tie'] = t
-#                 match = True
-#         if match is False:
-#             for d in self._components:
-#                 if d['pitch'] == pitchTarget:
-#                     d['tie'] = t
-#                     match = True
-#                     break
-#         if not match:
-#             raise ChordException('the given pitch is not in the Chord: %s' % pitchTarget)
-# 
-#    
+
     
     def getStemDirection(self, p):
         '''Given a pitch in this Chord, return an associated stem attribute, or return 'unspecified' if not defined for that Pitch.
@@ -648,27 +624,14 @@ class Chord(note.NotRest):
                 return d.stemDirection
         return None
             
-#         for d in self._components:
-#             # this is an object comparison, not equality
-#             if d['pitch'] is p:
-#                 if 'stem' in d.keys():
-#                     return d['stem']
-#                 else:
-#                     return 'unspecified'
-#                 
-#         for d in self._components:
-#             # this is an equality comparison, not object
-#             if d['pitch'] == p:
-#                 if 'stem' in d.keys():
-#                     return d['stem']
-#                 else:
-#                     return 'unspecified'
-        return None
     
     def setStemDirection(self, stem, pitchTarget):
-        '''Given a stem attribute as a string and a pitch object in this Chord, set the stem attribute of that pitch to the value of that stem.
+        '''Given a stem attribute as a string and a pitch object in this Chord, set the stem attribute of that pitch to the value of that stem. Valid stem directions are found note.stemDirectionNames (see below).
 
         >>> from music21 import *
+        >>> note.stemDirectionNames
+        ['up', 'down', 'noStem', 'double', 'unspecified', 'none']
+
         >>> n1 = note.Note('D4')
         >>> n2 = note.Note('G4')
         >>> c1 = chord.Chord([n1, n2])
@@ -709,32 +672,11 @@ class Chord(note.NotRest):
                     d.stemDirection = stem
                     match = True
                     break
-
-
-        # assign to first pitch by default
-#         if pitchTarget is None and len(self._components) > 0: # if no pitch target
-#             pitchTarget = self._components[0]['pitch']
-#         elif common.isStr(pitchTarget):
-#             pitchTarget = pitch.Pitch(pitchTarget)    
-#             
-#         match = False
-#         for d in self._components:
-#             if d['pitch'] is pitchTarget:
-#                 d['stem'] = stem
-#                 match = True
-#         if match is False:
-#             for d in self._components:
-#                 if d['pitch'] == pitchTarget:
-#                     d['stem'] = stem
-#                     match = True
-#                     break
-#                 
         if not match:
             raise ChordException('the given pitch is not in the Chord: %s' % pitchTarget)
         
     def getNotehead(self, p):
-        '''Given a pitch in this Chord, return an associated Notehead attribute, or return 'normal' if not defined for that Pitch.
-
+        '''Given a pitch in this Chord, return an associated notehead attribute, or return 'normal' if not defined for that Pitch.
 
         If the pitch is not found, None will be returned. 
         
@@ -761,31 +703,14 @@ class Chord(note.NotRest):
                 return d.notehead
         return None
 
-#         for d in self._components:
-#             if d.pitch is p or d.pitch == p:
-#                 return d.notehead
-        
-#         for d in self._components:
-#             # this is an object comparison, not equality
-#             if d['pitch'] is p:
-#                 if 'notehead' in d.keys():
-#                     return d['notehead']
-#                 else:
-#                     return 'normal'
-#                 
-#         for d in self._components:
-#             # this is an equality comparison, not object
-#             if d['pitch'] == p:
-#                 if 'notehead' in d.keys():
-#                     return d['notehead']
-#                 else:
-#                     return 'normal'
-#         return None
 
     def setNotehead(self, nh, pitchTarget):
-        '''Given a notehead attribute as a string and a pitch object in this Chord, set the notehead attribute of that pitch to the value of that notehead.
+        '''Given a notehead attribute as a string and a pitch object in this Chord, set the notehead attribute of that pitch to the value of that notehead. Valid notehead type names are found in note.noteheadTypeNames (see below):
 
         >>> from music21 import *
+        >>> note.noteheadTypeNames
+        ['slash', 'triangle', 'diamond', 'square', 'cross', 'x', 'circle-x', 'inverted triangle', 'arrow down', 'arrow up', 'slashed', 'back slashed', 'normal', 'cluster', 'none', 'do', 're', 'mi', 'fa', 'so', 'la', 'ti', 'circle dot', 'left triangle', 'rectangle']
+
         >>> n1 = note.Note('D4')
         >>> n2 = note.Note('G4')
         >>> c1 = chord.Chord([n1, n2])
@@ -825,19 +750,8 @@ class Chord(note.NotRest):
                 if d.pitch == pitchTarget:
                     d.notehead = nh
                     match = True
-                    break
-            
-#         match = False
-#         for d in self._components:
-#             if d['pitch'] is pitchTarget:
-#                 d['notehead'] = nh
-#                 match = True
-#         if match is False:
-#             for d in self._components:
-#                 if d['pitch'] == pitchTarget:
-#                     d['notehead'] = nh
-#                     match = True
-#                     break
+                    break            
+
         if not match:
             raise ChordException('the given pitch is not in the Chord: %s' % pitchTarget)
 
@@ -846,7 +760,31 @@ class Chord(note.NotRest):
     # volume per pitch 
 
     def hasComponentVolumes(self):
-        '''Utility method to determine if this object has component volumes, or Volume objets assigned to each note-component.
+        '''Utility method to determine if this object has component :class:`~music21.volume.Volume` objects assigned to each note-component.
+
+        >>> from music21 import *
+        >>> c1 = chord.Chord(['c4', 'd-1', 'g6'])
+        >>> c1.volume = [60, 20, 120]
+        >>> [n.volume.velocity for n in c1]
+        [60, 20, 120]
+        >>> c1.hasComponentVolumes()
+        True
+        >>> c2 = chord.Chord(['c4', 'd-1', 'g6'])
+        >>> c2.volume.velocity = 23
+        >>> c2.hasComponentVolumes()
+        False
+
+        >>> c3 = chord.Chord(['c4', 'd-1', 'g6'])
+        >>> c3.volume = [.2, .5, .8]
+        >>> [n.volume.velocity for n in c3]
+        [25, 64, 102]
+
+        >>> c4 = chord.Chord(['c4', 'd-1', 'g6'])
+        >>> c4.volume = 89
+        >>> c4.volume.velocity      
+        89
+        >>> c4.hasComponentVolumes()
+        False
         '''
         count = 0
         for c in self._components:
@@ -861,13 +799,7 @@ class Chord(note.NotRest):
             return False
 
 
-    def _getVolume(self):
-
-#         post = []
-#         for d in self._components:
-#             post.append(d._getVolume(forceParent=self)) 
-#         return post
-    
+    def _getVolume(self):    
         if not self.hasComponentVolumes() and self._volume is None:
             # create a single new Volume object for the chord
             return note.NotRest._getVolume(self, forceParent=self)
@@ -901,12 +833,24 @@ class Chord(note.NotRest):
 #                 # if we set c.volume, the parent of volume will be the Note
 #                 # parent needs to be set to the chord
 #                 value.parent = self
-#                 c._setVolume(value, setParent=False)                
+#                 c._setVolume(value, setParent=False) 
+        elif common.isNum(value):
+            vol = self._getVolume()
+            if value < 1: # assume a scalar
+                vol.velocityScalar = value                        
+            else: # assume velocity
+                vol.velocity = value
+
         elif common.isListLike(value): # assume an array of vol objects
             # if setting components, remove single velocity 
             self._volume = None
             for i, c in enumerate(self._components):
                 v = value[i%len(value)]
+                if common.isNum(v): # create a new Volume
+                    if v < 1: # assume a scalar
+                        v = volume.Volume(velocityScalar=v)                        
+                    else: # assume velocity
+                        v = volume.Volume(velocity=v)
                 v.parent = self
                 c._setVolume(v, setParent=False)
         else:
@@ -927,16 +871,24 @@ class Chord(note.NotRest):
 
         
     volume = property(_getVolume, _setVolume, doc='''
-        When setting the .volume property, all pitches are set to the same Volume object. 
+        Get or set the :class:`~music21.volume.Volume` object for this Chord. When setting the .volume property, all pitches are treated as having the same Volume object. 
 
         >>> from music21 import *
         >>> c = chord.Chord(['g#', 'd-'])
         >>> c.volume
         <music21.volume.Volume realized=0.71>
         >>> c.volume = volume.Volume(velocity=64)
+        >>> c.volume.velocityIsRelative = False
         >>> c.volume
         <music21.volume.Volume realized=0.5>
         >>> c.volume = [volume.Volume(velocity=96), volume.Volume(velocity=96)]
+        >>> c.hasComponentVolumes()
+        True
+        >>> c._volume == None
+        True
+        >>> c.volume.velocity
+        96
+        >>> c.volume.velocityIsRelative = False
         >>> c.volume  # return a new volume that is an average
         <music21.volume.Volume realized=0.76>
 
@@ -944,7 +896,7 @@ class Chord(note.NotRest):
         
 
     def getVolume(self, p):
-        '''For a given Pitch in this Chord, return the Volume      
+        '''For a given Pitch in this Chord, return the :class:`~music21.volume.Volume` object.      
         '''
         # NOTE: pitch matching is potentially problematic if we have more than
         # one of the same pitch
@@ -970,7 +922,7 @@ class Chord(note.NotRest):
 
 
     def setVolume(self, vol, pitchTarget=None):
-        '''Set the volume object of a specific pitch target. If no pitch target is given, the first pitch is used. 
+        '''Set the :class:`~music21.volume.Volume` object of a specific pitch target. If no pitch target is given, the first pitch is used. 
 
         >>> from music21 import *
         '''
@@ -1340,9 +1292,21 @@ class Chord(note.NotRest):
         >>> c = chord.Chord(['a', 'c', 'e'])
         >>> c.duration
         <music21.duration.Duration 1.0>
+        
+        
+        Durations can be overridden after the fact:
+        
+        
         >>> d = duration.Duration()
         >>> d.quarterLength = 2
         >>> c.duration = d
+        >>> c.duration
+        <music21.duration.Duration 2.0>
+        >>> c.duration == d
+        True
+        >>> c.duration is d
+        True
+        
         ''')
 
     def _getScaleDegrees(self):
@@ -2858,16 +2822,7 @@ class Chord(note.NotRest):
 
 
     def _getForteClass(self):
-        '''Return a forte class name
-
-        >>> from music21 import *
-        >>> c1 = chord.Chord(['c', 'e-', 'g'])
-        >>> c1.forteClass
-        '3-11A'
-
-        >>> c2 = chord.Chord(['c', 'e', 'g'])
-        >>> c2.forteClass
-        '3-11B'
+        '''Return a forte class name w/ inversions represented distinctly (Tn space)
         '''
         self._updateChordTablesAddress()
         return chordTables.addressToForteName(self._chordTablesAddress, 'tn')
@@ -2875,16 +2830,30 @@ class Chord(note.NotRest):
     forteClass = property(_getForteClass, 
         doc = '''Return the Forte set class name as a string. This assumes a Tn formation, where inversion distinctions are represented. 
 
+        (synonym: forteClassTn)
+
         >>> from music21 import *
+        
+        >>> c1 = chord.Chord(['c', 'e-', 'g'])
+        >>> c1.forteClass
+        '3-11A'
+        
         >>> c2 = chord.Chord(['c', 'e', 'g'])
         >>> c2.forteClass
         '3-11B'
         ''')    
 
     forteClassTn = property(_getForteClass, 
-        doc = '''Return the Forte Tn set class name, where inversion distinctions are represented.
+        doc = '''
+        A synonym for "forteClass"
+        
+        Return the Forte Tn set class name, where inversion distinctions are represented.
 
         >>> from music21 import *
+        >>> c1 = chord.Chord(['c', 'e-', 'g'])
+        >>> c1.forteClass
+        '3-11A'
+
         >>> c2 = chord.Chord(['c', 'e', 'g'])
         >>> c2.forteClassTn
         '3-11B'
@@ -3254,26 +3223,26 @@ class Chord(note.NotRest):
         else:
             returnObj = self
 
-        unique = []
-        delete = []
-        for p in returnObj.pitches:
-            if getattr(p, attribute) not in unique:
-                unique.append(getattr(p, attribute)) 
+        uniquePitches = []
+        deleteComponents = []
+        for comp in returnObj._components:
+            if getattr(comp.pitch, attribute) not in uniquePitches:
+                uniquePitches.append(getattr(comp.pitch, attribute)) 
             else:
-                delete.append(p)
+                deleteComponents.append(comp)
 
         #environLocal.printDebug(['unique, delete', self, unique, delete])
-        altered = returnObj.pitches
-        for p in delete:
+        altered = returnObj._components
+        for p in deleteComponents:
             altered.remove(p)
 
-        returnObj.pitches = altered
-        if len(delete) > 0:
+        returnObj._components = altered
+        if len(deleteComponents) > 0:
             returnObj._chordTablesAddressNeedsUpdating = True
-
+            returnObj._bass = None
+            returnObj._root = None
         if not inPlace:
             return returnObj
-
 
 
     def removeRedundantPitches(self, inPlace=True):

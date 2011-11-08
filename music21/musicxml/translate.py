@@ -889,6 +889,7 @@ def timeSignatureToMx(ts):
     >>> a = meter.TimeSignature('3/4+2/4')
     >>> b = timeSignatureToMx(a)
     '''
+    from music21 import meter
     #mxTimeList = []
     mxTime = musicxmlMod.Time()
     # always get a flat version to display any subivisions created
@@ -896,7 +897,7 @@ def timeSignatureToMx(ts):
     if ts.summedNumerator:
         # this will try to reduce any common denominators into 
         # a common group
-        fList = fractionToSlashMixed(fList)
+        fList = meter.fractionToSlashMixed(fList)
 
     for n,d in fList:
         mxBeats = musicxmlMod.Beats(n)
@@ -1206,19 +1207,19 @@ def mxToRepeatExpression(mxDirection):
 #-------------------------------------------------------------------------------
 # Harmony
 
-def mxToHarmony(mxHarmony):
-    #environLocal.printDebug(['mxToHarmony():', mxHarmony])
+def mxToChordSymbol(mxHarmony):
+    #environLocal.printDebug(['mxToChordSymbol():', mxHarmony])
     from music21 import harmony
     from music21 import pitch
 
-    h = harmony.Harmony()
+    cs = harmony.ChordSymbol()
 
     mxKind = mxHarmony.get('kind')
     if mxKind is not None:
-        h.kind = mxKind.charData
+        cs.kind = mxKind.charData
         mxKindText = mxKind.get('text')
         if mxKindText is not None:
-            h.kindStr = mxKindText
+            cs.kindStr = mxKindText
     
     mxRoot = mxHarmony.get('root')
     if mxRoot is not None:
@@ -1227,7 +1228,7 @@ def mxToHarmony(mxHarmony):
             # can provide integer to create accidental on pitch
             r.accidental = pitch.Accidental(int(mxRoot.get('rootAlter')))
         # set Pitch object on Harmony
-        h.root = r
+        cs.root = r
 
     mxBass = mxHarmony.get('bass')
     if mxBass is not None:
@@ -1236,15 +1237,15 @@ def mxToHarmony(mxHarmony):
             # can provide integer to create accidental on pitch
             b.accidental = pitch.Accidental(int(mxBass.get('bassAlter')))
         # set Pitch object on Harmony
-        h.bass = b
+        cs.bass = b
 
     mxInversion = mxHarmony.get('inversion')
     if mxInversion is not None:
-        h.inversion = int(mxInversion) # must be an int
+        cs.inversion = int(mxInversion) # must be an int
 
     mxFunction = mxHarmony.get('function')
     if mxFunction is not None:
-        h.romanNumeral = mxFunction # goes to roman property
+        cs.romanNumeral = mxFunction # goes to roman property
 
     mxDegree = mxHarmony.get('degree')
     if mxDegree is not None: # a list of components
@@ -1262,32 +1263,32 @@ def mxToHarmony(mxHarmony):
             elif isinstance(mxSub, musicxmlMod.DegreeAlter):
                 hd.interval = int(mxSub.charData)
             elif isinstance(mxSub, musicxmlMod.DegreeType):
-                hd.type = int(mxSub.charData)
+                hd.type = mxSub.charData
             else:
                 raise TranslateException('found unexpected object in degree tag: %s' % mxSub)
         # must get last on loop exit
         if hd is not None: 
             harmonyDegrees.append(hd)
         for hd in harmonyDegrees:
-            h.addHarmonyDegree(hd)
+            cs.addHarmonyDegree(hd)
 
     #environLocal.printDebug(['mxToHarmony(): Harmony object', h])
-    return h
+    return cs
     
 
-def harmonyToMx(h):
+def chordSymbolToMx(cs):
     '''
     >>> from music21 import *
-    >>> h = harmony.Harmony()
-    >>> h.root = 'E-'
-    >>> h.bass = 'B-'
-    >>> h.inversion = 2
-    >>> h.romanNumeral = 'I64'
-    >>> h.kind = 'major'
-    >>> h.kindStr = 'M'
-    >>> h
-    <music21.harmony.Harmony kind=major (M) root=E- bass=B- inversion=2>
-    >>> mxHarmony = musicxml.translate.harmonyToMx(h)
+    >>> cs = harmony.ChordSymbol()
+    >>> cs.root = 'E-'
+    >>> cs.bass = 'B-'
+    >>> cs.inversion = 2
+    >>> cs.romanNumeral = 'I64'
+    >>> cs.kind = 'major'
+    >>> cs.kindStr = 'M'
+    >>> cs
+    <music21.harmony.ChordSymbol kind=major (M) root=E- bass=B- inversion=2 duration=0.0>
+    >>> mxHarmony = musicxml.translate.chordSymbolToMx(cs)
     >>> mxHarmony
     <harmony <root root-step=E root-alter=-1> function=I64 <kind text=M charData=major> inversion=2 <bass bass-step=B bass-alter=-1>>
 
@@ -1295,41 +1296,41 @@ def harmonyToMx(h):
     >>> hd.type = 'alter'
     >>> hd.interval = -1
     >>> hd.degree = 3
-    >>> h.addHarmonyDegree(hd)
+    >>> cs.addHarmonyDegree(hd)
 
-    >>> mxHarmony = musicxml.translate.harmonyToMx(h)
+    >>> mxHarmony = musicxml.translate.chordSymbolToMx(cs)
     >>> mxHarmony
     <harmony <root root-step=E root-alter=-1> function=I64 <kind text=M charData=major> inversion=2 <bass bass-step=B bass-alter=-1> <degree <degree-value charData=3> <degree-alter charData=-1> <degree-type charData=alter>>>        
     '''
     mxHarmony = musicxmlMod.Harmony()
 
     mxKind = musicxmlMod.Kind()
-    mxKind.set('charData', h.kind)
-    mxKind.set('text', h.kindStr)
+    mxKind.set('charData', cs.kind)
+    mxKind.set('text', cs.kindStr)
     mxHarmony.set('kind', mxKind)
 
     # can assign None to these if None
-    mxHarmony.set('inversion', h.inversion)
-    if h.romanNumeral is not None:
-        mxHarmony.set('function', h.romanNumeral.figure)
+    mxHarmony.set('inversion', cs.inversion)
+    if cs.romanNumeral is not None:
+        mxHarmony.set('function', cs.romanNumeral.figure)
 
-    if h.root is not None:        
+    if cs.root is not None:        
         mxRoot = musicxmlMod.Root()
-        mxRoot.set('rootStep', h.root.step)
-        if  h.root.accidental is not None:
-            mxRoot.set('rootAlter', int(h.root.accidental.alter))
+        mxRoot.set('rootStep', cs.root.step)
+        if cs.root.accidental is not None:
+            mxRoot.set('rootAlter', int(cs.root.accidental.alter))
         mxHarmony.set('root', mxRoot)
 
-    if h.bass is not None:        
+    if cs.bass is not None:        
         mxBass = musicxmlMod.Bass()
-        mxBass.set('bassStep', h.bass.step)
-        if  h.bass.accidental is not None:
-            mxBass.set('bassAlter', int(h.bass.accidental.alter))
+        mxBass.set('bassStep', cs.bass.step)
+        if cs.bass.accidental is not None:
+            mxBass.set('bassAlter', int(cs.bass.accidental.alter))
         mxHarmony.set('bass', mxBass)
 
-    if len(h.getHarmonyDegrees()) > 0:
+    if len(cs.getHarmonyDegrees()) > 0:
         mxDegree = musicxmlMod.Degree()
-        for hd in h.getHarmonyDegrees():
+        for hd in cs.getHarmonyDegrees():
             # types should be compatible
             mxDegreeValue = musicxmlMod.DegreeValue()
             mxDegreeValue.set('charData', hd.degree)
@@ -1376,15 +1377,15 @@ def instrumentToMx(i):
     # note: this is id, not partId!
     mxScorePart.set('id', i.partId)
 
-    if i.partName != None:
+    if i.partName is not None:
         mxScorePart.partName = i.partName
-    elif i.partName == None: # get default, as required
+    elif i.partName is None: # get default, as required
         mxScorePart.partName = defaults.partName
 
-    if i.partAbbreviation != None:
+    if i.partAbbreviation is not None:
         mxScorePart.partAbbreviation = i.partAbbreviation
 
-    if i.instrumentName != None or i.instrumentAbbreviation != None:
+    if i.instrumentName is not None or i.instrumentAbbreviation is not None:
         mxScoreInstrument = musicxmlMod.ScoreInstrument()
         # set id to same as part for now
         mxScoreInstrument.set('id', i.instrumentId)
@@ -1394,7 +1395,7 @@ def instrumentToMx(i):
         # add to mxScorePart
         mxScorePart.scoreInstrumentList.append(mxScoreInstrument)
 
-    if i.midiProgram != None:
+    if i.midiProgram is not None:
         mxMIDIInstrument = musicxmlMod.MIDIInstrument()
         mxMIDIInstrument.set('id', i.instrumentId)
         # shift to start from 1
@@ -1418,16 +1419,24 @@ def mxToInstrument(mxScorePart, inputM21=None):
     else:
         i = inputM21
 
-    i.partId = mxScorePart.get('id')
-    i.partName = mxScorePart.get('partName')
-    i.partAbbreviation = mxScorePart.get('partAbbreviation')
+    def _cleanStr(str):
+        # need to remove badly-formed strings
+        if str is None: 
+            return None
+        str = str.strip()
+        str = str.replace('\n', ' ')        
+        return str
+
+    i.partId = _cleanStr(mxScorePart.get('id'))
+    i.partName = _cleanStr(mxScorePart.get('partName'))
+    i.partAbbreviation = _cleanStr(mxScorePart.get('partAbbreviation'))
 
     # for now, just get first instrument
     if len(mxScorePart.scoreInstrumentList) > 0:
         mxScoreInstrument = mxScorePart.scoreInstrumentList[0]
-        i.instrumentName = mxScoreInstrument.get('instrumentName')
-        i.instrumentAbbreviation = mxScoreInstrument.get(
-                                        'instrumentAbbreviation')
+        i.instrumentName = _cleanStr(mxScoreInstrument.get('instrumentName'))
+        i.instrumentAbbreviation = _cleanStr(mxScoreInstrument.get(
+                                        'instrumentAbbreviation'))
     if len(mxScorePart.midiInstrumentList) > 0:
         # for now, just get first midi instrument
         mxMIDIInstrument = mxScorePart.midiInstrumentList[0]
@@ -1493,23 +1502,40 @@ def chordToMx(c):
         # merge method returns a new object
         chordPos = 0
         mxNoteChordGroup = []
-        for pitchObj in c.pitches:
+        for n in c: # iterate component notes
+        #for pitchObj in c.pitches:
             # copy here, before merge
             mxNote = copy.deepcopy(mxNoteBase)
-            mxNote = mxNote.merge(pitchObj.mx, returnDeepcopy=False)
+            mxNote = mxNote.merge(n.pitch.mx, returnDeepcopy=False)
             if chordPos > 0:
                 mxNote.set('chord', True)
             # get color from within .editorial using attribute
-            mxNote.set('color', c.color)
+            # mxNote.set('color', c.color) -- Music Hack Day - Color is set in notheadToMxNotehead
             # get notehead object
-            nh = c.getNotehead(pitchObj)
-            mxNote.noteheadObj = noteheadToMxNotehead(pitchObj, overRiddenNotehead = nh)
-            
-            #get the stem direction
-            stemDir = c.getStemDirection(pitchObj)
-            mxNote.stem = stemDir
-            
+            #nh = c.getNotehead(n.pitch)
+            nh = n.notehead
 
+            mxNote.noteheadObj = noteheadToMxNotehead(n)
+#             environLocal.printDebug(['parsed mx notehead', mxNote.noteheadObj])
+#             environLocal.printDebug(['n.stemDirection', n.stemDirection])
+#             environLocal.printDebug(['c.stemDirection', c.stemDirection])
+
+            #get the stem direction from the chord, not the pitch
+            if c.stemDirection != 'unspecified':
+                if c.stemDirection in ['noStem', None]:
+                    mxNote.stem = 'none'
+                else:
+                    mxNote.stem = c.stemDirection
+            # if not specified, try to get from note
+            elif c.stemDirection == 'unspecified':
+                if n.stemDirection != 'unspecified':
+                    #environLocal.printDebug(['found specified component stemdirection', n.stemDirection])
+                    if n.stemDirection in ['noStem', None]:
+                        mxNote.stem = 'none'
+                    else:
+                        mxNote.stem = n.stemDirection            
+
+            #environLocal.pd(['final note stem', mxNote.stem])
             # only add beam to first note in group
             if c.beams != None and chordPos == 0:
                 mxNote.beamList = c.beams.mx
@@ -1519,7 +1545,8 @@ def chordToMx(c):
 
             # get mxl objs from tie obj
             #mxTieList, mxTiedList = c.tie.mx 
-            tieObj = c.getTie(pitchObj) # get for each pitch
+            #tieObj = c.getTie(n.pitch) # get for each pitch
+            tieObj = n.tie
             if tieObj is not None:
                 #environLocal.printDebug(['chordToMx: found tie for pitch', pitchObj])
 
@@ -1568,6 +1595,8 @@ def chordToMx(c):
         obj = c.expressions[i]
         if hasattr(obj, 'mx'): 
             mxNoteList[0].notationsObj.componentList.append(obj.mx)
+
+    #environLocal.pd(['final note list', mxNoteList])
 
     return mxNoteList
 
@@ -1640,7 +1669,7 @@ def mxToChord(mxNoteList, inputM21=None):
         #extract notehead objects
         nh = mxNote.get('noteheadObj')
         noteheads.append(nh)
-        
+
         #extract stem directions
         stemDir = mxNote.get('stem')
         stemDirs.append(stemDir)
@@ -1658,7 +1687,6 @@ def mxToChord(mxNoteList, inputM21=None):
     # set beams from first note of chord
     c.beams.mx = mxNoteList[0].beamList
 
-
     # set ties based on pitches
     for i, t in enumerate(ties):
         if t is not None:
@@ -1668,7 +1696,7 @@ def mxToChord(mxNoteList, inputM21=None):
     #set notehead based on pitches
     index = 0
     for obj in noteheads:
-        if obj !=None:
+        if obj is not None:
             c.setNotehead(obj.charData, c.pitches[index])
         index+=1
         
@@ -1707,7 +1735,7 @@ def generalNoteToMusicXML(n):
     # call the musicxml property on Stream
     return out.musicxml
     
-def noteheadToMxNotehead(obj, spannerBundle=None, overRiddenNotehead = None, overRiddenNoteheadFill = None, overRiddenNoteheadParen = None):
+def noteheadToMxNotehead(obj):
     '''
     Translate a music21 :class:`~music21.note.Note` object or :class:`~music21.pitch.Pitch` object to a
     into a musicxml.Notehead object.
@@ -1725,20 +1753,6 @@ def noteheadToMxNotehead(obj, spannerBundle=None, overRiddenNotehead = None, ove
     >>> mxN = musicxml.translate.noteheadToMxNotehead(n)
     >>> mxN.get('charData')
     'diamond'
-
-
-    >>> p = pitch.Pitch('E--5')
-    >>> mxN2 = musicxml.translate.noteheadToMxNotehead(p, overRiddenNotehead = 'slash')
-    >>> mxN2.get('charData')
-    'slash'
-    
-    
-    >>> p2 = pitch.Pitch('C3')
-    >>> mxN3 = musicxml.translate.noteheadToMxNotehead(p2, overRiddenNotehead = 'diamond', overRiddenNoteheadFill = 'no', overRiddenNoteheadParen = 'yes')
-    >>> mxN3._attr['filled']
-    'no'
-    >>> mxN3._attr['parentheses']
-    'yes'
     
     >>> n1 = note.Note('c3')
     >>> n1.notehead = 'diamond'
@@ -1751,47 +1765,41 @@ def noteheadToMxNotehead(obj, spannerBundle=None, overRiddenNotehead = None, ove
     'yes'
     '''
     
+    from music21 import note # needed for note.noteheadTypeNames
+
     mxNotehead = musicxmlMod.Notehead()
 
-	#Ensures that the music21 notehead value is supported by MusicXML, and then sets the MusicXML notehead's 'charaData' to the value of the Music21 notehead.
-    supportedValues = ['slash', 'triangle', 'diamond', 'square', 'cross', 'x' , 'circle-x', 'inverted triangle', 'arrow down', 'arrow up', 'slashed', 'back slashed', 'normal', 'cluster', 'none', 'do', 're', 'mi', 'fa', 'so', 'la', 'ti', 'circle dot', 'left triangle', 'rectangle']
     nh = None
     nhFill = 'default'
     nhParen = False
     
-    if 'Pitch' in obj.classes:
-        if overRiddenNotehead is None:
-            nh = 'normal'
-        else:
-            nh = overRiddenNotehead
-    elif hasattr(obj, 'notehead'):
+    nh = 'normal'
+#     if 'Pitch' in obj.classes:
+#         if overRiddenNotehead is not None:
+#             nh = overRiddenNotehead
+    if hasattr(obj, 'notehead'):
         nh = obj.notehead
-    else:
-        nh = 'normal'
         
-    if 'Pitch' in obj.classes:
-        if overRiddenNoteheadFill is None:
-            nhFill = 'default'
-        else:
-            nhFill = overRiddenNoteheadFill
-    elif hasattr(obj, 'noteheadFill'):
+    nhFill = 'default'
+#     if 'Pitch' in obj.classes:
+#         if overRiddenNoteheadFill is not None:
+#             nhFill = overRiddenNoteheadFill
+    if hasattr(obj, 'noteheadFill'):
         nhFill = obj.noteheadFill
-    else:
-        nhFill = 'default'
-        
-    if 'Pitch' in obj.classes:
-        if overRiddenNoteheadParen is None:
-            nhParen = False
-        else:
-            nhParen = overRiddenNoteheadParen
-    elif hasattr(obj, 'noteheadParen'):
+    #environLocal.pd(['nhFill', nhFill])        
+
+    nhParen = False
+#     if 'Pitch' in obj.classes:
+#         if overRiddenNoteheadParen is not None:
+#             nhParen = overRiddenNoteheadParen
+    if hasattr(obj, 'noteheadParen'):
         nhParen = obj.noteheadParen
-    else:
-        nhParen = False
     
-    if nh not in supportedValues:
+    if nh not in note.noteheadTypeNames:
         raise NoteheadException('This notehead type is not supported by MusicXML.')
     else:
+        # should only set if needed, otherwise creates extra mxl data
+        #if nh not in ['normal']: 
         mxNotehead.set('charData', nh)
         
     if nhFill != 'default':
@@ -1799,6 +1807,10 @@ def noteheadToMxNotehead(obj, spannerBundle=None, overRiddenNotehead = None, ove
     
     if nhParen != False:
         mxNotehead._attr['parentheses'] = nhParen
+
+    # -- Music Hack Day - color is now set in nothead object
+    if obj.color:
+        mxNotehead._attr['color'] = obj.color
         
     return mxNotehead
 
@@ -1836,7 +1848,8 @@ def noteToMxNotes(n, spannerBundle=None):
         mxNote = mxNote.merge(pitchMx, returnDeepcopy=False)
         # get color from within .editorial using attribute
         if noteColor != "":
-            mxNote.set('color', noteColor)
+            pass
+            #mxNote.set('color', noteColor)  -- Music Hack Day - Color is set in notheadToMxNotehead
         if n.hideObjectOnPrint == True:
             mxNote.set('printObject', "no")
             mxNote.set('printSpacing', "yes")
@@ -1912,12 +1925,13 @@ def noteToMxNotes(n, spannerBundle=None):
             mxNoteList[0].notationsObj.componentList.append(mxSlur)
             
     #Adds the notehead type if it is not set to the default 'normal'.
-    if n.notehead != 'normal':
+    # -- Music Hack Day - Color is set in notheadToMxNotehead
+    if n.notehead != 'normal' or n.noteheadFill != 'default' or n.color:
        mxNoteList[0].noteheadObj = noteheadToMxNotehead(n)
     
     #If the stem direction is not 'unspecified'    
     if n.stemDirection != 'unspecified':
-        if n.stemDirection == 'noStem':
+        if n.stemDirection in ['noStem']:
             mxNoteList[0].stem = 'none'
         else:
             mxNoteList[0].stem = n.stemDirection
@@ -2086,20 +2100,17 @@ def mxToRest(mxNote, inputM21=None):
 def measureToMx(m, spannerBundle=None, mxTranspose=None):
     '''Translate a :class:`~music21.stream.Measure` to a MusicXML :class:`~music21.musicxml.Measure` object.
     '''
-    #environLocal.printDebug(['measureToMx(): got spannerBundle:', spannerBundle])
+    #environLocal.printDebug(['measureToMx(): m.isSorted:', m.isSorted, 'm._mutable', m._mutable])
     if spannerBundle is not None:
         # get all spanners that have this measure as a component    
         rbSpanners = spannerBundle.getByComponentAndClass(
                           m, 'RepeatBracket')
-        #environLocal.printDebug(['measureToMx', 'm', m, 'len(rbSpanners)',
-        #                     len(rbSpanners)])
     else:
         rbSpanners = [] # for size comparison
 
     mxMeasure = musicxmlMod.Measure()
     mxMeasure.set('number', m.number)
-
-    if m.layoutWidth != None:
+    if m.layoutWidth is not None:
         mxMeasure.set('width', m.layoutWidth)
 
     # print objects come before attributes
@@ -2155,20 +2166,20 @@ def measureToMx(m, spannerBundle=None, mxTranspose=None):
         # setting location outside of object based on that this attribute
         # is the leftBarline
         mxBarline.set('location', 'left')
-    
         # if we have spanners here, we can be sure they are relevant
         if len(rbSpanners) > 0:
             mxEnding = musicxmlMod.Ending()
             mxEnding.set('type', 'start')
             mxEnding.set('number', rbSpanners[0].number)
             mxBarline.set('endingObj', mxEnding)
-
         mxMeasure.componentList.append(mxBarline)
     
     # need to handle objects in order when creating musicxml 
     # we thus assume that objects are sorted here
     
+    nonVoiceMeasureItems = None
     if m.hasVoices():
+        nonVoiceMeasureItems = m.getElementsNotOfClass('Stream')
         # store divisions for use in calculating backup of voices 
         divisions = mxAttributes.divisions
         for v in m.voices:
@@ -2199,15 +2210,19 @@ def measureToMx(m, spannerBundle=None, mxTranspose=None):
             mxBackup.duration = int(divisions * offsetMeasureNote)
             mxMeasure.componentList.append(mxBackup)
 
-    else: # no voices
-        mFlat = m.flat
+    if not m.hasVoices() or nonVoiceMeasureItems is not None: # no voices
+        if nonVoiceMeasureItems is not None:
+            mFlat = nonVoiceMeasureItems # this is a Stream
+        else:
+            mFlat = m.flat
         for obj in mFlat:
+            #environLocal.pd(['iterating flat M components', obj, obj.offset])
             classes = obj.classes # store result of property call once
             if 'Note' in classes:
                 mxMeasure.componentList += noteToMxNotes(obj, 
                     spannerBundle=spannerBundle)
             elif 'GeneralNote' in classes:
-                # .mx here returns a list of notes
+                # .mx here returns a list of notes; this could be a rest
                 mxMeasure.componentList += obj.mx
             elif 'Dynamic' in classes:
                 # returns an mxDirection object
@@ -2216,10 +2231,8 @@ def measureToMx(m, spannerBundle=None, mxTranspose=None):
                 mxDirection = dynamicToMx(obj)
                 mxDirection.offset = mxOffset 
                 mxMeasure.insert(0, mxDirection)
-
-            elif 'Harmony' in classes:
-                mxMeasure.componentList.append(harmonyToMx(obj))
-
+            elif 'ChordSymbol' in classes:
+                mxMeasure.componentList.append(chordSymbolToMx(obj))
             elif 'Segno' in classes:
                 mxOffset = int(defaults.divisionsPerQuarter * 
                            obj.getOffsetBySite(mFlat))
@@ -2232,7 +2245,6 @@ def measureToMx(m, spannerBundle=None, mxTranspose=None):
                 mxDirection = codaToMx(obj)
                 mxDirection.offset = mxOffset 
                 mxMeasure.insert(0, mxDirection)
-
             elif 'MetronomeMark' in classes or 'MetricModulation' in classes:
                 #environLocal.printDebug(['measureToMx: found:', obj])
                 # convert m21 offset to mxl divisions
@@ -2245,16 +2257,16 @@ def measureToMx(m, spannerBundle=None, mxTranspose=None):
                     # uses internal offset positioning, can insert at zero
                     mxMeasure.insert(0, mxDirection)
                     #mxMeasure.componentList.append(mxObj)
-
             elif 'TextExpression' in classes:
                 # convert m21 offset to mxl divisions
+                #environLocal.printDebug(['found TextExpression', obj])
+
                 mxOffset = int(defaults.divisionsPerQuarter * 
                            obj.getOffsetBySite(mFlat))
                 mxDirection = textExpressionToMx(obj)
                 mxDirection.offset = mxOffset 
                 # place at zero position, as offset value determines horizontal position, not location amongst notes
                 mxMeasure.insert(0, mxDirection)
-
             elif 'RepeatExpression' in classes:
                 # subclass of RepeatMark and Expression
                 mxOffset = int(defaults.divisionsPerQuarter * 
@@ -2264,7 +2276,6 @@ def measureToMx(m, spannerBundle=None, mxTranspose=None):
                 mxDirection.offset = mxOffset 
                 # place at zero position, as offset value determines horizontal position, not location amongst notes
                 mxMeasure.insert(0, mxDirection)
-
             else: # other objects may have already been added
                 pass
                 #environLocal.printDebug(['_getMX of Measure is not processing', obj])
@@ -2731,7 +2742,7 @@ def mxToMeasure(mxMeasure, spannerBundle=None, inputM21=None):
 
         elif isinstance(mxObj, musicxmlMod.Harmony):
             mxHarmony = mxObj
-            h = mxToHarmony(mxHarmony)
+            h = mxToChordSymbol(mxHarmony)
             _addToStaffReference(mxObj, h, staffReference)
             m._insertCore(offsetMeasureNote, h)
 
@@ -2799,7 +2810,7 @@ def measureToMusicXML(m):
 # Streams
 
 
-def streamPartToMx(part, instObj=None, meterStream=None,
+def streamPartToMx(part, instStream=None, meterStream=None,
                    refStreamOrTimeRange=None, spannerBundle=None):
     '''
     If there are Measures within this stream, use them to create and
@@ -2818,24 +2829,17 @@ def streamPartToMx(part, instObj=None, meterStream=None,
     #environLocal.printDebug(['calling Stream._getMXPart'])
     # note: meterStream may have TimeSignature objects from an unrelated
     # Stream.
-    if instObj is None:
+    if instStream is None:
         # see if an instrument is defined in this or a parent stream
         instObj = part.getInstrument()
+        instStream = stream.Stream()
+        instStream.insert(0, instObj) # create for storage
+    else:
+        instObj = instStream[0]
     # must set a unique part id, if not already assigned
     if instObj.partId == None:
         instObj.partIdRandomize()
-
-    #environLocal.printDebug(['calling Stream._getMXPart', repr(instObj), instObj.partId])
-    if part.atSoundingPitch in [False]:
-        # if not at sounding pitch, encode transposition from instrument
-        if instObj.transposition is None:
-            raise TranslateException('cannot get transposition for a part that is not at sounding pitch.')
-        mxTranspose = intervalToMXTranspose(instObj.transposition)
-    else:
-        mxTranspose = None   
-    # instrument object returns a configured mxScorePart, that may
-    # also include midi or score instrument definitions
-    #mxScorePart = instObj.mx
+    # returns an mxScorePart
     mxScorePart = instrumentToMx(instObj)
     #environLocal.printDebug(['calling Stream._getMXPart', 'mxScorePart', mxScorePart, mxScorePart.get('id')])
 
@@ -2896,13 +2900,24 @@ def streamPartToMx(part, instObj=None, meterStream=None,
 
 
     # for each measure, call .mx to get the musicxml representation
-    for i, obj in enumerate(measureStream):
-        # note: assuming constant transposition
-        if i == 0: # just keep transpose for first measure
-            mxPart.append(measureToMx(obj, spannerBundle=spannerBundle, 
-                     mxTranspose=mxTranspose))
-        else:
-            mxPart.append(measureToMx(obj, spannerBundle=spannerBundle))
+    for obj in measureStream:
+        # get instrument for every measure position
+        moStart = obj.getOffsetBySite(measureStream)
+        instSubStream = instStream.getElementsByOffset(moStart, 
+                         moStart+obj.duration.quarterLength, 
+                         includeEndBoundary=False)
+        mxTranspose = None   
+        if len(instSubStream) > 0:
+            instSubObj = instSubStream[0]
+            if part.atSoundingPitch in [False]:
+                # if not at sounding pitch, encode transposition from instrument
+                if instSubObj.transposition is not None:
+                    mxTranspose = intervalToMXTranspose(
+                                    instSubObj.transposition)
+                    #raise TranslateException('cannot get transposition for a part that is not at sounding pitch.')
+            
+        mxPart.append(measureToMx(obj, spannerBundle=spannerBundle, 
+                 mxTranspose=mxTranspose))
 
     # might to post processing after adding all measures to the Stream
     # TODO: need to find all MetricModulations and updateByContext
@@ -3001,7 +3016,8 @@ def streamToMx(s, spannerBundle=None):
 
             # only things that can be treated as parts are in finalStream
             # get a default instrument if not assigned
-            inst = obj.getInstrument(returnDefault=True)
+            instStream = obj.getInstruments(returnDefault=True)
+            inst = instStream[0] # store first, as handled differently
             instIdList = [x.partId for x in instList]
 
             if inst.partId in instIdList: # must have unique ids 
@@ -3011,7 +3027,6 @@ def streamToMx(s, spannerBundle=None):
                 inst.midiChannel in midiChannelList):
                 inst.autoAssignMidiChannel(usedChannels=midiChannelList)
             midiChannelList.append(inst.midiChannel)
-
             #environLocal.printDebug(['midiChannel list', midiChannelList])
 
             # add to list for checking on next round
@@ -3020,7 +3035,7 @@ def streamToMx(s, spannerBundle=None):
             # force this instrument into this part
             # meterStream is only used here if there are no measures
             # defined in this part
-            mxScorePart, mxPart = streamPartToMx(obj, instObj=inst, 
+            mxScorePart, mxPart = streamPartToMx(obj, instStream=instStream, 
                         meterStream=meterStream, 
                         refStreamOrTimeRange=refStreamOrTimeRange, 
                         spannerBundle=spannerBundle)
@@ -3153,6 +3168,8 @@ def mxToStreamPart(mxScore, partId, spannerBundle=None, inputM21=None):
         spannerBundle = spanner.SpannerBundle()
 
     mxPart = mxScore.getPart(partId)
+    # in some cases there may be more than one instrument defined
+    # in each score part; this has not been tested
     mxInstrument = mxScore.getScorePart(partId)
 
     # create a new music21 instrument
@@ -3177,15 +3194,27 @@ def mxToStreamPart(mxScore, partId, spannerBundle=None, inputM21=None):
     # offset is in quarter note length
     oMeasure = 0.0
     lastTimeSignature = None
-    for mxMeasure in mxPart:
+    lastTransposition = None # may change at measure boundaries
+
+    for i, mxMeasure in enumerate(mxPart):
         # t here is transposition, if defined; otherwise it is None
         m, staffReference, t = mxToMeasure(mxMeasure, 
                                spannerBundle=spannerBundle)
         if t is not None:
-            instrumentObj.transposition = t
+            if lastTransposition is None and i == 0: # if this is the first
+                #environLocal.printDebug(['transposition', t])
+                instrumentObj.transposition = t
+            else: # if not the first measure, need to copy as well
+                # for now, copy Instrument, change transposition, 
+                # could insert in part, or in measure
+                newInst = copy.deepcopy(instrumentObj)
+                newInst.transposition = t
+                streamPart._insertCore(oMeasure, newInst)
             # if a transposition is defined in musicxml, we assume it is
             # at written pitch
             streamPart.atSoundingPitch = False
+            # store last for comparison
+            lastTransposition = t
 
         # there will be one for each measure
         staffReferenceList.append(staffReference)
@@ -4095,8 +4124,12 @@ spirit</words>
         c = chord.Chord([n1, n2])
         c.quarterLength = 2
         xml = c.musicxml
+        #c.show()
         input = converter.parse(xml)
         chordResult = input.flat.notes[0]
+        for n in chordResult:
+            print n.stemDirection       
+
         self.assertEqual(chordResult.getStemDirection(chordResult.pitches[0]), 'down')
         self.assertEqual(chordResult.getStemDirection(chordResult.pitches[1]), 'noStem')
         
@@ -4176,25 +4209,82 @@ spirit</words>
         self.assertEqual(raw.find('<chromatic>-2</chromatic>') > 0, True)
 
 
+    def testInstrumentTranspositionB(self):
+
+        from music21.musicxml import testPrimitive        
+        from music21 import converter
+        
+        s = converter.parse(testPrimitive.transposing01)
+        iStream1 = s.parts[0].flat.getElementsByClass('Instrument')
+        # three instruments; one initial, and then one for each transposition
+        self.assertEqual(len(iStream1), 3)
+        # should be 3
+        iStream2 = s.parts[1].flat.getElementsByClass('Instrument')
+        self.assertEqual(len(iStream2), 3)
+        i2 = iStream2[0]
+        
+        iStream3 = s.parts[2].flat.getElementsByClass('Instrument')
+        self.assertEqual(len(iStream3), 1)
+        i3 = iStream3[0]
+        
+        
+        self.assertEqual(str(iStream1[0].transposition), 'None')
+        self.assertEqual(str(iStream1[1].transposition), '<music21.interval.Interval P-5>')
+        self.assertEqual(str(iStream1[2].transposition), '<music21.interval.Interval P1>')
+        
+        self.assertEqual(str(iStream2[0].transposition), '<music21.interval.Interval M-2>')
+        self.assertEqual(str(iStream2[1].transposition), '<music21.interval.Interval m3>')
+        
+        self.assertEqual(str(i3.transposition), '<music21.interval.Interval P-5>')
+        
+        self.assertEqual(str([p for p in s.parts[0].flat.pitches]), '[A4, A4, A4, A4, A4, A4, A4, A4, E5, E5, E5, E5, E5, E5, E5, E5, E5, E5, E5, E5, E5, E5, E5, E5, A4, A4, A4, A4]')
+        self.assertEqual(str([p for p in s.parts[1].flat.pitches]), '[B4, B4, B4, B4, F#4, F#4, F#4, F#4, F#4, F#4, F#4, F#4, F#4, F#4, F#4, F#4, F#4, F#4, F#4, F#4, B4, B4, B4, B4, B4, B4]')
+        self.assertEqual(str([p for p in s.parts[2].flat.pitches]), '[E5, E5, E5, E5, E5, E5, E5, E5, E5, E5, E5, E5, E5, E5, E5, E5, E5, E5, E5, E5, E5, E5, E5, E5, E5]')
+        
+        sSounding = s.toSoundingPitch(inPlace=False)
+        self.assertEqual(str([p for p in sSounding.parts[0].flat.pitches]), '[A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4]')
+        self.assertEqual(str([p for p in sSounding.parts[1].flat.pitches]), '[A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4]')
+        self.assertEqual(str([p for p in sSounding.parts[2].flat.pitches]), '[A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4]')
+        
+        # chordification by default places notes at sounding pitch
+        sChords = s.chordify()
+        self.assertEqual(str([p for p in sChords.flat.pitches]), '[A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4, A4]')
+        #sChords.show()
+        
+
+    def testInstrumentTranspositionC(self):
+        # generate all transpositions on output
+        from music21 import converter, stream
+        from music21.musicxml import testPrimitive        
+
+        s = converter.parse(testPrimitive.transposing01)
+
+        self.assertEqual(len(s.flat.getElementsByClass('Instrument')), 7)
+        #s.show()
+
+        raw = s.musicxml
+        self.assertEqual(raw.count('<transpose>'), 6)
+
+
     def testHarmonyA(self):
 
         from music21.musicxml import testPrimitive        
         from music21 import converter, corpus
 
         s = corpus.parse('leadSheet/berlinAlexandersRagtime.xml')
-        self.assertEqual(len(s.flat.getElementsByClass('Harmony')), 19)
+        self.assertEqual(len(s.flat.getElementsByClass('ChordSymbol')), 19)
 
-        match = [h.kind for h in s.flat.getElementsByClass('Harmony')]
+        match = [h.kind for h in s.flat.getElementsByClass('ChordSymbol')]
         self.assertEqual(match, [u'major', u'dominant', u'major', u'major', u'major', u'major', u'dominant', u'major', u'dominant', u'major', u'dominant', u'major', u'dominant', u'major', u'dominant', u'major', u'dominant', u'major', u'major'])
 
-        match = [str(h.root) for h in s.flat.getElementsByClass('Harmony')]
+        match = [str(h.root) for h in s.flat.getElementsByClass('ChordSymbol')]
         self.assertEqual(match, ['F', 'C', 'F', 'B-', 'F', 'C', 'G', 'C', 'C', 'F', 'C', 'F', 'F', 'B-', 'F', 'F', 'C', 'F', 'C'])
 
         s = corpus.parse('monteverdi/madrigal.3.12.xml')
-        self.assertEqual(len(s.flat.getElementsByClass('Harmony')), 10)
+        self.assertEqual(len(s.flat.getElementsByClass('ChordSymbol')), 10)
 
         s = corpus.parse('leadSheet/fosterBrownHair.xml')
-        self.assertEqual(len(s.flat.getElementsByClass('Harmony')), 40)
+        self.assertEqual(len(s.flat.getElementsByClass('ChordSymbol')), 40)
 
         #s.show()
     def testHarmonyB(self):
@@ -4202,49 +4292,49 @@ spirit</words>
         s = stream.Stream()
         s.append(key.KeySignature(-2))
         
-        h1 = harmony.Harmony()
+        h1 = harmony.ChordSymbol()
         h1.root = 'c'
         h1.kind = 'minor-seventh'
         h1.kindStr = 'm7'
         h1.duration.quarterLength = 4
         s.append(h1)
         
-        h2 = harmony.Harmony()
+        h2 = harmony.ChordSymbol()
         h2.root = 'f'
         h2.kind = 'dominant'
         h2.kindStr = '7'
         h2.duration.quarterLength = 4
         s.append(h2)
         
-        h3 = harmony.Harmony()
+        h3 = harmony.ChordSymbol()
         h3.root = 'b-'
         h3.kind = 'major-seventh'
         h3.kindStr = 'Maj7'
         h3.duration.quarterLength = 4
         s.append(h3)
         
-        h4 = harmony.Harmony()
+        h4 = harmony.ChordSymbol()
         h4.root = 'e-'
         h4.kind = 'major-seventh'
         h4.kindStr = 'Maj7'
         h4.duration.quarterLength = 4
         s.append(h4)
         
-        h5 = harmony.Harmony()
+        h5 = harmony.ChordSymbol()
         h5.root = 'a'
         h5.kind = 'half-diminished'
         h5.kindStr = 'm7b5'
         h5.duration.quarterLength = 4
         s.append(h5)
         
-        h6 = harmony.Harmony()
+        h6 = harmony.ChordSymbol()
         h6.root = 'd'
         h6.kind = 'dominant'
         h6.kindStr = '7'
         h6.duration.quarterLength = 4
         s.append(h6)
         
-        h7 = harmony.Harmony()
+        h7 = harmony.ChordSymbol()
         h7.root = 'g'
         h7.kind = 'minor-sixth'
         h7.kindStr = 'm6'
@@ -4267,7 +4357,7 @@ spirit</words>
 
         from music21 import harmony, stream
 
-        h = harmony.Harmony()
+        h = harmony.ChordSymbol()
         h.root = 'E-'
         h.bass = 'B-'
         h.inversion = 2
@@ -4289,6 +4379,37 @@ spirit</words>
         self.assertEqual(raw.find('<degree-value>3</degree-value>') > 0, True)
         self.assertEqual(raw.find('<degree-type>alter</degree-type>') > 0, True)
 
+
+    def testChordNoteheadFillA(self):
+        from music21 import chord
+        c = chord.Chord(['c4', 'g4'])
+        c[0].noteheadFill = 'no'
+        raw = c.musicxml
+        self.assertEqual(raw.count('<notehead filled="no">normal</notehead>'), 1)
+        c[1].noteheadFill = 'no'
+        raw = c.musicxml
+        self.assertEqual(raw.count('<notehead filled="no">normal</notehead>'), 2)
+
+    def testSummedNumerators(self):
+        from music21 import meter, stream, note
+
+        # this forces a call to summed numerator translation
+        ts1 = meter.TimeSignature('5/8') # assumes two partitions
+        ts1.displaySequence.partition(['3/16','1/8','5/16'])
+        
+        ts2 = meter.TimeSignature('5/8') # assumes two partitions
+        ts2.displaySequence.partition(['2/8', '3/8'])
+        ts2.summedNumerator = True
+        
+        s = stream.Stream()
+        for ts in [ts1, ts2]:            
+            m = stream.Measure()
+            m.timeSignature = ts
+            n = note.Note('b')
+            n.quarterLength = 0.5
+            m.repeatAppend(n, 5)
+            s.append(m)
+        raw = s.musicxml
 
 if __name__ == "__main__":
     # sys.arg test options will be used in mainTest()
