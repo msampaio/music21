@@ -5,7 +5,7 @@
 #
 # Authors:      Christopher Ariza
 #
-# Copyright:    (c) 2009-2011 The music21 Project
+# Copyright:    (c) 2009-2012 The music21 Project
 # License:      LGPL
 #-------------------------------------------------------------------------------
 '''This module defines an object representation of MusicXML, used for converting to and from MusicXML and music21.
@@ -41,8 +41,14 @@ environLocal = environment.Environment(_MOD)
 # are >= to this value
 # if changes are made here that are not compatible, the m21 version number
 # needs to be increased and this number needs to be set to that value
-VERSION_MINIMUM = (0, 3, 8) 
+VERSION_MINIMUM = (0, 6, 3) 
 
+
+# new objects to add: octave-shift, in direction-type
+# bracket, in direction-type
+# Notations -> ornaments, trill-mark/wavy-line
+# notations -> glissando
+# dashes, in direction-type
 
 #-------------------------------------------------------------------------------
 # notes
@@ -120,7 +126,9 @@ class Tag(object):
     '''
     def __init__(self, tag, cdFlag=False, className=None):
         '''
-        >>> t = Tag('note')
+        >>> from music21 import *
+
+        >>> t = musicxml.Tag('note')
         >>> t.start()
         >>> t.start() # catch double starts
         Traceback (most recent call last):
@@ -175,7 +183,8 @@ class TagLib(object):
     '''
     def __init__(self):
         '''
-        >>> tl = TagLib()
+        >>> from music21 import *
+        >>> tl = musicxml.TagLib()
         >>> tl['voice'].tag
         'voice'
         >>> tl['voice'].status # open or closed
@@ -221,6 +230,8 @@ class TagLib(object):
 ('syllabic', True), 
 ('text', True),
 ('trill-mark', False, TrillMark), 
+('mordent', False, Mordent), 
+('inverted-mordent', False, InvertedMordent), 
 ('attributes', False, Attributes), 
 ('divisions', True), 
 ('forward', False, Forward), 
@@ -255,7 +266,14 @@ class TagLib(object):
 ('tuplet', False, Tuplet), 
 ('notehead', True, Notehead), 
 ('technical', False, Technical), 
+
 ('wedge', False, Wedge), 
+('octave-shift', False, OctaveShift), 
+('bracket', False, Bracket), 
+('wavy-line', False, WavyLine), 
+('glissando', False, Glissando), 
+('dashes', False, Dashes), 
+
 ('ornaments', False, Ornaments), 
 ('part', False, Part), 
 ('key', False, Key), 
@@ -309,6 +327,8 @@ class TagLib(object):
 ('identification', False, Identification),  
 ('rights', True), 
 ('creator', True, Creator), 
+('credit', False, Credit), 
+('credit-words', True, CreditWords), 
 ('encoding', False, Encoding), 
 ('software', True, Software), 
 ('encoding-date', True), 
@@ -489,7 +509,9 @@ class MusicXMLElement(xmlnode.XMLNode):
         '''
         These tests are module specific and should be loaded as unittests, below
 
-        >>> a = MusicXMLElement()
+        >>> from music21 import *
+
+        >>> a = musicxml.MusicXMLElement()
         >>> a._convertNameToXml('groupAbbreviation')
         'group-abbreviation'
         >>> a._convertNameToXml('midiUnpitched')
@@ -499,7 +521,7 @@ class MusicXMLElement(xmlnode.XMLNode):
         >>> a._convertNameToXml('group-name-display')
         'group-name-display'
 
-        >>> a = MusicXMLElement()
+        >>> a = musicxml.MusicXMLElement()
         >>> a._convertNameFromXml('group-abbreviation')
         'groupAbbreviation'
         >>> a._convertNameFromXml('midi-unpitched')
@@ -511,7 +533,7 @@ class MusicXMLElement(xmlnode.XMLNode):
         >>> a._convertNameFromXml('group-name-display')
         'groupNameDisplay'
 
-        >>> a = MusicXMLElement()
+        >>> a = musicxml.MusicXMLElement()
         >>> len(a._publicAttributes())
         3
         >>> print(a._publicAttributes())
@@ -576,9 +598,10 @@ class MusicXMLElementList(MusicXMLElement):
         '''Used to combine component lists of objects. There may be other object
         attributes not on component list that are not 'added' with this method.
 
-        >>> a = MusicXMLElementList()
+        >>> from music21 import *
+        >>> a = musicxml.MusicXMLElementList()
         >>> a.componentList.append(1)
-        >>> b = MusicXMLElementList()
+        >>> b = musicxml.MusicXMLElementList()
         >>> b.componentList.append(2)
         >>> c = a + b
         >>> c.componentList
@@ -625,6 +648,8 @@ class Score(MusicXMLElementList):
         self.identificationObj = None
         self.encodingObj = None 
         self.partListObj = None
+        
+        self.creditList = [] # store a list of credit objects
         self.componentList = [] # list of Part objects
 
         self._crossReference['partListObj'] = ['partlist', 'part-list']
@@ -641,6 +666,7 @@ class Score(MusicXMLElementList):
         c.append(('movement-number', self.movementNumber))
         c.append(('movement-title', self.movementTitle))
         c.append(self.identificationObj)
+        c = c + self.creditList
         c.append(self.partListObj)
         c = c + self.componentList
         return c
@@ -699,12 +725,13 @@ class Score(MusicXMLElementList):
     def getScorePart(self, partId):
         '''Get an instrument, as defined in a ScorePart object, from a Score. 
 
-        >>> a = Score()
+        >>> from music21 import *
+        >>> a = musicxml.Score()
         >>> a.setDefaults()
         >>> a.getScorePart('P3') == None
         True
         >>> from music21.musicxml import testPrimitive
-        >>> b = Document()
+        >>> b = musicxml.Document()
         >>> b.read(testPrimitive.pitches01a)
         >>> b.score.getScorePart(b.score.getPartNames().keys()[0])
         <score-part id=P1 part-name=MusicXML Part>
@@ -723,12 +750,17 @@ class Score(MusicXMLElementList):
     def getPart(self, partId):
         ''' Get a part, given an id.
 
+        >>> from music21 import *
         >>> from music21.musicxml import testPrimitive
-        >>> b = Document()
+        >>> b = musicxml.Document()
         >>> b.read(testPrimitive.ALL[0])
         >>> c = b.score.getPart(b.score.getPartNames().keys()[0])
-        >>> isinstance(c, Part)
+        >>> c
+        <part id=P1 <measure width=983 number=1 <print <system-layout...
+        >>> isinstance(c, musicxml.Part)
         True
+        >>> isinstance(c, stream.Part)
+        False
         '''
         idFound = None
         partNames = self.getPartNames()    
@@ -762,7 +794,8 @@ class Score(MusicXMLElementList):
 class Work(MusicXMLElement):
     def __init__(self):
         '''
-        >>> a = Work()
+        >>> from music21 import *
+        >>> a = musicxml.Work()
         >>> a.tag
         'work'
         '''
@@ -787,7 +820,8 @@ class Work(MusicXMLElement):
 class Identification(MusicXMLElement):
     def __init__(self):
         '''
-        >>> a = Identification()
+        >>> from music21 import *
+        >>> a = musicxml.Identification()
         >>> a.tag
         'identification'
         '''
@@ -819,7 +853,8 @@ class Creator(MusicXMLElement):
     # types: composer, lyricist, and arranger
     def __init__(self):
         '''
-        >>> a = Creator()
+        >>> from music21 import *
+        >>> a = musicxml.Creator()
         >>> a.tag
         'creator'
         '''
@@ -834,6 +869,67 @@ class Creator(MusicXMLElement):
         self.set('type', 'composer')
         self.set('charData', defaults.author)
 
+class Credit(MusicXMLElementList):
+    '''The credit tag stores on or more credit-words tags, defining text positioned on a page. 
+    '''
+    #series of credit-words elements within a single credit element
+    def __init__(self):
+        '''
+        >>> from music21 import *
+        >>> a = musicxml.Credit()
+        >>> a.tag
+        'credit'
+        >>> a.setDefaults()
+        >>> b = musicxml.CreditWords('testing')
+        >>> a.append(b)
+        >>> print a
+        <credit page=1 <credit-words charData=testing>>
+        '''
+        MusicXMLElementList.__init__(self)
+        self._tag = 'credit'
+        # attributes
+        self._attr['page'] = None
+        # character data
+        self.charData = None
+        # elements
+        self.componentList = [] # a list of partGroups and scoreParts
+    
+    def _getComponents(self):
+        return self.componentList
+
+    def setDefaults(self):
+        self.set('page', 1)
+
+
+class CreditWords(MusicXMLElement):
+    def __init__(self, charData=None):
+        '''
+        >>> from music21 import *
+        >>> a = musicxml.CreditWords()
+        >>> a.tag
+        'credit-words'
+        '''
+        MusicXMLElement.__init__(self)
+        self._tag = 'credit-words'
+        # attributes
+        self._attr['default-x'] = None
+        self._attr['default-y'] = None
+        self._attr['font-size'] = None
+        self._attr['font-weight'] = None
+        self._attr['justify'] = None
+        self._attr['font-style'] = None
+        self._attr['valign'] = None
+        self._attr['halign'] = None
+        # character data
+        self.charData = charData # main content
+    
+    def setDefaults(self):
+#         self.set('default-x', 500)
+#         self.set('default-y', 500)
+        self.set('font-size', 12)
+#         self.set('justify', 'center')
+#         self.set('halign', 'center')
+#         self.set('valign', 'top')
 
 class Encoding(MusicXMLElement):
     def __init__(self):
@@ -1376,10 +1472,11 @@ class Direction(MusicXMLElementList):
     def getDynamicMark(self):
         '''Search this direction and determine if it contains a dynamic mark, return, otherwise, return None
 
-        >>> a = Direction()
-        >>> b = DirectionType()
-        >>> c = Dynamics()
-        >>> d = DynamicMark('f')
+        >>> from music21 import *
+        >>> a = musicxml.Direction()
+        >>> b = musicxml.DirectionType()
+        >>> c = musicxml.Dynamics()
+        >>> d = musicxml.DynamicMark('f')
         >>> c.append(d)
         >>> b.append(c)
         >>> a.append(b)
@@ -1413,9 +1510,10 @@ class Direction(MusicXMLElementList):
     def getMetronome(self):
         '''Search this direction and determine if it contains a dynamic mark.
 
-        >>> a = Direction()
-        >>> b = DirectionType()
-        >>> c = Metronome()
+        >>> from music21 import *
+        >>> a = musicxml.Direction()
+        >>> b = musicxml.DirectionType()
+        >>> c = musicxml.Metronome()
         >>> b.append(c)
         >>> a.append(b)
         >>> a.getMetronome() != None
@@ -1430,9 +1528,10 @@ class Direction(MusicXMLElementList):
     def getWedge(self):
         '''Search this direction and determine if it contains a dynamic mark.
 
-        >>> a = Direction()
-        >>> b = DirectionType()
-        >>> c = Wedge('crescendo')
+        >>> from music21 import *
+        >>> a = musicxml.Direction()
+        >>> b = musicxml.DirectionType()
+        >>> c = musicxml.Wedge('crescendo')
         >>> b.append(c)
         >>> a.append(b)
         >>> a.getWedge() != None
@@ -1455,9 +1554,10 @@ class Direction(MusicXMLElementList):
     def getWords(self):
         '''Search this direction and determine if it contains a Words entity.
 
-        >>> a = Direction()
-        >>> b = DirectionType()
-        >>> c = Words('crescendo')
+        >>> from music21 import *
+        >>> a = musicxml.Direction()
+        >>> b = musicxml.DirectionType()
+        >>> c = musicxml.Words('crescendo')
         >>> b.append(c)
         >>> a.append(b)
         >>> a.getWords() == [c]
@@ -1486,9 +1586,10 @@ class Direction(MusicXMLElementList):
     def getCoda(self):
         '''Search this direction and determine if it contains a coda mark.
 
-        >>> a = Direction()
-        >>> b = DirectionType()
-        >>> c = Coda()
+        >>> from music21 import *
+        >>> a = musicxml.Direction()
+        >>> b = musicxml.DirectionType()
+        >>> c = musicxml.Coda()
         >>> b.append(c)
         >>> a.append(b)
         >>> a.getCoda() != None
@@ -1511,9 +1612,10 @@ class Direction(MusicXMLElementList):
     def getSegno(self):
         '''Search this direction and determine if it contains a segno mark.
 
-        >>> a = Direction()
-        >>> b = DirectionType()
-        >>> c = Segno()
+        >>> from music21 import *
+        >>> a = musicxml.Direction()
+        >>> b = musicxml.DirectionType()
+        >>> c = musicxml.Segno()
         >>> b.append(c)
         >>> a.append(b)
         >>> a.getSegno() != None
@@ -1552,7 +1654,7 @@ class DirectionType(MusicXMLElementList):
 
 
 class Words(MusicXMLElement):
-    '''A direction tupe that can be used for arbitrary text expressions, and font formatting 
+    '''A direction type that can be used for arbitrary text expressions, and font formatting 
     '''
     def __init__(self, charData=None):
         MusicXMLElement.__init__(self)
@@ -2098,19 +2200,127 @@ class Grace(MusicXMLElement):
 
 
 class Wedge(MusicXMLElement):
+    '''
+    >>> from music21 import *
+    >>> w = musicxml.Wedge()
+    >>> w.tag
+    'wedge'
+    '''
     def __init__(self, type=None):
         MusicXMLElement.__init__(self)
         self._tag = 'wedge'
         # attributes
         self._attr['type'] = None # crescendo, stop, or diminuendo
-        self._attr['spread'] = None
-        self._attr['relative-y'] = None
+        self._attr['number'] = None # used for id
+        self._attr['spread'] = None # in tenths
+
+        self._attr['default-x'] = None 
+        self._attr['default-y'] = None 
         self._attr['relative-x'] = None
+        self._attr['relative-y'] = None
 
 
+class OctaveShift(MusicXMLElement):
+    '''
+    >>> from music21 import *
+    >>> os = musicxml.OctaveShift()
+    >>> os.tag
+    'octave-shift'
+    '''
+    def __init__(self, type=None):
+        MusicXMLElement.__init__(self)
+        self._tag = 'octave-shift'
+
+        # attributes
+        self._attr['type'] = None # up-down-stop
+        self._attr['number'] = None # used for id
+        self._attr['size'] = None # integer, 8 is default, 15 is two octaves
+
+
+class Bracket(MusicXMLElement):
+    '''
+    >>> from music21 import *
+    >>> b = musicxml.Bracket()
+    >>> b.tag
+    'bracket'
+    '''
+    def __init__(self, type=None):
+        MusicXMLElement.__init__(self)
+        self._tag = 'bracket'
+
+        # attributes
+        self._attr['type'] = None # start/stop
+        self._attr['number'] = None # used for id
+        self._attr['line-end'] = None 
+        self._attr['end-length'] = None 
+        self._attr['line-type'] = None 
+
+        self._attr['default-x'] = None 
+        self._attr['default-y'] = None 
+        self._attr['relative-x'] = None 
+        self._attr['relative-y'] = None 
+
+
+class WavyLine(MusicXMLElement):
+    '''A wavy line that extends across many notes or measures.
+
+    >>> from music21 import *
+    >>> wl = musicxml.WavyLine()
+    >>> wl.tag
+    'wavy-line'
+    '''
+    def __init__(self, type=None):
+        MusicXMLElement.__init__(self)
+        self._tag = 'wavy-line'
+
+        # attributes
+        self._attr['type'] = None # start/stop/continue
+        self._attr['number'] = None # used for id
+        self._attr['default-x'] = None 
+        self._attr['default-y'] = None 
+        self._attr['relative-x'] = None 
+        self._attr['relative-y'] = None 
+        self._attr['placement'] = None # above or below
+
+class Glissando(MusicXMLElement):
+    '''
+    >>> from music21 import *
+    >>> g = musicxml.Glissando()
+    >>> g.tag
+    'glissando'
+    '''
+    def __init__(self, type=None):
+        MusicXMLElement.__init__(self)
+        self._tag = 'glissando'
+
+        # attributes
+        self._attr['type'] = None # start/stop
+        self._attr['number'] = None # used for id
+        self._attr['line-type'] = None # solid, dashed, dotted, wavy
+
+class Dashes(MusicXMLElement):
+    '''
+    >>> from music21 import *
+    >>> d = musicxml.Dashes()
+    >>> d.tag
+    'dashes'
+    '''
+    def __init__(self, type=None):
+        MusicXMLElement.__init__(self)
+        self._tag = 'dashes'
+
+        # attributes
+        self._attr['type'] = None # start/stop
+        self._attr['number'] = None # used for id
+        self._attr['default-x'] = None 
+        self._attr['default-y'] = None 
+        self._attr['relative-x'] = None 
+        self._attr['relative-y'] = None 
 
 
 class Ornaments(MusicXMLElementList):
+    '''The Ornaments tag wraps the following muscixml entities: trill-mark, turn, delayed-turn, inverted-turn, shake, wavy-line, mordent, inverted mordent, schleifer, termolo, other-ornament. 
+    '''
     def __init__(self, type=None):
         MusicXMLElementList.__init__(self)
         self._tag = 'ornaments'
@@ -2128,6 +2338,16 @@ class TrillMark(MusicXMLElement):
         self._attr['placement'] = None # above/below
 
 
+class Mordent(MusicXMLElement):
+    def __init__(self, type=None):
+        MusicXMLElement.__init__(self)
+        self._tag = 'mordent'
+        self._attr['long'] = None # yes/no
+
+class InvertedMordent(MusicXMLElement):
+    def __init__(self, type=None):
+        MusicXMLElement.__init__(self)
+        self._tag = 'inverted-mordent'
 
 
 
@@ -2138,7 +2358,8 @@ class Notehead(MusicXMLElement):
         # attributes
         self._attr['filled'] = None
         self._attr['parentheses'] = None
-        # character data 
+        self._attr['color'] = None
+        # character data: this is the notehead type/shape
         self.charData = None
 
 # valid notehead values
@@ -2435,6 +2656,8 @@ class DegreeType(MusicXMLElement):
 
 
 class Tuplet(MusicXMLElement):
+    '''Stored in notations object and governs presentation and bracket.
+    '''
     def __init__(self):
         MusicXMLElement.__init__(self)
         self._tag = 'tuplet'
@@ -2613,6 +2836,8 @@ class Handler(xml.sax.ContentHandler):
         # in a dictionary, where _activeTags['tagName'] = None
 
         self._creatorObj = None
+        self._creditObj = None
+        self._creditWordsObj = None
         self._workObj = None
         self._identificationObj = None
         self._encodingObj = None
@@ -2664,6 +2889,8 @@ class Handler(xml.sax.ContentHandler):
 
         self._ornamentsObj = None
         self._trillMarkObj = None
+        self._mordentObj = None
+        self._invertedMordentObj = None
 
         self._timeObj = None
         # store last encountered
@@ -2689,7 +2916,14 @@ class Handler(xml.sax.ContentHandler):
         self._directionObj = None
         self._directionTypeObj = None
         self._graceObj = None
+
         self._wedgeObj = None
+        self._octaveShiftObj = None
+        self._bracketObj = None
+        self._wavyLineObj = None
+        self._glissandoObj = None
+        self._dashesObj = None
+
         self._wordsObj = None
         self._soundObj = None
 
@@ -2868,6 +3102,13 @@ class Handler(xml.sax.ContentHandler):
             self._trillMarkObj = TrillMark()
             self._trillMarkObj.loadAttrs(attrs)
 
+        elif name == 'mordent': 
+            self._mordentObj = Mordent()
+            self._mordentObj.loadAttrs(attrs)
+
+        elif name == 'inverted-mordent': 
+            self._invertedMordentObj = InvertedMordent()
+            self._invertedMordentObj.loadAttrs(attrs)
 
         elif name == 'grace':
             #environLocal.printDebug('creating mxGrace object')
@@ -2913,9 +3154,33 @@ class Handler(xml.sax.ContentHandler):
             self._wordsObj = Words()
             self._wordsObj.loadAttrs(attrs)
 
+
+
         elif name == 'wedge': 
             self._wedgeObj = Wedge()
             self._wedgeObj.loadAttrs(attrs)
+
+        elif name == 'octave-shift': 
+            self._octaveShiftObj = OctaveShift()
+            self._octaveShiftObj.loadAttrs(attrs)
+
+        elif name == 'bracket': 
+            self._bracketObj = Bracket()
+            self._bracketObj.loadAttrs(attrs)
+
+        elif name == 'wavy-line': 
+            self._wavyLineObj = WavyLine()
+            self._wavyLineObj.loadAttrs(attrs)
+
+        elif name == 'glissando': 
+            self._glissandoObj = Glissando()
+            self._glissandoObj.loadAttrs(attrs)
+
+        elif name == 'dashes': 
+            self._dashesObj = Dashes()
+            self._dashesObj.loadAttrs(attrs)
+
+
 
         elif name == 'ornaments': 
             self._ornamentsObj = Ornaments()
@@ -3009,6 +3274,14 @@ class Handler(xml.sax.ContentHandler):
             self._creatorObj = Creator()
             self._creatorObj.loadAttrs(attrs)
 
+        elif name == 'credit':
+            self._creditObj = Credit()
+            self._creditObj.loadAttrs(attrs)
+
+        elif name == 'credit-words':
+            self._creditWordsObj = CreditWords()
+            self._creditWordsObj.loadAttrs(attrs)
+
         elif name == 'encoding':
             self._encodingObj = Encoding()
 
@@ -3100,8 +3373,8 @@ class Handler(xml.sax.ContentHandler):
 
     #---------------------------------------------------------------------------
     def endElement(self, name):
-        environLocal.printDebug([self._debugTagStr('end', name)],  
-                common.DEBUG_ALL)
+#         environLocal.printDebug([self._debugTagStr('end', name)],  
+#                 common.DEBUG_ALL)
 
         # not in use yet
 #         if name in self.t.tagsAll:
@@ -3236,6 +3509,14 @@ class Handler(xml.sax.ContentHandler):
         elif name == 'trill-mark': 
             self._ornamentsObj.append(self._trillMarkObj)
             self._trillMarkObj = None
+
+        elif name == 'mordent': 
+            self._ornamentsObj.append(self._mordentObj)
+            self._mordentObj = None
+
+        elif name == 'inverted-mordent': 
+            self._ornamentsObj.append(self._invertedMordentObj)
+            self._invertedMordentObj = None
 
 
         elif name == 'sound':
@@ -3473,11 +3754,47 @@ class Handler(xml.sax.ContentHandler):
 
 
         elif name == 'wedge': 
-            if self._directionTypeObj != None: 
+            if self._directionTypeObj is not None: 
                 self._directionTypeObj.componentList.append(self._wedgeObj)
             else:
-                raise MusicXMLException('do not know where this wedge goes: %s' % self._wedgeObj)
+                raise MusicXMLException('missing direction type container: %s' % self._wedgeObj)
             self._wedgeObj = None
+
+
+        elif name == 'octave-shift': 
+            if self._directionTypeObj is not None: 
+                self._directionTypeObj.componentList.append(
+                    self._octaveShiftObj)
+            else:
+                raise MusicXMLException('missing direction type container: %s' % self._octaveShiftObj)
+            self._octaveShiftObj = None
+
+        elif name == 'bracket': 
+            if self._directionTypeObj is not None: 
+                self._directionTypeObj.componentList.append(
+                    self._bracketObj)
+            else:
+                raise MusicXMLException('missing direction type container: %s' % self._bracketObj)
+            self._bracketObj = None
+
+        elif name == 'wavy-line': 
+            # goes in ornaments, which is in notations
+            self._ornamentsObj.append(self._wavyLineObj)
+            self._wavyLineObj = None
+
+        elif name == 'glissando': 
+            # goes in notations
+            self._notationsObj.append(self._glissandoObj)
+            self._glissandoObj = None
+
+        elif name == 'dashes': 
+            if self._directionTypeObj is not None: 
+                self._directionTypeObj.componentList.append(self._dashesObj)
+            else:
+                raise MusicXMLException('missing direction type container: %s' % self._dashesObj)
+            self._dashesObj = None
+
+
 
         elif name == 'segno':
             if self._directionTypeObj != None: 
@@ -3568,6 +3885,15 @@ class Handler(xml.sax.ContentHandler):
             self._creatorObj.charData = self._currentTag.charData
             self._identificationObj.creatorList.append(self._creatorObj)
             self._creatorObj = None
+
+        elif name == 'credit':
+            self._scoreObj.creditList.append(self._creditObj)
+            self._creditObj = None
+
+        elif name == 'credit-words':
+            self._creditWordsObj.charData = self._currentTag.charData
+            self._creditObj.append(self._creditWordsObj)
+            self._creditWordsObj = None
 
         elif name == 'encoding':
             self._identificationObj.encodingObj = self._encodingObj
@@ -3810,7 +4136,8 @@ class Document(object):
 
         if not file:
             fileLikeOpen = StringIO.StringIO(fileLike)
-        else:
+        else:   
+            # TODO: should this be codecs.open()?
             fileLikeOpen = open(fileLike)
 
         # the file always needs to be closed, otherwise
@@ -4660,6 +4987,58 @@ class Test(unittest.TestCase):
 """
         self._compareXml(h, expected)
 
+
+
+    def testDirectionsA(self):
+        from music21.musicxml import testPrimitive
+
+        wedgeCount = 0
+        octaveShiftCount = 0
+        dashesCount = 0
+        bracketCount = 0
+
+        d = Document()
+        d.read(testPrimitive.directions31a)
+        for m in d.score[0]: # get each raw measure
+            for sub in m:
+                if isinstance(sub, Direction):
+                    for dType in sub:
+                        for d in dType:
+                            if isinstance(d, Dashes):
+                                dashesCount += 1
+                            if isinstance(d, OctaveShift):
+                                octaveShiftCount += 1
+                            if isinstance(d, Wedge):
+                                wedgeCount += 1
+                            if isinstance(d, Bracket):
+                                bracketCount += 1
+        self.assertEqual(dashesCount, 2)
+        self.assertEqual(octaveShiftCount, 2)
+        self.assertEqual(bracketCount, 2)
+        self.assertEqual(wedgeCount, 4)
+                        
+
+    def testSpannersA(self):
+        from music21.musicxml import testPrimitive
+
+        glissCount = 0
+        wavyCount = 0
+
+        d = Document()
+        d.read(testPrimitive.spanners33a)
+        for m in d.score[0]: # get each raw measure
+            for sub in m:
+                if isinstance(sub, Note):
+                    if sub.notationsObj is not None:
+                        for n in sub.notationsObj:
+                            if isinstance(n, Glissando):
+                                glissCount += 1
+                            if isinstance(n, Ornaments):
+                                for o in n:
+                                    if isinstance(o, WavyLine):
+                                        wavyCount += 1;
+        self.assertEqual(glissCount, 2)
+        self.assertEqual(wavyCount, 4)
 
 #-------------------------------------------------------------------------------
 if __name__ == "__main__":

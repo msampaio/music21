@@ -6,7 +6,7 @@
 # Authors:      Christopher Ariza
 #               Michael Scott Cuthbert
 #
-# Copyright:    (c) 2010 The music21 Project
+# Copyright:    (c) 2010-2012 The music21 Project
 # License:      LGPL
 #-------------------------------------------------------------------------------
 '''
@@ -63,6 +63,8 @@ class MuseDataRecord(object):
             self.stage = self.parent.parent.stage
         else:
             self.stage = None
+        # store frequently used values
+        self._cache = {}
 
     def isRest(self):
         '''Return a boolean if this record is a rest. 
@@ -257,6 +259,11 @@ class MuseDataRecord(object):
                 p.accidental.displayStatus = False
             if acc is not None:
                 p._accidental = self._getAccidentalObject()
+
+            if p.accidental is not None and self.hasCautionaryAccidental():
+                p.accidental.displayStatus = True
+
+            #environLocal.printDebug(['p', p])
             return p
 
 
@@ -287,7 +294,6 @@ class MuseDataRecord(object):
             dpq = divisionsPerQuarterNote
         else:
             raise MuseDataException('cannot access parent container of this record to obtain divisions per quarter')
-
         return divisions / float(dpq)
 
 
@@ -359,7 +365,182 @@ class MuseDataRecord(object):
             # on trim trailing white space, not leading
             return data.rstrip()
             
-        
+
+    # TODO: need to get slurs from this indication: 
+    # (), {}, []
+    def _getAdditionalNotations(self):        
+        '''Return an articulation object or None
+
+        >>> from music21 import *
+        >>> mdr = music21.musedata.MuseDataRecord('C4    12        e     u  [      .p')
+        >>> mdr._getAdditionalNotations()
+        '.p'
+
+        >>> mdr = music21.musedata.MuseDataRecord('C4    12        e     u  =      .')
+        >>> mdr._getAdditionalNotations()
+        '.'
+
+        >>> mdr = music21.musedata.MuseDataRecord('G4    24        q     u        (')
+        >>> mdr._getAdditionalNotations()
+        '('
+        '''
+        # these are cached b/c they are requested for many operations
+        try:
+            return self._cache['_getAdditionalNotations']
+        except KeyError:
+            pass
+
+        if len(self.src) < 31:
+            data = None 
+        else:
+            # accumulate chars 32-43, index 31, 42
+            data = []
+            i = 31
+            while (i <= 42 and i < len(self.src)):            
+                data.append(self.src[i])
+                i += 1
+            data = ''.join(data).strip()
+        self._cache['_getAdditionalNotations'] = data
+        return data
+
+
+    def getArticulationObjects(self):        
+        '''Return a list of 0 or more music21 Articulation objects
+
+        >>> from music21 import *
+        >>> mdr = music21.musedata.MuseDataRecord('C4    12        e     u  [      .p')
+        >>> mdr.getArticulationObjects()
+        [<music21.articulations.Staccato>]
+
+        >>> mdr = music21.musedata.MuseDataRecord('C4    12        e     u  [      .p>')
+        >>> mdr.getArticulationObjects()
+        [<music21.articulations.Staccato>, <music21.articulations.Accent>]
+
+        '''
+        from music21 import articulations
+        post = []
+        data = self._getAdditionalNotations()
+        if data is None:
+            return post
+        for char in data:
+            if 'A' == char:
+                # vertical accent up
+                post.append(articulations.StrongAccent())
+            elif 'V' == char:
+                # vertical accent down
+                post.append(articulations.StrongAccent())
+            elif '>' == char:
+                # horizontal accents; normal
+                post.append(articulations.Accent())
+            elif '.' == char:
+                post.append(articulations.Staccato())
+            elif '_' == char:
+                post.append(articulations.Tenuto())
+            elif '=' == char:
+                post.append(articulations.DetachedLegato())
+            elif 'i' == char:
+                post.append(articulations.Spiccato())
+            elif ',' == char:
+                post.append(articulations.BreathMark())
+        return post
+
+
+    def getExpressionObjects(self):        
+        '''Return a list of 0 or more music21 Articulation objects
+
+        >>> from music21 import *
+        >>> mdr = music21.musedata.MuseDataRecord('C4    12        e     u  [      t')
+        >>> mdr.getExpressionObjects()
+        [<music21.expressions.Trill>]
+
+        >>> mdr = music21.musedata.MuseDataRecord('C4    12        e     u  [      .p>F')
+        >>> mdr.getExpressionObjects()
+        [<music21.expressions.Fermata>]
+
+        '''
+        from music21 import expressions
+        post = []
+        data = self._getAdditionalNotations()
+        if data is None:
+            return post
+
+        for char in data:
+            if 'F' == char:
+                # upright fermata
+                post.append(expressions.Fermata())
+            elif 'E' == char:
+                # inverted Fermata
+                post.append(expressions.Fermata())
+            elif 't' == char: # trill
+                post.append(expressions.Trill())
+            elif 'r' == char:
+                post.append(expressions.Turn())
+            elif 'M' == char: 
+                post.append(expressions.Mordent())
+        return post
+
+    def getDynamicObjects(self):        
+        '''Return a list of 0 or more music21 Dyanmic objects
+
+        >>> from music21 import *
+        >>> mdr = music21.musedata.MuseDataRecord('C5    12        e     u         ff')
+        >>> mdr.getDynamicObjects()
+        [<music21.dynamics.Dynamic ff >]
+
+        >>> mdr = music21.musedata.MuseDataRecord('E4    48        h     u        (pp')
+        >>> mdr.getDynamicObjects()
+        [<music21.dynamics.Dynamic pp >]
+
+        '''
+        from music21 import dynamics
+        post = []
+        data = self._getAdditionalNotations()
+        if data is None:
+            return post
+        # find targets from largest to smallest
+        targets = ['ppp', 'fff',
+                    'pp', 'ff', 'fp', 'mp', 'mf', 
+                    'p', 'f', 'm', 'Z', 'Zp', 'R']
+        for t in targets:
+            pos = data.find(t)
+            if pos < 0:
+                continue
+            # remove from data to avoid double hits
+            data = data[:pos] + data[pos + len(t):]
+            # those that can be directedly created
+            if t in ['ppp', 'fff', 'pp', 'ff', 'p', 'f', 'mp', 'mf', 'fp']:
+                post.append(dynamics.Dynamic(t))
+            elif t == 'm':
+                post.append(dynamics.Dynamic('mp'))
+            elif t == 'Z': # sfz
+                post.append(dynamics.Dynamic('sf'))
+            elif t == 'Zp': # sfp 
+                post.append(dynamics.Dynamic('sf'))
+            elif t == 'R': # rfz
+                post.append(dynamics.Dynamic('sf'))
+        #environLocal.pd(['got dynamics', post])
+        return post
+
+
+    def hasCautionaryAccidental(self):        
+        '''Return a boolean if this note has a cautionary accidental.
+
+        >>> from music21 import *
+        >>> mdr = music21.musedata.MuseDataRecord('F5     3        t n   d  ==[   (+')
+        >>> mdr.hasCautionaryAccidental()
+        True
+
+        >>> mdr = music21.musedata.MuseDataRecord('C4    12        e     u  [')
+        >>> mdr.hasCautionaryAccidental()
+        False
+
+        '''
+        data = self._getAdditionalNotations()
+        if data is None:
+            return False
+        if '+' in data:
+            return True
+        return False
 
 #-------------------------------------------------------------------------------
 class MuseDataRecordIterator(object):
@@ -566,6 +747,9 @@ class MuseDataPart(object):
     def _scrubStage1(self, src):
         '''Some stage1 files start with a leading line of space. This needs to be removed, as each line matters. Provide a list of character lines.
         '''
+        if len(src) <= 1:
+            raise MuseDataException('cannot scrub empty source')
+
         check = True
         post = []
         # remove all spaces found in leading lines
@@ -1321,6 +1505,7 @@ class MuseDataFile(object):
     def readstr(self, str): 
         '''Read a string, dividing it into individual parts.
         '''
+        #environLocal.pd(['readstr()', 'len(str)', len(str)])
         # need to split the string into individual parts, as more than 
         # one part might be defined
         commentToggle = False
@@ -1347,7 +1532,10 @@ class MuseDataFile(object):
             # stage 1 files use END, stage 2 uses /END
             elif line.startswith('/END') or line.startswith('END'):
                 #environLocal.printDebug(['found last line', i, repr(line), 'length of lines', len(lines)])
-                
+                # anticipate malformed files that have more than one END at END
+                if len(lines) <= 1:
+                    lines = [] # clear storage
+                    continue
                 mdp = MuseDataPart(lines)
                 # update sets measure boundaries, divisions
                 mdp.update()
@@ -1395,6 +1583,9 @@ class MuseDataWork(object):
         >>> mdw.addString(testFiles.bach_cantata5_mvmt3)
 
         '''
+        #environLocal.pd(['addString str', str])
+#         if str.strip() == '':
+#             raise MuseDataException('passed in empty string to add string')
         if not common.isListLike(str):
             strList = [str]
         else:
@@ -1738,9 +1929,12 @@ class Test(unittest.TestCase):
             
         self.assertEqual(len(s.parts[-1].flat.notes), 287)
 
-if __name__ == "__main__":
-    import sys
+#-------------------------------------------------------------------------------
+# define presented order in documentation
+_DOC_ORDER = [MuseDataWork]
 
+
+if __name__ == "__main__":
     # sys.arg test options will be used in mainTest()
     music21.mainTest(Test)
 

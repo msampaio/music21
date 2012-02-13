@@ -6,7 +6,7 @@
 # Authors:      Michael Scott Cuthbert
 # Authors:      Christopher Ariza
 #
-# Copyright:    (c) 2009-2010 The music21 Project
+# Copyright:    (c) 2009-2012 The music21 Project
 # License:      LGPL
 #-------------------------------------------------------------------------------
 '''Utility routines for processing text in scores and other musical objects. 
@@ -17,7 +17,9 @@ import os
 
 import music21 # needed to properly do isinstance checking
 
+from music21 import base
 from music21 import environment
+from music21 import common
 
 _MOD = "text.py"  
 environLocal = environment.Environment(_MOD)
@@ -162,6 +164,9 @@ def postpendArticle(src, language=None):
         return src
 
 
+#-------------------------------------------------------------------------------
+class TextException(music21.Music21Exception):
+    pass
 
 
 #-------------------------------------------------------------------------------
@@ -177,6 +182,7 @@ class TextFormat(object):
         # these could all be in a text s
         self._justify = None
         self._style = None
+        self._weight = None
         self._size = None
         self._letterSpacing = None
 
@@ -222,6 +228,27 @@ class TextFormat(object):
         >>> tf = TextFormat()
         >>> tf.style = 'bold'
         >>> tf.style
+        'bold'
+        ''')
+
+    def _getWeight(self):
+        return self._weight    
+    
+    def _setWeight(self, value):
+        if value is None:
+            self._weight = None
+        else:
+            if value.lower() not in ['normal', 'bold']:
+                raise TextFormatException('Not a supported justification: %s' % value)
+            self._weight = value.lower()
+
+    weight = property(_getWeight, _setWeight, 
+        doc = '''Get or set the weight, as normal, or bold.
+
+        >>> from music21 import *
+        >>> tf = TextFormat()
+        >>> tf.weight = 'bold'
+        >>> tf.weight
         'bold'
         ''')
 
@@ -304,10 +331,210 @@ class TextFormat(object):
 #         # font family not yet being specified
 #         return post
 
+#-------------------------------------------------------------------------------
+class TextBoxException(music21.Music21Exception):
+    pass
 
+#-------------------------------------------------------------------------------
+class TextBox(base.Music21Object, TextFormat):
+    '''A TextBox is arbitrary text that might be positioned anywhere on a page, independent of notes or staffs. A page attribute specifies what page this text is found on; positionVertical and positionHorizontal position the text from the bottom left corner in units of tenths.
+
+    This object is similar to the TextExpression object, but does not have as many position parameters, enclosure attributes, and the ability to convert to RepeatExpressions and TempoTexts. 
+
+    >>> from music21 import text, stream
+    >>> y = 1000 # set a fixed vertical distance
+    >>> s = stream.Stream()
+    >>> # specify character, x position, y position
+    >>> tb = text.TextBox('m', 250, y)
+    >>> tb.size = 40
+    >>> tb.alignVertical = 'bottom'
+    >>> s.append(tb)
+    >>> tb = text.TextBox('u', 300, y)
+    >>> tb.size = 60
+    >>> tb.alignVertical = 'bottom'
+    >>> s.append(tb)
+    >>> tb = text.TextBox('s', 550, y)
+    >>> tb.size = 120
+    >>> tb.alignVertical = 'bottom'
+    >>> s.append(tb)        
+    >>> tb = text.TextBox('ic', 700, y)
+    >>> tb.alignVertical = 'bottom'
+    >>> tb.size = 20
+    >>> tb.style = 'italic'
+    >>> s.append(tb)
+    >>> tb = text.TextBox('21', 850, y)
+    >>> tb.alignVertical = 'bottom'
+    >>> tb.size = 80
+    >>> tb.weight = 'bold'
+    >>> tb.style = 'italic'
+    >>> s.append(tb)
+    >>> #_DOCS_SHOW s.show()
+
+    .. image:: images/textBoxes-01.*
+        :width: 600
+
+    '''
+    classSortOrder = -11 # text expressions are -10
+
+    def __init__(self, content=None, x=500, y=500):
+        base.Music21Object.__init__(self)
+        # numerous properties are inherited from TextFormat
+        TextFormat.__init__(self)
+
+        # the text string to be displayed; not that line breaks
+        # are given in the xml with this non-printing character: (#)
+        self.content = content   # use property
+
+        self._page = 1; # page one is deafault
+        self._positionDefaultX = x    
+        self._positionDefaultY = y
+        self._alignVertical = 'top'
+        self._alignHorizontal = 'center'
+
+
+    def __repr__(self):
+        if self._content is not None and len(self._content) > 10:
+            return '<music21.text.%s "%s...">' % (self.__class__.__name__, self._content[:10])
+        elif self._content is not None:
+            return '<music21.text.%s "%s">' % (self.__class__.__name__, self._content)
+        else:
+            return '<music21.text.%s>' % (self.__class__.__name__)
+
+
+    def _getContent(self):
+        return self._content
+    
+    def _setContent(self, value):
+        if not common.isStr(value):
+            self._content = str(value)
+        else:
+            self._content = value    
+    
+    content = property(_getContent, _setContent, 
+        doc = '''Get or set the the content.
+
+        >>> from music21 import *
+        >>> te = text.TextBox('testing')
+        >>> te.content
+        'testing'
+        >>> te.justify = 'center'
+        >>> te.justify
+        'center'
+
+        ''')
+
+    def _getPage(self):
+        return self._page
+    
+    def _setPage(self, value):
+        if value != None:
+            self._page = int(value) # must be an integer
+        # do not set otherwise
+    
+    page = property(_getPage, _setPage, 
+        doc = '''Get or set the the page number. The first page (page 1) is the default. 
+
+        >>> from music21 import *
+        >>> te = text.TextBox('testing')
+        >>> te.content
+        'testing'
+        >>> te.page
+        1
+        ''')
+
+    def _getPositionVertical(self):
+        return self._positionDefaultY
+    
+    def _setPositionVertical(self, value):
+        if value is not None:
+            self._positionDefaultY = value
+    
+    positionVertical = property(_getPositionVertical, _setPositionVertical, 
+        doc = '''
+        Get or set the vertical position.
+
+        >>> from music21 import *
+        >>> te = text.TextBox('testing')
+        >>> te.positionVertical = 1000
+        >>> te.positionVertical
+        1000
+        ''')
+
+    def _getPositionHorizontal(self):
+        return self._positionDefaultX
+    
+    def _setPositionHorizontal(self, value):
+        if value is not None:
+            self._positionDefaultX = value
+    
+    positionHorizontal = property(_getPositionHorizontal,     
+        _setPositionHorizontal, 
+        doc = '''
+        Get or set the vertical position.
+
+        >>> from music21 import *
+        >>> te = text.TextBox('testing')
+        >>> te.positionHorizontal = 200
+        >>> te.positionHorizontal
+        200
+
+        ''')
+
+
+    # note: this properties might be moved into the TextFormat object?
+
+    def _getAlignVertical(self):
+        return self._alignVertical
+    
+    def _setAlignVertical(self, value):
+        if value in [None, 'top', 'middle', 'bottom', 'baseline']:
+            self._alignVertical = value 
+        else:
+            raise TextBoxException('invalid vertical align: %s' % value)
+    
+    alignVertical = property(_getAlignVertical, _setAlignVertical, 
+        doc = '''
+        Get or set the vertical align. Valid values are top, middle, bottom, and baseline
+
+        >>> from music21 import *
+        >>> te = text.TextBox('testing')
+        >>> te.alignVertical = 'top'
+        >>> te.alignVertical
+        'top'
+        ''')
+
+    def _getAlignHorizontal(self):
+        return self._alignHorizontal
+    
+    def _setAlignHorizontal(self, value):
+        if value in [None, 'left', 'right', 'center']:
+            self._alignHorizontal = value
+        else:
+            raise TextBoxException('invalid horizontal align: %s' % value)
+    
+    alignHorizontal = property(_getAlignHorizontal,     
+        _setAlignHorizontal, 
+        doc = '''
+        Get or set the horicontal align.
+
+        >>> from music21 import *
+        >>> te = text.TextBox('testing')
+        >>> te.alignHorizontal = 'right'
+        >>> te.alignHorizontal
+        'right'
+
+        ''')
+
+
+
+
+
+
+
+#-------------------------------------------------------------------------------
 class LanguageDetector(object):
     '''
-    attempts to detect language on the basis of trigrams
+    Attempts to detect language on the basis of trigrams
     
     uses code from 
     http://code.activestate.com/recipes/326576-language-detection-using-character-trigrams/
@@ -389,6 +616,7 @@ class LanguageDetector(object):
             else:
                 raise TextException("got a language that was not in the codes; should not happen")
 
+#-------------------------------------------------------------------------------
 class Trigram(object):
     '''the frequency of three character
     sequences is calculated.  When treated as a vector, this information
@@ -398,22 +626,22 @@ class Trigram(object):
     combinations are characteristic to a language, this can be used to
     determine the language of a body of text. For example:
 
-        #>>> reference_en = Trigram('/path/to/reference/text/english')
-        #>>> reference_de = Trigram('/path/to/reference/text/german')
-        #>>> unknown = Trigram('url://pointing/to/unknown/text')
-        #>>> unknown.similarity(reference_de)
-        #0.4
-        #>>> unknown.similarity(reference_en)
-        #0.95
+    >>> #_DOCS_SHOW reference_en = Trigram('/path/to/reference/text/english')
+    >>> #_DOCS_SHOW reference_de = Trigram('/path/to/reference/text/german')
+    >>> #_DOCS_SHOW unknown = Trigram('url://pointing/to/unknown/text')
+    >>> #_DOCS_SHOW unknown.similarity(reference_de)
+    #_DOCS_SHOW 0.4
+    >>> #_DOCS_SHOW unknown.similarity(reference_en)
+    #_DOCS_SHOW 0.95
     
     would indicate the unknown text is almost cetrtainly English.  As
     syntax sugar, the minus sign is overloaded to return the difference
     between texts, so the above objects would give you:
 
-    #>>> unknown - reference_de
-    #0.6
-    #>>> reference_en - unknown    # order doesn't matter.
-    #0.05
+    #_DOCS_SHOW >>> unknown - reference_de
+    #_DOCS_SHOW 0.6
+    #_DOCS_SHOW >>> reference_en - unknown    # order doesn't matter.
+    #_DOCS_SHOW 0.05
 
     As it stands, the Trigram ignores character set information, which
     means you can only accurately compare within a single encoding
@@ -423,9 +651,8 @@ class Trigram(object):
     As an extra bonus, there is a method to make up nonsense words in the
     style of the Trigram's text.
 
-    #>>> reference_en.makeWords(30)
-    My withillonquiver and ald, by now wittlectionsurper, may sequia,
-    tory, I ad my notter. Marriusbabilly She lady for rachalle spen
+    #_DOCS_SHOW >>> reference_en.makeWords(30)
+    #_DOCS_SHOW My withillonquiver and ald, by now wittlectionsurper, may sequia, tory, I ad my notter. Marriusbabilly She lady for rachalle spen
     hat knong al elf
     '''    
 
@@ -514,9 +741,6 @@ class Trigram(object):
         letters = ''.join(letters)
         return random.choice(letters)
 
-#---------------------------------------
-class TextException(music21.Music21Exception):
-    pass
 
 
 #-------------------------------------------------------------------------------
@@ -577,7 +801,14 @@ class Test(unittest.TestCase):
         forUntoUs = forUntoUs.replace('_', '')
         self.assertEqual('en', ld.mostLikelyLanguage(forUntoUs))
 
+
+#-------------------------------------------------------------------------------
+# define presented order in documentation
+_DOC_ORDER = [TextBox, TextFormat]
+
+
 if __name__ == "__main__":
+
     music21.mainTest(Test)
 
 

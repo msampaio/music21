@@ -6,7 +6,7 @@
 # Authors:      Christopher Ariza
 #               Michael Scott Cuthbert
 #
-# Copyright:    (c) 2010-11 The music21 Project
+# Copyright:    (c) 2010-2012 The music21 Project
 # License:      LGPL
 #-------------------------------------------------------------------------------
 
@@ -144,8 +144,8 @@ def partPari(show = True):
     middle.insertAndShift(0, r2)    
     middle.getElementsByClass(key.Key)[0].setOffsetBySite(middle, 0)
 
-    ttied = top.makeMeasures().makeTies()
-    mtied = middle.makeMeasures().makeTies()
+    ttied = top.makeMeasures().makeTies(inPlace=False)
+    mtied = middle.makeMeasures().makeTies(inPlace=False)
     bass.makeMeasures(inPlace = True)
     main.makeMeasures(inPlace = True)
     
@@ -253,14 +253,14 @@ class TestExternal(unittest.TestCase):
         pass
    
 
-    def xtestBasic(self, cycles=8, show=True):
+    def testBasic(self, cycles=8, show=True):
         # run a reduced version
         pitchedPhase(cycles=cycles, show=show)
 
-    def testArvoPart(self, show=True):
+    def xtestArvoPart(self, show=True):
         partPari(show)
 
-    def xtestPendulumMusic(self, show=True):  
+    def testPendulumMusic(self, show=True):  
         pendulumMusic(show)
 #        pendulumMusic(show = True, 
 #                  loopLength = 210.0, 
@@ -281,6 +281,11 @@ class TestExternal(unittest.TestCase):
 #                  startingPitch = 'C2',
 #                  )
 #        
+
+#-------------------------------------------------------------------------------
+# define presented order in documentation
+_DOC_ORDER = [pitchedPhase]
+
 if __name__ == "__main__":
     if len(sys.argv) == 1: # normal conditions
         music21.mainTest(TestExternal)

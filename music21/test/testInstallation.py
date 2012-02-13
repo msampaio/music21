@@ -5,7 +5,7 @@
 #
 # Authors:      Christopher Ariza
 #
-# Copyright:    (c) 2009-2010 The music21 Project
+# Copyright:    (c) 2009-2012 The music21 Project
 # License:      LGPL
 #-------------------------------------------------------------------------------
 
@@ -15,10 +15,11 @@ import sys, os
 import tarfile
 import distutils.sysconfig
 
-# define on or more directories to try to use as a scratch directory for download; the first valid match will be used.
+# define one or more directories to try to use as a scratch directory for download; the first valid match will be used.
 SCRATCH = ['~/_download', '/_scratch']
 
 # set a download path if downloading source
+# this is only used if not passing a path to locally built src installer
 M21_SOURCE = 'http://music21.googlecode.com/files/music21-0.2.5a4.tar.gz'
 # if true, a new installer will always be downloaded. otherwise, if an appropriately named path exists on the local machine, downloading will be skipped
 FORCE_DOWNLOAD = False
@@ -33,7 +34,7 @@ PY_BIN = ['python']
 # first build a source distribution
 # python setup.py sdist
 # then pass path to source distribution to test routine (update the version)
-# python music21/test/testInstallation.py ~/music21/dist/music21-0.3.4a8.tar.gz
+# python music21/test/testInstallation.py ~/music21/dist/music21-0.6.2b2.tar.gz
 
 
 #-------------------------------------------------------------------------------

@@ -15,6 +15,9 @@
 This module provides object representations of expressions, that is
 notational symbols such as Fermatas, Mordents, Trills, Turns, etc.
 which are stored under a Music21Object's .expressions attribute 
+
+It also includes representations of things such as TextExpressions which
+are better attached to the Stream itself.
 '''
 import copy
 import doctest, unittest
@@ -137,7 +140,6 @@ class TextExpression(Expression, text.TextFormat):
         self._enclosure = None
 
         # numerous parameters are inherited from text.TextFormat
-
         self._positionDefaultX = None
         self._positionDefaultY = 20 # two staff lines above
         # these values provided for musicxml compatibility
@@ -369,6 +371,16 @@ class Mordent(GeneralMordent):
     def __init__(self):
         GeneralMordent.__init__(self)
 
+    def _getMX(self):
+        mxMordent = musicxml.Mordent()
+        return mxMordent
+
+    def _setMX(self, mxMordent):
+        pass
+
+    mx = property(_getMX, _setMX)
+
+
 class HalfStepMordent(Mordent):
     def __init__(self):
         Mordent.__init__(self)
@@ -379,10 +391,21 @@ class WholeStepMordent(Mordent):
         Mordent.__init__(self)
         self.size = music21.interval.Interval("M2")
 
+
+
 class InvertedMordent(GeneralMordent):
     direction = "up"
     def __init__(self):
         GeneralMordent.__init__(self)
+
+    def _getMX(self):
+        mxInvertedMordent = musicxml.InvertedMordent()
+        return mxInvertedMordent
+
+    def _setMX(self, mxInvertedMordent):
+        pass
+
+    mx = property(_getMX, _setMX)
 
 class HalfStepInvertedMordent(InvertedMordent):
     def __init__(self):
@@ -393,6 +416,9 @@ class WholeStepInvertedMordent(InvertedMordent):
     def __init__(self):
         InvertedMordent.__init__(self)
         self.size = music21.interval.Interval("M2")
+
+
+
 
 class Trill(Ornament):
     placement = 'above'
@@ -891,6 +917,10 @@ class Test(unittest.TestCase):
         cpe = corpus.parse('cpebach/h186').parts[0].measures(1,4)
         cpe2 = cpe.realizeOrnaments()
         #cpe2.show()
+
+#-------------------------------------------------------------------------------
+# define presented order in documentation
+_DOC_ORDER = [TextExpression]
 
 if __name__ == "__main__":
     music21.mainTest(Test)

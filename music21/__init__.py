@@ -44,9 +44,9 @@ __all__ = ['base',
 
            # sub folders
            'abc', 'abj', 'analysis', 'audioSearch',
-
+           'braille',
            'chant', 'classCache', 
-           'composition', 'configure',
+           'composition', 'configure', 
            'counterpoint', 'corpus', 
            'demos', 'doc', 'figuredBass', 'humdrum', 'harmony', 
            'languageExcerpts',
@@ -54,7 +54,7 @@ __all__ = ['base',
            'noteworthy','romanText', 'test', 'trecento', 'midi', 
            
            # individual modules
-           'articulations', 'bar',
+           'articulations', 'bar', 'beam',
            'chord', 'chordTables', 'clef','common', 'converter',
            'defaults', 'derivation', 'duration', 'dynamics',
            'editorial', 'environment', 
@@ -69,6 +69,7 @@ __all__ = ['base',
            'serial', 'sieve', 'stream', 
            'tempo', 'text', 'tie', 'tinyNotation', 
            'voiceLeading', 'volume',
+           'xmlnode',
         ]
 
 
@@ -82,6 +83,7 @@ __all__ = ['base',
 
 #-------------------------------------------------------------------------------
 # base Music21Object -- all objects should inherit from this!
+
 import base
 from base import *
 

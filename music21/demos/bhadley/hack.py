@@ -376,7 +376,7 @@ def realizePitches(harmonyChordSymbolObject):
         #bassNote = music21.note.Note(str(x.bass) + '3')
         #print pitches
         index = -1
-       # print pitches
+
         for p in pitches[0:inversionNum]:
             index = index + 1
             octave = str(p)[-1]
@@ -424,7 +424,7 @@ if __name__ == '__main__':
     newStream = newStream.makeMeasures()
     nicePiece.insert(0,newStream)
     nicePiece.show()
-    '''#NOTEFLIGHT SPECIFIC
+    #NOTEFLIGHT SPECIFIC
     nicePiece = music21.converter.parse('C:\\Users\\bhadley\\Documents\\hack\\try11.xml')
     incorrectPiece = music21.converter.parse('C:\\Users\\bhadley\\Documents\\hack\\try11.xml')
 
@@ -454,44 +454,4 @@ if __name__ == '__main__':
     print numCorrect
     
     
-'''Triads:
-    major (major third, perfect fifth)
-    minor (minor third, perfect fifth)
-    augmented (major third, augmented fifth)
-    diminished (minor third, diminished fifth)
-Sevenths:
-    dominant (major triad, minor seventh)
-    major-seventh (major triad, major seventh)
-    minor-seventh (minor triad, minor seventh)
-    diminished-seventh (diminished triad, diminished seventh)
-    augmented-seventh (augmented triad, minor seventh)
-    half-diminished (diminished triad, minor seventh)
-    major-minor (minor triad, major seventh)
-Sixths:
-    major-sixth (major triad, added sixth)
-    minor-sixth (minor triad, added sixth)
-Ninths:
-    dominant-ninth (dominant-seventh, major ninth)
-    major-ninth (major-seventh, major ninth)
-    minor-ninth (minor-seventh, major ninth)
-11ths (usually as the basis for alteration):
-    dominant-11th (dominant-ninth, perfect 11th)
-    major-11th (major-ninth, perfect 11th)
-    minor-11th (minor-ninth, perfect 11th)
-13ths (usually as the basis for alteration):
-    dominant-13th (dominant-11th, major 13th)
-    major-13th (major-11th, major 13th)
-    minor-13th (minor-11th, major 13th)
-Suspended:
-    suspended-second (major second, perfect fifth)
-    suspended-fourth (perfect fourth, perfect fifth)
-Functional sixths:
-    Neapolitan
-    Italian
-    French
-    German
-Other:
-    pedal (pedal-point bass)
-    power (perfect fifth)
-    Tristan'''
-#maj chords = I; minor = ii; dom7 = V7; dim = vii; dim7 = viio7, etc
+'''

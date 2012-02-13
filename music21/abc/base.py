@@ -523,7 +523,11 @@ class ABCMetadata(ABCToken):
                 # there may be more than one dur divided by a space
                 referent = 0.0 # in quarter lengths
                 for dur in durs.split(' '):
-                    n, d = dur.split('/')
+                    if dur.count('/') > 0:                
+                        n, d = dur.split('/')
+                    else: # this is an error case
+                        environLocal.pd(['incorrectly encoded / unparsable duration:', dur])
+                        n, d = 1, 1
                     referent += (float(n) / float(d)) * 4
             else: # assume we just have a quarter definition, e.g., Q:90
                 number = float(nonText)
@@ -799,7 +803,9 @@ class ABCTuplet(ABCToken):
             normalSwitch = 2
 
         data = self.src.strip()
-        if data == '(2':
+        if data == '(1': # not sure if valid, but found
+            a, n = 1, 1 
+        elif data == '(2':
             a, n = 2, 3 # actual, normal
         elif data == '(3':
             a, n = 3, 2 # actual, normal
@@ -986,6 +992,14 @@ class ABCNote(ABCToken):
         ('C#5', False)
 
         '''
+        #environLocal.printDebug(['_getPitchName:', strSrc])
+
+        # skip some articulations parsed with the pitch
+        # some characters are errors in parsing or encoding not yet handled
+        if len(strSrc) > 1 and strSrc[0] in ['u', 'T']:
+            strSrc = strSrc[1:]
+        strSrc = strSrc.replace('T', '')
+
         try:
             name = rePitchName.findall(strSrc)[0]
         except IndexError: # no matches
@@ -1109,6 +1123,9 @@ class ABCNote(ABCToken):
                 numStr.append(c)
         numStr = ''.join(numStr)
         numStr = numStr.strip()
+
+        #environLocal.pd(['numStr', numStr])
+
         # get default
         if numStr == '':
             ql = activeDefaultQuarterLength
@@ -1127,6 +1144,10 @@ class ABCNote(ABCToken):
             n = int(numStr.split('/')[0].strip())
             d = 2
             ql = activeDefaultQuarterLength * (float(n) / d)
+        # if we have two, this is usually an error
+        elif numStr.count('/') == 2:
+            environLocal.pd(['incorrectly encoded / unparsable duration:', numStr])
+            ql = 1 # provide a default
 
         # assume we have a complete fraction
         elif '/' in numStr:
@@ -1240,8 +1261,8 @@ class ABCChord(ABCNote):
                 # get the quarter length from the sub-tokens
                 # note: assuming these are the same
                 chordDurationPost = t.quarterLength
-
-            self.subTokens.append(t)
+            if isinstance(t, ABCNote) and not t.isRest:
+                self.subTokens.append(t)
 
         if chordDurationPost != None:
             self.quarterLength = chordDurationPost
@@ -1517,7 +1538,7 @@ class ABCHandler(object):
                         continue                    
                     # only allow one pitch alpha to be a continue condition
                     elif (foundPitchAlpha == False and strSrc[j].isalpha() 
-                        and strSrc[j] not in 'uvHLTS'):
+                        and strSrc[j] not in 'wuvhHLTSN'):
                         foundPitchAlpha = True
                         j += 1
                         continue                    
@@ -1536,7 +1557,30 @@ class ABCHandler(object):
                 else:
                     collect = strSrc[i:j]
                 #environLocal.printDebug(['got note event:', repr(collect)])
-                self._tokens.append(ABCNote(collect))
+
+                # NOTE: skipping a number of articulations and other markers
+                # not yet supported
+                # some collections here are not yet supported; others may be 
+                # the result of errors in encoded files
+                # v is up bow; might be: "^Segno"v which also should be dropped
+                # H is fermata
+                # . dot may be staccato, but should be attached to pitch
+                if collect in ['w', 'u', 'v', 'v.', 'h', 'H', 'vk', 'k', 
+                    'uk', 'U', 
+                    '.', '=', 'V', 'v.', 'S', 's', 'i', 'I', 'ui', 'u.', 'K', 'Q', 'Hy', 'r', 'm', 'M', 'n', 'N', 'o', 'l', 'L',
+                    'y', 'T', 't', 'x']:
+                    pass
+                elif collect.startswith('"') and (collect[-1] in 
+                    ['u', 'v', 'k', 'K', 'Q', '.', 'y', 'T', 'w', 'h'] or collect.endswith('v.')):
+                    pass
+                elif collect.startswith('x'):
+                    pass
+                # not sure what =20 refers to
+                elif len(collect) > 1 and collect.startswith("=") and collect[1].isdigit():
+                    pass    
+                # only let valid collect strings be parsed
+                else:    
+                    self._tokens.append(ABCNote(collect))
                 i = j
                 continue
             # look for white space: can be used to determine beam groups
@@ -1568,6 +1612,7 @@ class ABCHandler(object):
             q = self._getLinearContext(self._tokens, i)
             tPrev, t, tNext, tNextNext = q
             #tPrevNotSpace, tPrev, t, tNext, tNextNotSpace, tNextNext = q
+            #environLocal.printDebug(['tokenProcess: calling parse()', t])
             
             if isinstance(t, ABCMetadata):
                 if t.isMeter():
@@ -1616,8 +1661,9 @@ class ABCHandler(object):
 
         # parse : call methods to set attributes and parse abc string
         for t in self._tokens:
-            t.parse()
             #environLocal.printDebug(['tokenProcess: calling parse()', t])
+            t.parse()
+            
 
     def process(self, strSrc):
         self._tokens = []
@@ -2116,8 +2162,10 @@ class ABCHandlerBar(ABCHandler):
                 else:
                     # might resolve this by ignoring standard bars and favoring
                     # repeats or styled bars
-                    environLocal.printDebug(['got bNew, bOld', bNew, bOld])
-                    raise ABCHandlerException('cannot handle two non-None bars yet')
+                    environLocal.printDebug(['cannot handle two non-None bars yet: got bNew, bOld', bNew, bOld])
+                    #raise ABCHandlerException('cannot handle two non-None bars yet')
+                    setattr(ah, barAttr, bNew)                    
+
         return ah
 
 
@@ -2585,6 +2633,9 @@ class Test(unittest.TestCase):
         af.close()
         self.assertEqual(len(ah), 101)
 
+#-------------------------------------------------------------------------------
+# define presented order in documentation
+_DOC_ORDER = [ABCFile, ABCHandler, ABCHandlerBar]
 
 
 if __name__ == "__main__":

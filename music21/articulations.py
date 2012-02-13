@@ -6,7 +6,7 @@
 # Authors:      Michael Scott Cuthbert
 #               Christopher Ariza
 #
-# Copyright:    (c) 2009-2011 The music21 Project
+# Copyright:    (c) 2009-2012 The music21 Project
 # License:      LGPL
 #-------------------------------------------------------------------------------
 
@@ -563,6 +563,10 @@ class Test(unittest.TestCase):
         # comparison of sets of different objects do not pass
         #self.assertEqual(list(set([a1, a3])), list(set([a2, a4])))
 
+
+#-------------------------------------------------------------------------------
+# define presented order in documentation
+_DOC_ORDER = [Articulation]
 
 if __name__ == "__main__":
     music21.mainTest(Test)

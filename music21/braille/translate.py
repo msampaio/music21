@@ -12,77 +12,91 @@
 Objects for exporting music21 data as braille.
 '''
 
+import itertools
 import music21
 import unittest
 
 from music21 import stream
+from music21 import tinyNotation
 
-from music21.braille import basic
-from music21.braille import lookup
-from music21.braille import text
 from music21.braille import segment
 
-symbols = lookup.symbols
 #-------------------------------------------------------------------------------
 # music21 streams to BrailleText objects.
 
-def measureToBraille(music21Measure, **measureKeywords):
-    if not 'showHeading' in measureKeywords:
-        measureKeywords['showHeading'] = False
-    if not 'showFirstMeasureNumber' in measureKeywords:
-        measureKeywords['showFirstMeasureNumber'] = False
-        
+def objectToBraille(music21Obj, debug=False, **keywords):
+    '''
+    Translates an arbitrary object to Braille.  Doesn't yet work on notes:
+    
+    >>> from music21 import *
+
+    >>> tns = tinyNotation.TinyNotationStream('C4 D16 E F G# r4 e2.', '3/4')    
+    >>> x = braille.translate.objectToBraille(tns)
+    >>> print x
+    ⠀⠀⠀⠀⠀⠀⠀⠼⠉⠲⠀⠀⠀⠀⠀⠀⠀
+    ⠼⠁⠀⠸⠹⠵⠋⠛⠩⠓⠧⠀⠐⠏⠄⠣⠅
+
+    For normal users, you'll just call this, which starts a text editor:
+
+
+    >>> #_DOCS_SHOW tns.show('braille')
+    
+    ⠀⠀⠀⠀⠀⠀⠀⠼⠉⠲⠀⠀⠀⠀⠀⠀⠀
+    ⠼⠁⠀⠸⠹⠵⠋⠛⠩⠓⠧⠀⠐⠏⠄⠣⠅
+    '''
+    if isinstance(music21Obj, stream.Stream):
+        return streamToBraille(music21Obj, debug, **keywords)
+    else:
+        music21Measure = stream.Measure()
+        music21Measure.append(music21Obj)
+        return measureToBraille(music21Measure, debug, **keywords)
+
+def streamToBraille(music21Stream, debug=False, **keywords):
+    if isinstance(music21Stream, stream.Part) or isinstance(music21Stream, tinyNotation.TinyNotationStream):
+        music21Part = music21Stream.makeNotation(cautionaryNotImmediateRepeat=False)
+        return partToBraille(music21Part, debug=debug, **keywords)
+    if isinstance(music21Stream, stream.Measure):
+        music21Measure = music21Stream.makeNotation(cautionaryNotImmediateRepeat=False)
+        return measureToBraille(music21Measure, debug=debug, **keywords)
+    keyboardParts = music21Stream.getElementsByClass(stream.PartStaff)
+    if len(keyboardParts) == 2:
+        rightHand = keyboardParts[0].makeNotation(cautionaryNotImmediateRepeat=False)
+        leftHand = keyboardParts[1].makeNotation(cautionaryNotImmediateRepeat=False)
+        return keyboardPartsToBraille(rightHand, leftHand, debug=debug, **keywords)
+    raise BrailleTranslateException("Cannot transcribe stream to braille")
+    
+def measureToBraille(music21Measure, debug=False, **keywords):
+    if not 'showHeading' in keywords:
+        keywords['showHeading'] = False
+    if not 'showFirstMeasureNumber' in keywords:
+        keywords['showFirstMeasureNumber'] = False
     music21Part = stream.Part()
     music21Part.append(music21Measure)
-    return partToBraille(music21Part, **measureKeywords)
+    return partToBraille(music21Part, debug = debug, **keywords)
 
-def partToBraille(music21Part, **partKeywords):
-    allSegments = segment.findSegments(music21Part, **partKeywords)
-    allTrans = []
-    for brailleElementSegment in allSegments:
-        segmentTranscription = segment.transcribeSegment(brailleElementSegment, **partKeywords)
-        allTrans.append(str(segmentTranscription))
-    return u"\n".join(allTrans)
-
-def keyboardPartsToBraille(music21PartUpper, music21PartLower, **keywords):
+def partToBraille(music21Part, debug = False, **keywords):
+    allSegments = segment.findSegments(music21Part, **keywords)
+    allBrailleText = []
+    for brailleSegment in allSegments:
+        allBrailleText.append(brailleSegment.transcribe())
+        if debug:
+            print brailleSegment
+    return u"\n".join([unicode(bt) for bt in allBrailleText])
+    
+def keyboardPartsToBraille(music21PartStaffUpper, music21PartStaffLower, debug=False, **keywords):
     '''
     Translates a stream Part consisting of two stream Parts, a right hand and left hand,
     into braille music bar over bar format.
     '''
-    maxLineLength = 40
-    if 'maxLineLength' in keywords:
-        maxLineLength = keywords['maxLineLength']
-
-    bt = text.BrailleKeyboard(maxLineLength)
-    rhSegment = segment.findSegments(music21PartUpper)[0]
-    lhSegment = segment.findSegments(music21PartLower)[0]
-    
-    try:
-        brailleHeadingR = segment.extractHeading(rhSegment, maxLineLength)
-        brailleHeadingL = segment.extractHeading(lhSegment, maxLineLength)
-        bt.addElement(heading = brailleHeadingR)
-    except segment.BrailleSegmentException:
-        pass
-
-    allGroupingKeysR = sorted(rhSegment.keys())
-    allGroupingKeysL = sorted(lhSegment.keys())
-
-    bt.highestMeasureNumberLength = len(str(allGroupingKeysR[-1] / 100))
-    
-    rhNoteGroupings = segment.extractNoteGroupings(rhSegment)
-    lhNoteGroupings = segment.extractNoteGroupings(lhSegment)
-    
-    while True:
-        try:
-            (gkR, noteGroupingR) = rhNoteGroupings.pop(0)
-            (gkL, noteGroupingL) = lhNoteGroupings.pop(0)
-            rh_braille = segment.transcribeNoteGrouping(noteGroupingR)
-            lh_braille = segment.transcribeNoteGrouping(noteGroupingL)
-            bt.addElement(pair = (basic.numberToBraille(gkR / 100)[1:], rh_braille, lh_braille))
-        except:
-            break
-
-    return bt
+    rhSegments = segment.findSegments(music21PartStaffUpper, **keywords)
+    lhSegments = segment.findSegments(music21PartStaffLower, **keywords)
+    allBrailleText = []
+    for (rhSegment, lhSegment) in itertools.izip(rhSegments, lhSegments):
+        bg = segment.BrailleGrandSegment(rhSegment, lhSegment)
+        if debug:
+            print bg
+        allBrailleText.append(bg.transcription)
+    return u"\n\n".join([unicode(bt) for bt in allBrailleText])
 
 #-------------------------------------------------------------------------------
 
@@ -94,7 +108,6 @@ class Test(unittest.TestCase):
 
     def runTest(self):
         pass
-
 
 if __name__ == "__main__":
     import sys

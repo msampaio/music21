@@ -58,6 +58,7 @@ Module Reference
    moduleArticulations
    moduleBase
    moduleBeam
+   moduleBrailleBasic
    moduleBrailleTranslate
    moduleClef
    moduleCommon
@@ -73,6 +74,7 @@ Module Reference
    moduleFeaturesBase
    moduleFeaturesJSymbolic
    moduleFeaturesNative
+   moduleFiguredBassChecker
    moduleFiguredBassExamples
    moduleFiguredBassFbPitch
    moduleFiguredBassNotation
@@ -83,6 +85,7 @@ Module Reference
    moduleFiguredBassRules
    moduleFiguredBassSegment
    moduleGraph
+   moduleHarmony
    moduleHumdrumSpineParser
    moduleInstrument
    moduleInterval
@@ -100,10 +103,11 @@ Module Reference
    moduleNote
    moduleNoteworthyTranslate
    modulePitch
+   moduleRepeat
    moduleRoman
    moduleRomanTextBase
    moduleRomanTextTranslate
-   moduleRepeat
+   moduleRomanTextClercqTemperley
    moduleScalaBase
    moduleScale
    moduleSearch
@@ -112,8 +116,10 @@ Module Reference
    moduleSpanner
    moduleStream
    moduleTempo
+   moduleText
    moduleTinyNotation
    moduleTrecentoPolyphonicSnippet
+   moduleVoiceLeading
    moduleVolume
    moduleXmlnode
 

@@ -594,6 +594,11 @@ class GenericInterval(music21.Music21Object):
         
         self.isStep = self.isDiatonicStep
         
+        if self.undirected == 1:
+            self.isUnison = True
+        else:
+            self.isUnison = False
+        
         # unisons (even augmented) are neither steps nor skips.
         steps, octaves = math.modf(self.undirected/7.0)
         steps = int(steps*7 + .001)
@@ -1051,7 +1056,7 @@ class ChromaticInterval(music21.Music21Object):
             value = int(value)
 
         self.semitones = value
-        self.cents = value * 100.0
+        self.cents = round(value * 100.0, 5)
         self.directed = value
         self.undirected = abs(value)
 
@@ -1301,7 +1306,6 @@ def _getSpecifierFromGenericChromatic(gInt, cInt):
     
     Absurdly altered interval:
     
-    
     >>> cInterval = interval.GenericInterval('second')
     >>> dInterval = interval.ChromaticInterval(10)  # 8x augmented second
     >>> _getSpecifierFromGenericChromatic(cInterval, dInterval)
@@ -1309,7 +1313,6 @@ def _getSpecifierFromGenericChromatic(gInt, cInt):
     IntervalException: cannot get a specifier for a note with this many semitones off of Major: 8
     '''
     noteVals = [None, 0, 2, 4, 5, 7, 9, 11]
-    
     normalSemis = noteVals[gInt.simpleUndirected] + 12 * gInt.undirectedOctaves
 
     if (gInt.direction != cInt.direction and 
@@ -1360,6 +1363,11 @@ def intervalFromGenericAndChromatic(gInt, cInt):
     >>> cInterval = interval.intervalFromGenericAndChromatic(aInterval, bInterval)
     >>> cInterval
     <music21.interval.Interval A-5>
+
+    >>> cInterval.name
+    'A5'
+    >>> cInterval.directedName
+    'A-5'    
     >>> cInterval.directedNiceName
     'Descending Augmented Fifth'
 
@@ -1402,11 +1410,112 @@ class Interval(music21.Music21Object):
     >>> aInterval = interval.Interval(noteStart=n1, noteEnd=n2)
     >>> aInterval
     <music21.interval.Interval P15>
+    >>> aInterval.name
+    'P15'
+
+    Reduce to a single octave:
+
+    >>> aInterval.simpleName
+    'P1'
+    
+    Reduce to no more than an octave:
+
+    >>> aInterval.semiSimpleName
+    'P8'
+
+
+    An interval can also be specified directly
+
+    >>> aInterval = interval.Interval('m3')
+    >>> aInterval
+    <music21.interval.Interval m3>
+    >>> aInterval = interval.Interval('M3')
+    >>> aInterval
+    <music21.interval.Interval M3>
+    
+    
+    >>> aInterval = interval.Interval('p5')
+    >>> aInterval
+    <music21.interval.Interval P5>
+    >>> aInterval.isChromaticStep
+    False
+    >>> aInterval.isDiatonicStep
+    False
+    >>> aInterval.isStep
+    False
+
+    >>> aInterval = interval.Interval('half')
+    >>> aInterval
+    <music21.interval.Interval m2>
+    >>> aInterval.isChromaticStep
+    True
+    >>> aInterval.isDiatonicStep
+    True
+    >>> aInterval.isStep
+    True
+
+    >>> aInterval = interval.Interval('-h')
+    >>> aInterval
+    <music21.interval.Interval m-2>
+    >>> aInterval.directedName
+    'm-2'
+    >>> aInterval.name
+    'm2'
+    
+    
+    >>> aInterval = interval.Interval(3)
+    >>> aInterval
+    <music21.interval.Interval m3>
+
+    >>> aInterval = interval.Interval(7)
+    >>> aInterval
+    <music21.interval.Interval P5>
+    
+    
+    >>> n1 = note.Note('c3')
+    >>> n2 = note.Note('g3')
+    >>> aInterval = interval.Interval(noteStart=n1, noteEnd=n2)
+    >>> aInterval
+    <music21.interval.Interval P5>
+
+    >>> aInterval = interval.Interval(noteStart=n1, noteEnd=None)
+    Traceback (most recent call last):
+    IntervalException: either both the starting and the ending note.Note must be given or neither can be given.  You cannot have one without the other.
+
+    >>> aInterval = interval.DiatonicInterval('major', 'third')
+    >>> bInterval = interval.ChromaticInterval(4)
+    >>> cInterval = interval.Interval(diatonic=aInterval, chromatic=bInterval)
+    >>> cInterval
+    <music21.interval.Interval M3>
+
+    >>> cInterval = interval.Interval(diatonic=aInterval, chromatic=None)
+    Traceback (most recent call last):
+    IntervalException: either both a DiatonicInterval and a ChromaticInterval object have to be given or neither can be given.  You cannot have one without the other.
 
 
     Two Intervals are the same if their Chromatic and Diatonic intervals
     are the same.  N.B. that interval.Interval('a4') != 'a4' -- maybe it should...
 
+
+
+    OMIT_FROM_DOCS
+    
+    >>> aInterval = interval.Interval('M2')
+    >>> aInterval.isChromaticStep
+    False
+    >>> aInterval.isDiatonicStep
+    True
+    >>> aInterval.isStep
+    True
+    
+
+    >>> aInterval = interval.Interval('dd3')
+    >>> aInterval.isChromaticStep
+    True
+    >>> aInterval.isDiatonicStep
+    False
+    >>> aInterval.isStep
+    True
     '''
 #     requires either (1) a string ("P5" etc.) or    
 #     (2) named arguments:
@@ -1432,89 +1541,6 @@ class Interval(music21.Music21Object):
     niceName = ""
 
     def __init__(self, *arguments, **keywords):
-        '''
-        >>> from music21 import *
-        
-        >>> aInterval = interval.Interval('m3')
-        >>> aInterval
-        <music21.interval.Interval m3>
-        >>> aInterval = interval.Interval('M3')
-        >>> aInterval
-        <music21.interval.Interval M3>
-        >>> aInterval = interval.Interval('p5')
-        >>> aInterval
-        <music21.interval.Interval P5>
-        >>> aInterval.isChromaticStep
-        False
-        >>> aInterval.isDiatonicStep
-        False
-        >>> aInterval.isStep
-        False
-
-        >>> aInterval = interval.Interval('half')
-        >>> aInterval
-        <music21.interval.Interval m2>
-        >>> aInterval.isChromaticStep
-        True
-        >>> aInterval.isDiatonicStep
-        True
-        >>> aInterval.isStep
-        True
-
-        >>> aInterval = interval.Interval('-h')
-        >>> aInterval
-        <music21.interval.Interval m-2>
-        
-        >>> aInterval = interval.Interval(3)
-        >>> aInterval
-        <music21.interval.Interval m3>
-
-        >>> aInterval = interval.Interval(7)
-        >>> aInterval
-        <music21.interval.Interval P5>
-        
-        
-        >>> n1 = note.Note('c3')
-        >>> n2 = note.Note('g3')
-        >>> aInterval = interval.Interval(noteStart=n1, noteEnd=n2)
-        >>> aInterval
-        <music21.interval.Interval P5>
-
-        >>> aInterval = interval.Interval(noteStart=n1, noteEnd=None)
-        Traceback (most recent call last):
-        IntervalException: either both the starting and the ending note.Note must be given or neither can be given.  You cannot have one without the other.
-
-        >>> aInterval = interval.DiatonicInterval('major', 'third')
-        >>> bInterval = interval.ChromaticInterval(4)
-        >>> cInterval = interval.Interval(diatonic=aInterval, chromatic=bInterval)
-        >>> cInterval
-        <music21.interval.Interval M3>
-
-        >>> cInterval = interval.Interval(diatonic=aInterval, chromatic=None)
-        Traceback (most recent call last):
-        IntervalException: either both a DiatonicInterval and a ChromaticInterval object have to be given or neither can be given.  You cannot have one without the other.
-
-
-        OMIT_FROM_DOCS
-        
-        >>> aInterval = interval.Interval('M2')
-        >>> aInterval.isChromaticStep
-        False
-        >>> aInterval.isDiatonicStep
-        True
-        >>> aInterval.isStep
-        True
-        
-
-        >>> aInterval = interval.Interval('dd3')
-        >>> aInterval.isChromaticStep
-        True
-        >>> aInterval.isDiatonicStep
-        False
-        >>> aInterval.isStep
-        True
-        
-        '''
         music21.Music21Object.__init__(self)
         if len(arguments) == 1 and common.isStr(arguments[0]):
             # convert common string representations 
@@ -1616,6 +1642,27 @@ class Interval(music21.Music21Object):
         else:
             return "<music21.interval.Interval %s>" % self.directedName
 
+    def isConsonant(self):
+        '''
+        returns True if the pitches are a major or minor third or sixth or perfect fifth or unison.
+
+        These rules define all common-practice consonances (and earlier back to about 1300 all imperfect consonances)
+
+
+        >>> from music21 import *
+        >>> i1 = notesToInterval(note.Note('C'), note.Note('E'))
+        >>> i1.isConsonant()
+        True
+        >>> i1 = notesToInterval(note.Note('B-'), note.Note('C'))
+        >>> i1.isConsonant()
+        False
+        ''' 
+        if self.simpleName == 'P5' or self.simpleName == 'm3' or self.simpleName == 'M3' or \
+        self.simpleName == 'm6' or self.simpleName == 'M6' or self.simpleName == 'P1':
+            return True
+        else:
+            return False
+        
     def __eq__(self, other):
         '''
         >>> a = Interval('a4')
@@ -1680,12 +1727,21 @@ class Interval(music21.Music21Object):
         return self.chromatic.intervalClass
 
     intervalClass = property(_getIntervalClass,
-        doc = '''Return the interval class from the chromatic interval.
+        doc = '''
+        Return the interval class from the chromatic interval,
+        that is, the lesser of the number of half-steps in the 
+        simpleInterval or its complement.
+        
 
         >>> from music21 import *
         >>> aInterval = interval.Interval('M3')
         >>> aInterval.intervalClass
         4
+
+        >>> bInterval = interval.Interval('m6')
+        >>> bInterval.intervalClass
+        4
+
         ''')
 
 
@@ -1694,12 +1750,21 @@ class Interval(music21.Music21Object):
         return self.chromatic.cents
 
     cents = property(_getCents,
-        doc = '''Return the cents from the chromatic interval.
+        doc = '''
+        Return the cents from the chromatic interval, where 100 cents = a half-step
 
         >>> from music21 import *
         >>> aInterval = interval.Interval('M3')
         >>> aInterval.cents
         400.0
+
+        >>> n1 = note.Note("C4")
+        >>> n2 = note.Note("D4")
+        >>> n2.pitch.microtone = 30
+        >>> microtoneInterval = interval.Interval(noteStart = n1, noteEnd = n2)
+        >>> microtoneInterval.cents
+        230.0
+
         ''')
 
 
@@ -1738,7 +1803,7 @@ class Interval(music21.Music21Object):
         pitch1 = p
         pitch2 = copy.deepcopy(pitch1)
         oldDiatonicNum = pitch1.diatonicNoteNum
-        centsOrigin = pitch1.microtone.cents
+        #centsOrigin = pitch1.microtone.cents #unused!!
         distanceToMove = self.diatonic.generic.staffDistance
 
         if not reverse:
@@ -2574,7 +2639,8 @@ class Test(unittest.TestCase):
 
 #-------------------------------------------------------------------------------
 # define presented order in documentation
-_DOC_ORDER = [notesToChromatic, intervalsToDiatonic, intervalFromGenericAndChromatic, 
+_DOC_ORDER = [notesToChromatic, intervalsToDiatonic, 
+        intervalFromGenericAndChromatic, 
               Interval]
 
 

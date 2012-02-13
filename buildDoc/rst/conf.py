@@ -27,6 +27,7 @@ try:
 except ImportError:
     extensions = []
 
+
 # extensions.append('sphinx.ext.inheritance_diagram')
 # 
 # inheritance_graph_attrs = dict(rankdir="TB", fontsize=6, nodesep=0.2, ranksep=0.2)

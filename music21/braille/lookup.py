@@ -246,7 +246,10 @@ symbols = {'space': u'\u2800',
            'opening_double_slur': u'\u2809\u2809',
            'closing_double_slur': u'\u2809',
            'opening_bracket_slur': u'\u2830\u2803',
-           'closing_bracket_slur': u'\u2818\u2806'}
+           'closing_bracket_slur': u'\u2818\u2806',
+           'basic_exception': u'\u281c\u2826',
+           'full_inaccord': u'\u2823\u281c',
+           'repeat': u'\u2836'}
 
 ascii_chars = {u'\u2800': ' ',
                u'\u2801': 'A',
@@ -377,3 +380,6 @@ binary_dots = {u'\u2800': ('00','00','00'),
                u'\u283d': ('11','01','11'),
                u'\u283e': ('01','11','11'),
                u'\u283f': ('11','11','11')}
+
+#------------------------------------------------------------------------------
+# eof

@@ -223,7 +223,7 @@ def noteToMidiEvents(inputM21, includeDeltaTime=True, channel=1):
 
     >>> from music21 import *
     >>> n1 = note.Note()
-    >>> eventList = noteToMidiEvents(n1)
+    >>> eventList = midi.translate.noteToMidiEvents(n1)
     >>> eventList
     [<MidiEvent DeltaTime, t=0, track=None, channel=1>, <MidiEvent NOTE_ON, t=None, track=None, channel=1, pitch=60, velocity=90>, <MidiEvent DeltaTime, t=1024, track=None, channel=1>, <MidiEvent NOTE_OFF, t=None, track=None, channel=1, pitch=60, velocity=0>]
     >>> n1.duration.quarterLength = 2.5
@@ -290,10 +290,10 @@ def noteToMidiEvents(inputM21, includeDeltaTime=True, channel=1):
 
 def noteToMidiFile(inputM21): 
     '''
-    >>> from music21 import note
+    >>> from music21 import *
     >>> n1 = note.Note()
     >>> n1.quarterLength = 6
-    >>> mf = noteToMidiFile(n1)
+    >>> mf = midi.translate.noteToMidiFile(n1)
     >>> mf.tracks[0].events
     [<MidiEvent DeltaTime, t=0, track=1, channel=1>, <MidiEvent SEQUENCE_TRACK_NAME, t=0, track=1, channel=1, data=''>, <MidiEvent DeltaTime, t=0, track=1, channel=1>, <MidiEvent NOTE_ON, t=None, track=1, channel=1, pitch=60, velocity=90>, <MidiEvent DeltaTime, t=6144, track=1, channel=1>, <MidiEvent NOTE_OFF, t=None, track=1, channel=1, pitch=60, velocity=0>, <MidiEvent DeltaTime, t=0, track=1, channel=1>, <MidiEvent END_OF_TRACK, t=None, track=1, channel=1, data=''>]
     '''
@@ -357,7 +357,7 @@ def midiEventsToChord(eventList, ticksPerQuarter=None, inputM21=None):
     >>> me4.pitch = 46
     >>> me4.velocity = 0
 
-    >>> c = midiEventsToChord([dt1, me1, dt2, me2, dt3, me3, dt4, me4])
+    >>> c = midi.translate.midiEventsToChord([dt1, me1, dt2, me2, dt3, me3, dt4, me4])
     >>> c
     <music21.chord.Chord A2 B-2>
     >>> c.duration.quarterLength
@@ -423,7 +423,7 @@ def chordToMidiEvents(inputM21, includeDeltaTime=True):
     '''
     >>> from music21 import *
     >>> c = chord.Chord(['c3','g#4', 'b5'])
-    >>> eventList = chordToMidiEvents(c)
+    >>> eventList = midi.translate.chordToMidiEvents(c)
     >>> eventList
     [<MidiEvent DeltaTime, t=0, track=None, channel=None>, <MidiEvent NOTE_ON, t=None, track=None, channel=1, pitch=48, velocity=90>, <MidiEvent DeltaTime, t=0, track=None, channel=None>, <MidiEvent NOTE_ON, t=None, track=None, channel=1, pitch=68, velocity=90>, <MidiEvent DeltaTime, t=0, track=None, channel=None>, <MidiEvent NOTE_ON, t=None, track=None, channel=1, pitch=83, velocity=90>, <MidiEvent DeltaTime, t=1024, track=None, channel=None>, <MidiEvent NOTE_OFF, t=None, track=None, channel=1, pitch=48, velocity=0>, <MidiEvent DeltaTime, t=0, track=None, channel=None>, <MidiEvent NOTE_OFF, t=None, track=None, channel=1, pitch=68, velocity=0>, <MidiEvent DeltaTime, t=0, track=None, channel=None>, <MidiEvent NOTE_OFF, t=None, track=None, channel=1, pitch=83, velocity=0>]
 
@@ -564,14 +564,14 @@ def midiEventsToTimeSignature(eventList):
     >>> me1 = midi.MidiEvent(mt)
     >>> me1.type = "TIME_SIGNATURE"
     >>> me1.data = midi.putNumbersAsList([3, 1, 24, 8]) # 3/2 time
-    >>> ts = midiEventsToTimeSignature(me1)
+    >>> ts = midi.translate.midiEventsToTimeSignature(me1)
     >>> ts
     <music21.meter.TimeSignature 3/2>
 
     >>> me2 = midi.MidiEvent(mt)
     >>> me2.type = "TIME_SIGNATURE"
     >>> me2.data = midi.putNumbersAsList([3, 4]) # 3/16 time
-    >>> ts = midiEventsToTimeSignature(me2)
+    >>> ts = midi.translate.midiEventsToTimeSignature(me2)
     >>> ts
     <music21.meter.TimeSignature 3/16>
 
@@ -600,7 +600,7 @@ def timeSignatureToMidiEvents(ts, includeDeltaTime=True):
 
     >>> from music21 import *
     >>> ts = meter.TimeSignature('5/4')
-    >>> eventList = timeSignatureToMidiEvents(ts)
+    >>> eventList = midi.translate.timeSignatureToMidiEvents(ts)
     >>> eventList[0]
     <MidiEvent DeltaTime, t=0, track=None, channel=None>
     >>> eventList[1]
@@ -639,7 +639,7 @@ def midiEventsToKeySignature(eventList):
     >>> me1 = midi.MidiEvent(mt)
     >>> me1.type = "KEY_SIGNATURE"
     >>> me1.data = midi.putNumbersAsList([2, 0]) # d major
-    >>> ks = midiEventsToKeySignature(me1)
+    >>> ks = midi.translate.midiEventsToKeySignature(me1)
     >>> ks
     <music21.key.KeySignature of 2 sharps>
 
@@ -650,7 +650,7 @@ def midiEventsToKeySignature(eventList):
     '\\xfe\\x00'
     >>> midi.getNumbersAsList(me2.data)
     [254, 0]
-    >>> ks = midiEventsToKeySignature(me2)
+    >>> ks = midi.translate.midiEventsToKeySignature(me2)
     >>> ks
     <music21.key.KeySignature of 2 flats>
 
@@ -684,18 +684,18 @@ def midiEventsToKeySignature(eventList):
 def keySignatureToMidiEvents(ks, includeDeltaTime=True):
     '''Convert a single MIDI event into a music21 TimeSignature object.
 
-    >>> from music21 import key
+    >>> from music21 import *
     >>> ks = key.KeySignature(2)
     >>> ks
     <music21.key.KeySignature of 2 sharps>
-    >>> eventList = keySignatureToMidiEvents(ks)
+    >>> eventList = midi.translate.keySignatureToMidiEvents(ks)
     >>> eventList[1]
     <MidiEvent KEY_SIGNATURE, t=None, track=None, channel=1, data='\\x02\\x00'>
 
     >>> ks = key.KeySignature(-5)
     >>> ks
     <music21.key.KeySignature of 5 flats>
-    >>> eventList = keySignatureToMidiEvents(ks)
+    >>> eventList = midi.translate.keySignatureToMidiEvents(ks)
     >>> eventList[1]
     <MidiEvent KEY_SIGNATURE, t=None, track=None, channel=1, data='\\xfb\\x00'>
     '''
@@ -1177,9 +1177,9 @@ def midiTrackToStream(mt, ticksPerQuarter=None, quantizePost=True,
     >>> len(mf.tracks)
     1
     >>> mt = mf.tracks[0] 
-    >>> s = midiTrackToStream(mt)
+    >>> s = midi.translate.midiTrackToStream(mt)
     >>> len(s.notesAndRests)
-    9
+    11
     '''
     #environLocal.printDebug(['midiTrackToStream(): got midi track: events', len(mt.events), 'ticksPerQuarter', ticksPerQuarter])
 
@@ -1188,7 +1188,6 @@ def midiTrackToStream(mt, ticksPerQuarter=None, quantizePost=True,
         s = stream.Stream()
     else:
         s = inputM21
-
     if ticksPerQuarter == None:
         ticksPerQuarter = defaults.ticksPerQuarter
 
@@ -1242,7 +1241,6 @@ def midiTrackToStream(mt, ticksPerQuarter=None, quantizePost=True,
     memo = [] # store already matched note off
     for i in range(len(events)):
         #environLocal.printDebug(['midiTrackToStream(): paired events', events[i][0], events[i][1]])
-
         if i in memo:
             continue
         t, e = events[i]
@@ -1250,6 +1248,7 @@ def midiTrackToStream(mt, ticksPerQuarter=None, quantizePost=True,
         # events
         if e.isNoteOn():
             match = None
+            #environLocal.pd(['midiTrackToStream(): isNoteOn', e])
             for j in range(i+1, len(events)):
                 if j in memo: 
                     continue
@@ -1295,47 +1294,75 @@ def midiTrackToStream(mt, ticksPerQuarter=None, quantizePost=True,
     #composite = []
     chordSub = None
     i = 0
+    iGathered = [] # store a lost of indexes of gathered values put into chords
+    voicesRequired = False
     if len(notes) > 1:
+        #environLocal.pd(['\nmidiTrackToStream(): notes', notes])
         while i < len(notes):
+            if i in iGathered:
+                i += 1
+                continue
             # look at each note; get on time and event
             on, off = notes[i]
             t, e = on
+            tOff, eOff = off
             #environLocal.printDebug(['on, off', on, off, 'i', i, 'len(notes)', len(notes)])
+
             # go through all following notes; if there is only 1 note, this will 
-            # not exectue
+            # not execute;
+            # looking for other events that start within a certain small time 
+            # window to make into a chord
+            # if we find a note with a different end time but same start
+            # time, through into a different voice
             for j in range(i+1, len(notes)):
                 # look at each on time event
                 onSub, offSub = notes[j]
                 tSub, eSub = onSub
+                tOffSub, eOffSub = offSub
+ 
                 # can set a tolerance for chordSubing; here at 1/16th
                 # of a quarter
-                if tSub - t <= ticksPerQuarter / 16:
-                    if chordSub == None: # start a new one
+                chunkTolerance = ticksPerQuarter / 16
+                if abs(tSub - t) <= chunkTolerance:
+                    # isolate case where end time is not w/n tolerance
+                    if abs(tOffSub - tOff) > chunkTolerance:
+                        # need to store this as requiring movement to a diff
+                        # voice
+                        voicesRequired = True
+                        continue
+                    if chordSub is None: # start a new one
                         chordSub = [notes[i]]
+                        iGathered.append(i)
                     chordSub.append(notes[j])
-                    continue # keep looping
+                    iGathered.append(j)
+                    continue # keep looping through events to see 
+                    # if we can add more elements to this chord group
                 else: # no more matches; assuming chordSub tones are contiguous
-                    if chordSub != None:
-                        #composite.append(chordSub)
-                        # create a chord here
-                        c = chord.Chord()
-                        c._setMidiEvents(chordSub, ticksPerQuarter)
-                        o = notes[i][0][0] / float(ticksPerQuarter)
-                        s._insertCore(o, c)
-                        iSkip = len(chordSub)
-                        chordSub = None
-                    else: # just append the note
-                        #composite.append(notes[i])
-                        # create a note here
-                        n = note.Note()
-                        n._setMidiEvents(notes[i], ticksPerQuarter)
-                        # the time is the first value in the first pair
-                        # need to round, as floating point error is likely
-                        o = notes[i][0][0] / float(ticksPerQuarter)
-                        s._insertCore(o, n)
-                        iSkip = 1
-                    break # exit secondary loop
-            i += iSkip
+                    break
+            # this comparison must be outside of j loop, as the case where we
+            # have the last note in a list of notes and the j loop does not 
+            # execute; chordSub will be None
+            if chordSub is not None:
+                #composite.append(chordSub)
+                # create a chord here
+                c = chord.Chord()
+                c._setMidiEvents(chordSub, ticksPerQuarter)
+                o = notes[i][0][0] / float(ticksPerQuarter)
+                s._insertCore(o, c)
+                #iSkip = len(chordSub) # amount of accumulated chords
+                chordSub = None
+            else: # just append the note, chordSub is None
+                #composite.append(notes[i])
+                # create a note here
+                n = note.Note()
+                n._setMidiEvents(notes[i], ticksPerQuarter)
+                # the time is the first value in the first pair
+                # need to round, as floating point error is likely
+                o = notes[i][0][0] / float(ticksPerQuarter)
+                s._insertCore(o, n)
+                #iSkip = 1
+            #break # exit secondary loop
+            i += 1
     elif len(notes) == 1: # rare case of just one note
         n = note.Note()
         n._setMidiEvents(notes[0], ticksPerQuarter)
@@ -1345,13 +1372,17 @@ def midiTrackToStream(mt, ticksPerQuarter=None, quantizePost=True,
         s._insertCore(o, n)
                     
     s._elementsChanged()
-
     # quantize to nearest 16th
     if quantizePost:    
         s.quantize([8, 3], processOffsets=True, processDurations=True)
 
-    # always need to fill gaps, as rests are not found in any other way
-    s.makeRests(inPlace=True, fillGaps=True)
+    if voicesRequired:
+        pass
+        # this procedure will make the appropriate rests
+        s.makeVoices(inPlace=True, fillGaps=True)
+    else:
+        # always need to fill gaps, as rests are not found in any other way
+        s.makeRests(inPlace=True, fillGaps=True)
     return s
 
     
@@ -1524,14 +1555,13 @@ def midiTracksToStreams(midiTracks, ticksPerQuarter=None, quantizePost=True,
         s = stream.Score()
     else:
         s = inputM21
-
     # store common elements such as time sig, key sig from conductor
     conductorTrack = stream.Stream()
+    #environLocal.printDebug(['midi track count', len(midiTracks)])
     for mt in midiTracks:
         # not all tracks have notes defined; only creates parts for those
         # that do
         #environLocal.printDebug(['raw midi trakcs', mt])
-
         if mt.hasNotes(): 
             streamPart = stream.Part() # create a part instance for each part
             midiTrackToStream(mt, ticksPerQuarter, quantizePost, 
@@ -1572,7 +1602,7 @@ def streamToMidiFile(inputM21):
     >>> n = note.Note('g#')
     >>> n.quarterLength = .5
     >>> s.repeatAppend(n, 4)
-    >>> mf = streamToMidiFile(s)
+    >>> mf = midi.translate.streamToMidiFile(s)
     >>> len(mf.tracks)
     1
     >>> len(mf.tracks[0].events)
@@ -1604,9 +1634,9 @@ def midiFileToStream(mf, inputM21=None):
     >>> mf.close()
     >>> len(mf.tracks)
     1
-    >>> s = midiFileToStream(mf)
+    >>> s = midi.translate.midiFileToStream(mf)
     >>> len(s.flat.notesAndRests)
-    9
+    11
     '''
     #environLocal.printDebug(['got midi file: tracks:', len(mf.tracks)])
 
@@ -2277,9 +2307,75 @@ class Test(unittest.TestCase):
         mtsRepr = repr(mts)
         self.assertEqual(mtsRepr.count('velocity=51') > 2, True)
         self.assertEqual(mtsRepr.count('velocity=102') > 2, True)
-
-
         #s.show('midi')
+
+
+    def testImportTruncationProblemA(self):
+        import os
+        from music21 import converter
+
+        # specialized problem of not importing last notes
+        dir = common.getPackageDir(relative=False, remapSep=os.sep)
+        for fp in dir:
+            if fp.endswith('midi'):
+                break
+        dirLib = os.path.join(fp, 'testPrimitive')
+        # a simple file created in athenacl
+        fp = os.path.join(dirLib, 'test12.mid')
+        s = converter.parse(fp)
+        
+        self.assertEqual(len(s.parts[0].flat.notes), 3)
+        self.assertEqual(len(s.parts[1].flat.notes), 3)
+        self.assertEqual(len(s.parts[2].flat.notes), 3)        
+        self.assertEqual(len(s.parts[3].flat.notes), 3)
+
+        #s.show('t')
+        #s.show('midi')
+
+
+    def testImportChordVoiceA(self):
+        # looking at cases where notes appear to be chord but 
+        # are better seen as voices
+
+        import os
+        from music21 import converter
+        # specialized problem of not importing last notes
+        dir = common.getPackageDir(relative=False, remapSep=os.sep)
+        for fp in dir:
+            if fp.endswith('midi'):
+                break
+        fpMidi = fp
+        fp = os.path.join(fpMidi, 'testPrimitive', 'test13.mid')
+        s = converter.parse(fp)
+        #s.show('t')
+        self.assertEqual(len(s.flat.notes), 7)
+        #s.show('midi')
+
+        fp = os.path.join(fpMidi, 'testPrimitive', 'test14.mid')
+        s = converter.parse(fp)
+        # three chords will be created, as well as two voices
+        self.assertEqual(len(s.flat.getElementsByClass('Chord')), 3)
+        self.assertEqual(len(s.parts[0].voices), 2)
+
+
+    def testImportChordsA(self):
+        import os
+        from music21 import converter, common
+
+        dir = common.getPackageDir(relative=False, remapSep=os.sep)
+        for fp in dir:
+            if fp.endswith('midi'):
+                break
+        dirLib = os.path.join(fp, 'testPrimitive')
+        # a simple file created in athenacl
+        fp = os.path.join(dirLib, 'test05.mid')        
+        s = converter.parse(fp)
+        #s.show('t')
+        self.assertEqual(len(s.flat.getElementsByClass('Chord')), 4)
+        
+
+#-------------------------------------------------------------------------------
+_DOC_ORDER = [streamToMidiFile, midiFileToStream]
 
 if __name__ == "__main__":
     music21.mainTest(Test)

@@ -13,7 +13,7 @@
 '''
 The music21 corpus provides a collection of freely distributable music in MusicXML, Humdrum, and other representations. The corpus package provides an interface to this data.
 
-To see complete listing of works in the music21 corpus, visit  :ref:`referenceCorpus`.
+To see a complete listing of the works in the music21 corpus, visit  :ref:`referenceCorpus`.
 '''
 
 
@@ -36,16 +36,76 @@ environLocal = environment.Environment(_MOD)
 # import corpus packages as python modules
 from music21.corpus import airdsAirs
 
+from music21.corpus import bach
+from music21.corpus.bach import bwv1080
+from music21.corpus.bach import bwv846
+
+from music21.corpus.bach import bwv847
+from music21.corpus.bach import bwv848
+from music21.corpus.bach import bwv849
+from music21.corpus.bach import bwv850
+from music21.corpus.bach import bwv851
+from music21.corpus.bach import bwv852
+from music21.corpus.bach import bwv853
+from music21.corpus.bach import bwv854
+from music21.corpus.bach import bwv855
+from music21.corpus.bach import bwv856
+from music21.corpus.bach import bwv857
+from music21.corpus.bach import bwv858
+from music21.corpus.bach import bwv859
+from music21.corpus.bach import bwv860
+from music21.corpus.bach import bwv861
+from music21.corpus.bach import bwv862
+from music21.corpus.bach import bwv863
+from music21.corpus.bach import bwv864
+from music21.corpus.bach import bwv865
+from music21.corpus.bach import bwv866
+from music21.corpus.bach import bwv867
+from music21.corpus.bach import bwv868
+from music21.corpus.bach import bwv869
+from music21.corpus.bach import bwv870
+from music21.corpus.bach import bwv871
+from music21.corpus.bach import bwv872
+from music21.corpus.bach import bwv873
+from music21.corpus.bach import bwv874
+from music21.corpus.bach import bwv875
+from music21.corpus.bach import bwv876
+from music21.corpus.bach import bwv877
+from music21.corpus.bach import bwv878
+from music21.corpus.bach import bwv879
+from music21.corpus.bach import bwv880
+from music21.corpus.bach import bwv881
+from music21.corpus.bach import bwv882
+from music21.corpus.bach import bwv883
+from music21.corpus.bach import bwv884
+from music21.corpus.bach import bwv885
+from music21.corpus.bach import bwv886
+from music21.corpus.bach import bwv887
+from music21.corpus.bach import bwv888
+from music21.corpus.bach import bwv889
+from music21.corpus.bach import bwv890
+from music21.corpus.bach import bwv891
+from music21.corpus.bach import bwv892
+from music21.corpus.bach import bwv893
+
+
 from music21.corpus import beethoven
 from music21.corpus.beethoven import opus18no1
 from music21.corpus.beethoven import opus59no1
 from music21.corpus.beethoven import opus59no2
 from music21.corpus.beethoven import opus59no3
 
+from music21.corpus import ciconia
+
+from music21.corpus import corelli
+from music21.corpus.corelli import op3no1
+
 from music21.corpus import cpebach
 
+from music21.corpus import demos
+
 from music21.corpus import essenFolksong
-from music21.corpus import ciconia
+
 from music21.corpus import josquin
 
 from music21.corpus import handel
@@ -113,8 +173,10 @@ from music21.corpus.haydn import opus77no2
 
 from music21.corpus.haydn import symphony94
 
-
 from music21.corpus import leadSheet
+
+from music21.corpus import luca
+
 from music21.corpus import miscFolk
 
 from music21.corpus import monteverdi
@@ -143,6 +205,7 @@ from music21.corpus.mozart import k458
 from music21.corpus.mozart import k464
 from music21.corpus.mozart import k465
 from music21.corpus.mozart import k499
+from music21.corpus.mozart import k545
 from music21.corpus.mozart import k546
 from music21.corpus.mozart import k575
 from music21.corpus.mozart import k589
@@ -158,64 +221,62 @@ from music21.corpus.schoenberg import opus19
 from music21.corpus import schumann
 from music21.corpus.schumann import opus41no1
 
-from music21.corpus import luca
-
-from music21.corpus import bach
-from music21.corpus.bach import bwv1080
-from music21.corpus.bach import bwv846
-
-from music21.corpus.bach import bwv847
-from music21.corpus.bach import bwv848
-from music21.corpus.bach import bwv849
-from music21.corpus.bach import bwv850
-from music21.corpus.bach import bwv851
-from music21.corpus.bach import bwv852
-from music21.corpus.bach import bwv853
-from music21.corpus.bach import bwv854
-from music21.corpus.bach import bwv855
-from music21.corpus.bach import bwv856
-from music21.corpus.bach import bwv857
-from music21.corpus.bach import bwv858
-from music21.corpus.bach import bwv859
-from music21.corpus.bach import bwv860
-from music21.corpus.bach import bwv861
-from music21.corpus.bach import bwv862
-from music21.corpus.bach import bwv863
-from music21.corpus.bach import bwv864
-from music21.corpus.bach import bwv865
-from music21.corpus.bach import bwv866
-from music21.corpus.bach import bwv867
-from music21.corpus.bach import bwv868
-from music21.corpus.bach import bwv869
-from music21.corpus.bach import bwv870
-from music21.corpus.bach import bwv871
-from music21.corpus.bach import bwv872
-from music21.corpus.bach import bwv873
-from music21.corpus.bach import bwv874
-from music21.corpus.bach import bwv875
-from music21.corpus.bach import bwv876
-from music21.corpus.bach import bwv877
-from music21.corpus.bach import bwv878
-from music21.corpus.bach import bwv879
-from music21.corpus.bach import bwv880
-from music21.corpus.bach import bwv881
-from music21.corpus.bach import bwv882
-from music21.corpus.bach import bwv883
-from music21.corpus.bach import bwv884
-from music21.corpus.bach import bwv885
-from music21.corpus.bach import bwv886
-from music21.corpus.bach import bwv887
-from music21.corpus.bach import bwv888
-from music21.corpus.bach import bwv889
-from music21.corpus.bach import bwv890
-from music21.corpus.bach import bwv891
-from music21.corpus.bach import bwv892
-from music21.corpus.bach import bwv893
-
+from music21.corpus import theoryExercises
 
 MODULES = [
             airdsAirs,
-            
+
+            bach,
+            bwv1080,
+            bwv846,
+            bwv847,
+            bwv848,
+            bwv849,
+            bwv850,
+            bwv851,
+            bwv852,
+            bwv853,
+            bwv854,
+            bwv855,
+            bwv856,
+            bwv857,
+            bwv858,
+            bwv859,
+            bwv860,
+            bwv861,
+            bwv862,
+            bwv863,
+            bwv864,
+            bwv865,
+            bwv866,
+            bwv867,
+            bwv868,
+            bwv869,
+            bwv870,
+            bwv871,
+            bwv872,
+            bwv873,
+            bwv874,
+            bwv875,
+            bwv876,
+            bwv877,
+            bwv878,
+            bwv879,
+            bwv880,
+            bwv881,
+            bwv882,
+            bwv883,
+            bwv884,
+            bwv885,
+            bwv886,
+            bwv887,
+            bwv888,
+            bwv889,
+            bwv890,
+            bwv891,
+            bwv892,
+            bwv893,
+
             beethoven, 
             opus18no1,
             opus59no1,
@@ -223,7 +284,14 @@ MODULES = [
             opus59no3,
 
             ciconia,
-            josquin,
+
+            corelli,
+            op3no1,
+            
+            cpebach,
+
+            demos,
+
             essenFolksong,
 
             handel,
@@ -290,7 +358,12 @@ MODULES = [
             opus77no2,
             symphony94,
 
+            josquin,
+
             leadSheet,
+
+            luca,
+
             miscFolk,
             
             monteverdi,
@@ -319,6 +392,7 @@ MODULES = [
             k464,
             k465,
             k499,
+            k545,
             k546,
             k575,
             k589,
@@ -334,61 +408,7 @@ MODULES = [
             schumann,
             opus41no1,
 
-            luca,
-
-            bach,
-            bwv1080,
-            bwv846,
-            bwv847,
-            bwv848,
-            bwv849,
-            bwv850,
-            bwv851,
-            bwv852,
-            bwv853,
-            bwv854,
-            bwv855,
-            bwv856,
-            bwv857,
-            bwv858,
-            bwv859,
-            bwv860,
-            bwv861,
-            bwv862,
-            bwv863,
-            bwv864,
-            bwv865,
-            bwv866,
-            bwv867,
-            bwv868,
-            bwv869,
-            bwv870,
-            bwv871,
-            bwv872,
-            bwv873,
-            bwv874,
-            bwv875,
-            bwv876,
-            bwv877,
-            bwv878,
-            bwv879,
-            bwv880,
-            bwv881,
-            bwv882,
-            bwv883,
-            bwv884,
-            bwv885,
-            bwv886,
-            bwv887,
-            bwv888,
-            bwv889,
-            bwv890,
-            bwv891,
-            bwv892,
-            bwv893,
-
-            cpebach,
-
+            theoryExercises,
     ]
 
 
@@ -448,15 +468,17 @@ def getPaths(extList=None, expandExtensions=True):
 
     If `expandExtensions` is True, a format for an extension, and related extensions, will replaced by all known input extensions. This is convenient when an input format might match for multiple extensions.
 
-    >>> a = getPaths()
+    >>> from music21 import *
+    
+    >>> a = corpus.getPaths()
     >>> len(a) > 30
     True
 
-    >>> a = getPaths('krn')
+    >>> a = corpus.getPaths('krn')
     >>> len(a) >= 4
     True
 
-    >>> a = getPaths('abc')
+    >>> a = corpus.getPaths('abc')
     >>> len(a) >= 10
     True
 
@@ -470,39 +492,37 @@ def getPaths(extList=None, expandExtensions=True):
         for e in extList:
             extMod += common.findInputExtension(e)
         extList = extMod
-        
+    
+    #escape extension dots (if there) for regex
+    extList = ["\\%s" % ex for ex in extList if ex.startswith('.')]
+    extRe = re.compile('.*(%s)' % '|'.join(extList))
     #environLocal.printDebug(['getting paths with extensions:', extList])
-    paths = []    
-    for moduleName in MODULES:
-        if not hasattr(moduleName, '__path__'):
-            # when importing a package name (a directory) the moduleName        
-            # may be a list of all paths contained within the package
-            # this seems to be dependent on the context of the call:
-            # from the command line is different than from the interpreter
-            dirListing = moduleName
-        else:
-            # returns a list with one or more paths
-            # the first is the path to the directory that contains xml files
-            dir = moduleName.__path__[0] 
-            dirListing = [os.path.join(dir, x) for x in os.listdir(dir)]
+    
+    def findPaths():
+        for moduleName in MODULES:
+            if not hasattr(moduleName, '__path__'):
+                # when importing a package name (a directory) the moduleName        
+                # may be a list of all paths contained within the package
+                # this seems to be dependent on the context of the call:
+                # from the command line is different than from the interpreter
+                dirListing = moduleName
+            else:
+                # returns a list with one or more paths
+                # the first is the path to the directory that contains xml files
+                dir = moduleName.__path__[0] 
+                dirListing = [os.path.join(dir, x) for x in os.listdir(dir)]
 
-        for fp in dirListing:
-            if fp in paths:
-                continue
-            match = False
-            for ext in extList:
-                if fp.endswith(ext):
-                    match = True
-                    break 
-            if match:
-                if fp not in paths:
-                    paths.append(fp)    
-    return paths
+            for fp in dirListing:
+                if extRe.match(fp):
+                    yield fp
+    # set() is to uniquify the list.
+    return sorted(list(set(findPaths())))
 
 def getVirtualPaths(extList=None):
     '''Get all paths in the virtual corpus that match a known extension. An extension of None will return all known extensions.
    
-    >>> len(getVirtualPaths()) > 6
+    >>> from music21 import *
+    >>> len(corpus.getVirtualPaths()) > 6
     True
     '''
     if not common.isListLike(extList):
@@ -565,16 +585,17 @@ def search(query, field=None, domain=['core', 'virtual'], extList=None):
 def getComposer(composerName, extList=None):
     '''Return all components of the corpus that match a composer's or a collection's name. An `extList`, if provided, defines which extensions are returned. An `extList` of None returns all extensions. 
 
-    >>> a = getComposer('beethoven')
+    >>> from music21 import *
+    >>> a = corpus.getComposer('beethoven')
     >>> len(a) > 10
     True
-    >>> a = getComposer('mozart')
+    >>> a = corpus.getComposer('mozart')
     >>> len(a) > 10
     True
-    >>> a = getComposer('bach', 'krn')
+    >>> a = corpus.getComposer('bach', 'krn')
     >>> len(a) < 10
     True
-    >>> a = getComposer('bach', 'xml')
+    >>> a = corpus.getComposer('bach', 'xml')
     >>> len(a) > 10
     True
     '''
@@ -601,17 +622,18 @@ def getComposerDir(composerName):
     '''Given the name of a composer, get the path to the top-level directory
     of that composer 
 
+    >>> from music21 import *
     >>> import os
-    >>> a = getComposerDir('beethoven')
+    >>> a = corpus.getComposerDir('beethoven')
     >>> a.endswith(os.path.join('corpus', os.sep, 'beethoven'))
     True
-    >>> a = getComposerDir('bach')
+    >>> a = corpus.getComposerDir('bach')
     >>> a.endswith(os.path.join('corpus', os.sep, 'bach'))
     True
-    >>> a = getComposerDir('mozart')
+    >>> a = corpus.getComposerDir('mozart')
     >>> a.endswith(os.path.join('corpus', os.sep, 'mozart'))
     True
-    >>> a = getComposerDir('luca')
+    >>> a = corpus.getComposerDir('luca')
     >>> a.endswith(os.path.join('corpus', os.sep, 'luca'))
     True
     '''
@@ -648,22 +670,23 @@ def getComposerDir(composerName):
 def getWorkList(workName, movementNumber=None, extList=None):
     '''Search the corpus and return a list of works, always in a list. If no matches are found, an empty list is returned.
 
-    >>> len(getWorkList('beethoven/opus18no1'))
+    >>> from music21 import *
+    >>> len(corpus.getWorkList('beethoven/opus18no1'))
     8
-    >>> len(getWorkList('beethoven/opus18no1', 1))
+    >>> len(corpus.getWorkList('beethoven/opus18no1', 1))
     2 
-    >>> len(getWorkList('beethoven/opus18no1', 1, '.krn'))
+    >>> len(corpus.getWorkList('beethoven/opus18no1', 1, '.krn'))
     1
-    >>> len(getWorkList('beethoven/opus18no1', 1, '.xml'))
+    >>> len(corpus.getWorkList('beethoven/opus18no1', 1, '.xml'))
     1
-    >>> len(getWorkList('beethoven/opus18no1', 0, '.xml'))
+    >>> len(corpus.getWorkList('beethoven/opus18no1', 0, '.xml'))
     0
-    >>> len(getWorkList('handel/hwv56', '1-01', '.md'))
+    >>> len(corpus.getWorkList('handel/hwv56', '1-02', '.md'))
     1
-    >>> len(getWorkList('handel/hwv56', (1,1), '.md'))
+    >>> len(corpus.getWorkList('handel/hwv56', (2,1), '.md'))
     1
 
-    >>> len(getWorkList('bach/bwv1080', 1, '.md'))
+    >>> len(corpus.getWorkList('bach/bwv1080', 2, '.md'))
     1
 
     '''
@@ -755,10 +778,11 @@ def getWorkList(workName, movementNumber=None, extList=None):
 def getVirtualWorkList(workName, movementNumber=None, extList=None):
     '''Given a work name, search all virtual works and return a list of URLs for any matches.
 
-    >>> getVirtualWorkList('bach/bwv1007/prelude')
+    >>> from music21 import *
+    >>> corpus.getVirtualWorkList('bach/bwv1007/prelude')
     ['http://kern.ccarh.org/cgi-bin/ksdata?l=cc/bach/cello&file=bwv1007-01.krn&f=xml']
 
-    >>> getVirtualWorkList('junk')
+    >>> corpus.getVirtualWorkList('junk')
     []
     '''
     if not common.isListLike(extList):
@@ -777,7 +801,8 @@ def getVirtualWorkList(workName, movementNumber=None, extList=None):
 def getWorkReferences(sort=True):
     '''Return a data dictionary for all works in the corpus and (optionally) the virtual corpus. Returns a list of reference dictionaries, each each dictionary for a each composer. A 'works' dictionary for each composer provides references to dictionaries for all associated works. 
 
-    >>> post = getWorkReferences()
+    >>> from music21 import *
+    >>> post = corpus.getWorkReferences()
     '''
     # from music21 import corpus; corpus.getWorkReferences()
     # TODO: update this to use metadata
@@ -898,12 +923,13 @@ def getWorkReferences(sort=True):
 def getWork(workName, movementNumber=None, extList=None):
     '''Search the corpus, then the virtual corpus, for a work, and return a file path or URL. This method will return either a list of file paths or, if there is a single match, a single file path. If no matches are found an Exception is raised. 
 
+    >>> from music21 import *
     >>> import os
-    >>> a = getWork('opus74no2', 4)
+    >>> a = corpus.getWork('opus74no2', 4)
     >>> a.endswith(os.path.sep.join(['haydn', 'opus74no2', 'movement4.xml']))
     True
 
-    >>> a = getWork(['haydn', 'opus74no2', 'movement4.xml'])
+    >>> a = corpus.getWork(['haydn', 'opus74no2', 'movement4.xml'])
     >>> a.endswith(os.path.sep.join(['haydn', 'opus74no2', 'movement4.xml']))
     True
 
@@ -926,15 +952,30 @@ def getWork(workName, movementNumber=None, extList=None):
 
 def parse(workName, movementNumber=None, number=None, 
     extList=None, forceSource=False):
-    '''Search the corpus, then the virtual corpus, for a work, and return a parsed :class:`music21.stream.Stream`.
+    '''
+    The most important method call for corpus.
+    
+    Similar to converer.parse(), the method searches the corpus (including the virtual corpus)
+    for a work fitting the workName description and returns a :class:`music21.stream.Stream`.
 
     If `movementNumber` is defined, and a movement is included in the corpus, that movement will be returned. 
 
-    If `number` is defined, and the work is a collection with multiple components, that work number will be returned. 
+    If `number` is defined, and the work is a collection with multiple components, that work number will be returned.
+    For instance, some of our ABC documents contain dozens of folk songs within a single file.
 
-    If `forceSource` is True, the original file will always be loaded and pickled files, if available, will be ignored.
+    Advanced: if `forceSource` is True, the original file will always be loaded freshly and pickled (e.g., pre-parsed) files
+    will be ignored.  This should not be needed if the file has been changed, since the filetime of the file and
+    the filetime of the pickled version are compared.  But it might be needed if the music21 parsing routine has changed.
+    
 
-    >>> aStream = parse('opus74no1/movement3')
+    Example, get a chorale by Bach.  Note that the source type does not need to be
+    specified, nor does the name Bach even (since it's the only piece with the title BWV 66.6)
+
+    >>> from music21 import *
+    >>> bachChorale = corpus.parse('bwv66.6')
+    >>> len(bachChorale.parts)
+    4
+    
     '''
     if not common.isListLike(extList):
         extList = [extList]
@@ -947,7 +988,7 @@ def parse(workName, movementNumber=None, number=None,
     if len(post) == 1:
         fp = post[0]
     elif len(post) == 0:
-        raise CorpusException("Could not find a work that met this criteria")
+        raise CorpusException("Could not find a work that met this criteria %s" % workName)
     else: # greater than zero:
         fp = post[0] # get first
       
@@ -988,13 +1029,14 @@ def getBachChorales(extList='xml'):
     By default, only Bach Chorales in xml format are returned, because the quality of 
     the encoding and our parsing of those is superior.
 
-    >>> a = getBachChorales()
+    >>> from music21 import *
+    >>> a = corpus.getBachChorales()
     >>> len(a) > 400
     True
-    >>> a = getBachChorales('krn')
+    >>> a = corpus.getBachChorales('krn')
     >>> len(a) > 10
     False
-    >>> a = getBachChorales('xml')
+    >>> a = corpus.getBachChorales('xml')
     >>> len(a) > 400
     True
     '''
@@ -1467,7 +1509,7 @@ def getHandelMessiah(extList='md'):
     '''Return the file name of all of handel's messiah.
 
     >>> from music21 import *
-    >>> a = getHandelMessiah()
+    >>> a = corpus.getHandelMessiah()
     >>> len(a)
     43
     '''
@@ -1513,7 +1555,7 @@ def getMonteverdiMadrigals(extList='xml'):
     '''Return the file name of all Monteverdi madrigals.
 
     >>> from music21 import *
-    >>> a = getMonteverdiMadrigals()
+    >>> a = corpus.getMonteverdiMadrigals()
     >>> len(a) > 40
     True
     '''
@@ -1542,13 +1584,14 @@ monteverdiMadrigals = getMonteverdiMadrigals('xml')
 def getBeethovenStringQuartets(extList=None):
     '''Return all Beethoven String Quartets.
 
-    >>> a = getBeethovenStringQuartets()
+    >>> from music21 import *
+    >>> a = corpus.getBeethovenStringQuartets()
     >>> len(a) > 10
     True
-    >>> a = getBeethovenStringQuartets('krn')
+    >>> a = corpus.getBeethovenStringQuartets('krn')
     >>> len(a) < 10 and len(a) > 0
     True
-    >>> a = getBeethovenStringQuartets('xml')
+    >>> a = corpus.getBeethovenStringQuartets('xml')
     >>> len(a) > 400
     False
     '''

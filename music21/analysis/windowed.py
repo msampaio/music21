@@ -61,7 +61,7 @@ class WindowedAnalysis(object):
         >>> s = corpus.parse('bach/bwv324')
         >>> p = analysis.discrete.Ambitus()
         >>> # placing one part into analysis
-        >>> wa = WindowedAnalysis(s.parts[0], p)
+        >>> wa = analysis.windowed.WindowedAnalysis(s.parts[0], p)
 
         >>> post = wa._getMinimumWindowStream()
         >>> len(post.getElementsByClass('Measure'))
@@ -81,7 +81,9 @@ class WindowedAnalysis(object):
         # makeTies() splits the durations into proper measure boundaries for 
         # analysis; this means that a duration that spans multiple 1/4 measures
         # will be represented in each of those measures
-        return self._srcStream.makeMeasures(meterStream).makeTies(inPlace=True)
+        measured = self._srcStream.makeMeasures(meterStream)
+        measured.makeTies(inPlace=True)
+        return measured
 
 
     def _analyze(self, windowSize, windowType='overlap'):
@@ -97,7 +99,7 @@ class WindowedAnalysis(object):
         >>> from music21 import *
         >>> s = corpus.parse('bach/bwv66.6')
         >>> p = analysis.discrete.Ambitus()
-        >>> wa = WindowedAnalysis(s, p)
+        >>> wa = analysis.windowed.WindowedAnalysis(s, p)
         >>> len(wa._windowedStream)
         36
         >>> a, b = wa._analyze(1)
@@ -195,7 +197,7 @@ class WindowedAnalysis(object):
         >>> s = corpus.parse('bach/bwv324')
         >>> p = analysis.discrete.KrumhanslSchmuckler()
         >>> # placing one part into analysis
-        >>> wa = WindowedAnalysis(s.parts[0], p)
+        >>> wa = analysis.windowed.WindowedAnalysis(s.parts[0], p)
         >>> x, y, z = wa.process(1, 1, includeTotalWindow=False)
         >>> len(x) # we only have one series of windows
         1
@@ -232,7 +234,6 @@ class WindowedAnalysis(object):
             windowType = 'noOverlap'
         elif windowType.lower() in ['adjacentaverage']:
             windowType = 'adjacentAverage'
-
 
         # need to create storage for the output of each row, or the processing
         # of all windows of a single size across the entire Stream
@@ -388,7 +389,9 @@ class Test(unittest.TestCase):
         plot.process()
         #plot.write()
 
-#------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
+# define presented order in documentation
+_DOC_ORDER = [WindowedAnalysis]
 
 if __name__ == "__main__":
     if len(sys.argv) == 1: # normal conditions

@@ -1,12 +1,12 @@
 ﻿# -*- coding: UTF-8 -*-
 #!/usr/bin/python
 #-------------------------------------------------------------------------------
-# Name:         corpus/base.py
-# Purpose:      Access to the corpus collection
+# Name:         corpus/virtual.py
+# Purpose:      Access to the Virtual corpus collection
 #
 # Authors:      Christopher Ariza
 #
-# Copyright:    (c) 2010 The music21 Project
+# Copyright:    (c) 2010, 2012 The music21 Project
 # License:      LGPL
 #-------------------------------------------------------------------------------
 
@@ -136,8 +136,8 @@ class SchubertD5762(VirtualWork):
         
         self.composer = 'Franz Schubert'
         self.title = '13 Variations on a Theme by Anselm Hüttenbrenner'
-        self.corpusPath = 'schubert/d576-6'
-        self.urlList.append('http://web.mit.edu/sadoian/Public/corpus/schubert576-6.xml')
+        self.corpusPath = 'schubert/d576-2'
+        self.urlList.append('http://kern.ccarh.org/cgi-bin/ksdata?l=users/craig/classical/schubert/piano/d0576&file=d0576-02.krn&f=xml')
 
 
 class SchubertD5763(VirtualWork):
@@ -146,8 +146,8 @@ class SchubertD5763(VirtualWork):
         
         self.composer = 'Franz Schubert'
         self.title = '13 Variations on a Theme by Anselm Hüttenbrenner'
-        self.corpusPath = 'schubert/d576-6a'
-        self.urlList.append('http://web.mit.edu/sadoian/Public/corpus/schubert576-6a.xml')
+        self.corpusPath = 'schubert/d576-3'
+        self.urlList.append('http://kern.ccarh.org/cgi-bin/ksdata?l=users/craig/classical/schubert/piano/d0576&file=d0576-03.krn&f=xml')
 
 
 class SchubertD5764(VirtualWork):
@@ -156,8 +156,8 @@ class SchubertD5764(VirtualWork):
         
         self.composer = 'Franz Schubert'
         self.title = '13 Variations on a Theme by Anselm Hüttenbrenner'
-        self.corpusPath = 'schubert/d576-6b'
-        self.urlList.append('http://web.mit.edu/sadoian/Public/corpus/schubert576-6b.xml')
+        self.corpusPath = 'schubert/d576-4'
+        self.urlList.append('http://kern.ccarh.org/cgi-bin/ksdata?l=users/craig/classical/schubert/piano/d0576&file=d0576-04.krn&f=xml')
 
 
 class PachelbelCanonD(VirtualWork):

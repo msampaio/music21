@@ -5,7 +5,7 @@
 #
 # Authors:      Christopher Ariza
 #
-# Copyright:    (c) 2010-11 The music21 Project
+# Copyright:    (c) 2010-2012 The music21 Project
 # License:      LGPL
 #-------------------------------------------------------------------------------
 
@@ -37,6 +37,10 @@ environLocal = environment.Environment(_MOD)
 class TranslateException(Exception):
     pass
 
+class NoteheadException(TranslateException):
+    pass
+
+
 
 def configureStaffGroupFromMxPartGroup(staffGroup, mxPartGroup):
     '''Given an already instantiated spanner.StaffGroup, configure it with parameters from an mxPartGroup.
@@ -62,6 +66,75 @@ def configureMxPartGroupFromStaffGroup(staffGroup):
 
     #environLocal.printDebug(['configureMxPartGroupFromStaffGroup: mxPartGroup', mxPartGroup])
     return mxPartGroup
+
+
+def textBoxToMxCredit(textBox):
+    '''Convert a music21 TextBox to a MusicXML Credit. 
+
+    >>> from music21 import *
+    >>> tb = text.TextBox('testing')
+    >>> tb.positionVertical = 500
+    >>> tb.positionHorizontal = 500
+    >>> tb.page = 3
+    >>> mxCredit = musicxml.translate.textBoxToMxCredit(tb)
+    >>> print mxCredit
+    <credit page=3 <credit-words halign=center default-y=500 default-x=500 valign=top charData=testing>>
+
+    '''
+    # use line carriages to separate messages
+    mxCredit = musicxmlMod.Credit()
+    # add all credit words to components
+    count = 0
+
+    mxCredit.set('page', textBox.page)
+    for l in textBox.content.split('\n'):
+        cw = musicxmlMod.CreditWords(l)
+        if count == 0: # on first, configure properties         
+            cw.set('default-x', textBox.positionHorizontal)
+            cw.set('default-y', textBox.positionVertical)
+            cw.set('justify', textBox.justify)
+            cw.set('font-style', textBox.style)
+            cw.set('font-weight', textBox.weight)
+            cw.set('font-size', textBox.size)
+            cw.set('valign', textBox.alignVertical)
+            cw.set('halign', textBox.alignHorizontal)
+        mxCredit.append(cw)
+        count += 1
+    return mxCredit
+
+def mxCreditToTextBox(mxCredit):
+    '''Convert a MusicXML credit to a music21 TextBox
+
+    >>> from music21 import *
+    >>> c = musicxml.Credit()
+    >>> c.append(musicxml.CreditWords('testing'))
+    >>> c.set('page', 2)
+    >>> tb = musicxml.translate.mxCreditToTextBox(c)
+    >>> tb.page
+    2
+    >>> tb.content
+    'testing'
+    '''
+    from music21 import text
+    tb = text.TextBox()
+    tb.page = mxCredit.get('page')
+    content = []
+    for mxCreditWords in mxCredit: # can iterate
+        content.append(mxCreditWords.charData)
+    if len(content) == 0: # no text defined
+        raise TranslateException('no credit words defined for a credit tag')
+    tb.content = '\n'.join(content) # join with \n
+    # take formatting from the first, no matter if multiple are defined
+    tb.positionVertical = mxCredit.componentList[0].get('default-x')
+    tb.positionHorizontal = mxCredit.componentList[0].get('default-y')
+    tb.justify = mxCredit.componentList[0].get('justify')
+    tb.style = mxCredit.componentList[0].get('font-style')
+    tb.weight = mxCredit.componentList[0].get('font-weight')
+    tb.size = mxCredit.componentList[0].get('font-size')
+    tb.alignVertical = mxCredit.componentList[0].get('valign')
+    tb.alignHorizontal = mxCredit.componentList[0].get('halign')
+    return tb
+
 
 
 def mxTransposeToInterval(mxTranspose):
@@ -103,8 +176,8 @@ def mxTransposeToInterval(mxTranspose):
     # NOTE: presently not dealing with double
     # doubled one octave down from what is currently written 
     # (as is the case for mixed cello / bass parts in orchestral literature)
-
-    if ds is not None and cs is not None:
+    #environLocal.pd(['ds', ds, 'cs', cs, 'oc', oc])
+    if ds is not None and ds != 0 and cs is not None and cs != 0:
         # diatonic step can be used as a generic specifier here if 
         # shifted 1 away from zero
         if ds < 0:
@@ -485,7 +558,10 @@ def mxToPitch(mxNote, inputM21=None):
         else:
             # here we generate an accidental object from the alter value
             # but in the source, there was not a defined accidental
-            p.accidental = pitch.Accidental(float(acc))
+            try:
+                p.accidental = pitch.Accidental(float(acc))
+            except music21.pitch.AccidentalException:
+                raise TranslateException('incorrect accidental %s for pitch %s' % (str(acc), p))
             p.accidental.displayStatus = False
     p.octave = int(mxPitch.get('octave'))
     p._pitchSpaceNeedsUpdating = True
@@ -651,7 +727,7 @@ def mxToDuration(mxNote, inputM21=None):
         mxNotations = mxNote.get('notationsObj')
         mxTimeModification = mxNote.get('timeModificationObj')
 
-        if mxTimeModification != None:
+        if mxTimeModification is not None:
             tup = duration.Tuplet()
             tup.mx = mxNote # get all necessary config from mxNote
 
@@ -849,9 +925,6 @@ def durationToMusicXML(d):
 
     # make a copy, as we this process will change tuple types
     dCopy = copy.deepcopy(d)
-    # this update is done in note output
-    #updateTupletType(dCopy.components) # modifies in place
-
     n = note.Note()
     n.duration = dCopy
     # call the musicxml property on Stream
@@ -982,7 +1055,7 @@ def dynamicToMx(d):
     >>> from music21 import *
     >>> a = dynamics.Dynamic('ppp')
     >>> a._positionRelativeY = -10
-    >>> b = dynamicToMx(a)
+    >>> b = musicxml.translate.dynamicToMx(a)
     >>> b[0][0][0].get('tag')
     'ppp'
     '''
@@ -1016,6 +1089,7 @@ def mxToDynamicList(mxDirection):
     >>> mxDynamics.append(mxDynamicMark)
     >>> mxDirectionType.append(mxDynamics)
     >>> mxDirection.append(mxDirectionType)
+
     >>> a = dynamics.Dynamic()
     >>> a = musicxml.translate.mxToDynamicList(mxDirection)[0]
     >>> a.value
@@ -1249,16 +1323,16 @@ def mxToChordSymbol(mxHarmony):
 
     mxDegree = mxHarmony.get('degree')
     if mxDegree is not None: # a list of components
-        harmonyDegrees = []
+        ChordStepModifications = []
         hd = None
         for mxSub in mxDegree.componentList:
             # this is the assumed order of triples
             if isinstance(mxSub, musicxmlMod.DegreeValue):
                 if hd is not None: # already set
-                    harmonyDegrees.append(hd)
+                    ChordStepModifications.append(hd)
                     hd = None
                 if hd is None:
-                    hd = harmony.HarmonyDegree() 
+                    hd = harmony.ChordStepModification() 
                 hd.degree = int(mxSub.charData)
             elif isinstance(mxSub, musicxmlMod.DegreeAlter):
                 hd.interval = int(mxSub.charData)
@@ -1268,9 +1342,9 @@ def mxToChordSymbol(mxHarmony):
                 raise TranslateException('found unexpected object in degree tag: %s' % mxSub)
         # must get last on loop exit
         if hd is not None: 
-            harmonyDegrees.append(hd)
-        for hd in harmonyDegrees:
-            cs.addHarmonyDegree(hd)
+            ChordStepModifications.append(hd)
+        for hd in ChordStepModifications:
+            cs.addChordStepModification(hd)
 
     #environLocal.printDebug(['mxToHarmony(): Harmony object', h])
     return cs
@@ -1292,11 +1366,11 @@ def chordSymbolToMx(cs):
     >>> mxHarmony
     <harmony <root root-step=E root-alter=-1> function=I64 <kind text=M charData=major> inversion=2 <bass bass-step=B bass-alter=-1>>
 
-    >>> hd = harmony.HarmonyDegree()
+    >>> hd = harmony.ChordStepModification()
     >>> hd.type = 'alter'
     >>> hd.interval = -1
     >>> hd.degree = 3
-    >>> cs.addHarmonyDegree(hd)
+    >>> cs.addChordStepModification(hd)
 
     >>> mxHarmony = musicxml.translate.chordSymbolToMx(cs)
     >>> mxHarmony
@@ -1328,9 +1402,9 @@ def chordSymbolToMx(cs):
             mxBass.set('bassAlter', int(cs.bass.accidental.alter))
         mxHarmony.set('bass', mxBass)
 
-    if len(cs.getHarmonyDegrees()) > 0:
+    if len(cs.getChordStepModifications()) > 0:
         mxDegree = musicxmlMod.Degree()
-        for hd in cs.getHarmonyDegrees():
+        for hd in cs.getChordStepModifications():
             # types should be compatible
             mxDegreeValue = musicxmlMod.DegreeValue()
             mxDegreeValue.set('charData', hd.degree)
@@ -1357,7 +1431,7 @@ def instrumentToMx(i):
     '''
     >>> from music21 import *
     >>> i = instrument.Celesta()
-    >>> mxScorePart = instrumentToMx(i)
+    >>> mxScorePart = musicxml.translate.instrumentToMx(i)
     >>> len(mxScorePart.scoreInstrumentList)
     1
     >>> mxScorePart.scoreInstrumentList[0].instrumentName
@@ -1468,7 +1542,7 @@ def chordToMx(c):
     >>> e = a.pitches = [b, c, d]
     >>> len(e)
     3
-    >>> mxNoteList = chordToMx(a)
+    >>> mxNoteList = musicxml.translate.chordToMx(a)
     >>> len(mxNoteList) # get three mxNotes
     3
     >>> mxNoteList[0].get('chord')
@@ -1484,45 +1558,36 @@ def chordToMx(c):
     >>> h = pitch.Pitch('g3')
     >>> i = chord.Chord([h, g])
     >>> i.quarterLength = 2
-    >>> listOfMxNotes = chordToMx(i)
+    >>> listOfMxNotes = musicxml.translate.chordToMx(i)
     >>> listOfMxNotes[0].get('chord')
     False
     >>> listOfMxNotes[1].noteheadObj.get('charData')
     'diamond'
-    
     
     '''
     #environLocal.printDebug(['chordToMx', c])
     mxNoteList = []
     durPos = 0 # may have more than one dur
     mxDurationNotes = durationToMx(c.duration)
-    #durPosLast = len(c.duration.mx) - 1
     durPosLast = len(mxDurationNotes) - 1
     for mxNoteBase in mxDurationNotes: # returns a list of mxNote objs
         # merge method returns a new object
-        chordPos = 0
         mxNoteChordGroup = []
-        for n in c: # iterate component notes
+        for chordPos, n in enumerate(c): # iterate component notes
         #for pitchObj in c.pitches:
             # copy here, before merge
             mxNote = copy.deepcopy(mxNoteBase)
             mxNote = mxNote.merge(n.pitch.mx, returnDeepcopy=False)
             if chordPos > 0:
                 mxNote.set('chord', True)
-            # get color from within .editorial using attribute
-            # mxNote.set('color', c.color) -- Music Hack Day - Color is set in notheadToMxNotehead
-            # get notehead object
-            #nh = c.getNotehead(n.pitch)
-            nh = n.notehead
-
+            # if we do not have a component color, set color from the chord
+            # working with a deepcopy, so this change is ok
+            if n.color is None:
+                n.color = c.color
             mxNote.noteheadObj = noteheadToMxNotehead(n)
-#             environLocal.printDebug(['parsed mx notehead', mxNote.noteheadObj])
-#             environLocal.printDebug(['n.stemDirection', n.stemDirection])
-#             environLocal.printDebug(['c.stemDirection', c.stemDirection])
-
             #get the stem direction from the chord, not the pitch
             if c.stemDirection != 'unspecified':
-                if c.stemDirection in ['noStem', None]:
+                if c.stemDirection in ['noStem']:
                     mxNote.stem = 'none'
                 else:
                     mxNote.stem = c.stemDirection
@@ -1530,26 +1595,35 @@ def chordToMx(c):
             elif c.stemDirection == 'unspecified':
                 if n.stemDirection != 'unspecified':
                     #environLocal.printDebug(['found specified component stemdirection', n.stemDirection])
-                    if n.stemDirection in ['noStem', None]:
+                    if n.stemDirection in ['noStem']:
                         mxNote.stem = 'none'
                     else:
                         mxNote.stem = n.stemDirection            
 
             #environLocal.pd(['final note stem', mxNote.stem])
             # only add beam to first note in group
-            if c.beams != None and chordPos == 0:
+            if c.beams is not None and chordPos == 0:
                 mxNote.beamList = c.beams.mx
+
+            # if the durations included tuplets, there will be a tuplet
+            # notations indication in each of the components of the chord; thus
+            # all those other than first must be removed
+            if chordPos != 0 and mxNote.notationsObj is not None:
+                rmTargets = []
+                for i, sub in enumerate(mxNote.notationsObj.componentList):
+                    if sub.tag == 'tuplet':
+                        rmTargets.append(i)
+                # remove in reverse order
+                rmTargets.reverse()
+                for i in rmTargets:
+                    mxNote.notationsObj.componentList.pop(i)
 
             # if this note, not a component duration,
             # need to add this to the last-encountered mxNote
-
             # get mxl objs from tie obj
-            #mxTieList, mxTiedList = c.tie.mx 
-            #tieObj = c.getTie(n.pitch) # get for each pitch
             tieObj = n.tie
             if tieObj is not None:
                 #environLocal.printDebug(['chordToMx: found tie for pitch', pitchObj])
-
                 mxTieList, mxTiedList = tieObj.mx 
                 # if starting a tie, add to all mxNotes in the chord
                 # but only add to the last duration in the dur group
@@ -1563,8 +1637,6 @@ def chordToMx(c):
                     mxNote.notationsObj.componentList += mxTiedList
                 else:
                     pass
-                    #environLocal.printDebug(['rejecting tie creation', 'tieObj.type', tieObj.type, 'durPos', durPos])
-            chordPos += 1
             mxNoteChordGroup.append(mxNote)
         
         # add chord group to note list
@@ -1581,10 +1653,6 @@ def chordToMx(c):
     for i in range(len(c.articulations)):
         obj = c.articulations[i]
         if hasattr(obj, 'mx'):
-#             if i == 0: # assign first
-#                 mxArticulations = obj.mx # mxArt... stores more than one artic
-#             else: # concatenate any remaining
-#                 mxArticulations += obj.mx
             mxArticulations.append(obj.mx)
     #if mxArticulations != None:
     if len(mxArticulations) > 0:
@@ -1593,11 +1661,14 @@ def chordToMx(c):
     # notations and articulations are mixed in musicxml
     for i in range(len(c.expressions)):
         obj = c.expressions[i]
-        if hasattr(obj, 'mx'): 
-            mxNoteList[0].notationsObj.componentList.append(obj.mx)
-
-    #environLocal.pd(['final note list', mxNoteList])
-
+        if hasattr(obj, 'mx'):
+            # some expressions must be wrapped in a musicxml ornament
+            if 'Ornament' in obj.classes:
+                ornamentsObj = musicxmlMod.Ornaments()
+                ornamentsObj.append(obj.mx)
+                mxNoteList[0].notationsObj.componentList.append(ornamentsObj)
+            else: 
+                mxNoteList[0].notationsObj.componentList.append(obj.mx)
     return mxNoteList
 
 def mxToChord(mxNoteList, inputM21=None):
@@ -1665,11 +1736,9 @@ def mxToChord(mxNoteList, inputM21=None):
         p = pitch.Pitch()
         p.mx = mxNote # will extract pitch info from mxNote
         pitches.append(p)
-        
-        #extract notehead objects
+        #extract notehead objects; may be None
         nh = mxNote.get('noteheadObj')
         noteheads.append(nh)
-
         #extract stem directions
         stemDir = mxNote.get('stem')
         stemDirs.append(stemDir)
@@ -1683,7 +1752,6 @@ def mxToChord(mxNoteList, inputM21=None):
             ties.append(None)
     # set all at once
     c.pitches = pitches
-
     # set beams from first note of chord
     c.beams.mx = mxNoteList[0].beamList
 
@@ -1691,15 +1759,13 @@ def mxToChord(mxNoteList, inputM21=None):
     for i, t in enumerate(ties):
         if t is not None:
             # provide pitch to assign tie to based on index number
-            c.setTie(t, pitches[i])
-            
+            c.setTie(t, pitches[i]) 
     #set notehead based on pitches
-    index = 0
-    for obj in noteheads:
+    for index, obj in enumerate(noteheads):
         if obj is not None:
             c.setNotehead(obj.charData, c.pitches[index])
-        index+=1
-        
+            # set color per pitch
+            c.setColor(obj.get('color'), c.pitches[index])
     #set stem direction based upon pitches
     index2 = 0
     for obj2 in stemDirs:
@@ -1735,17 +1801,10 @@ def generalNoteToMusicXML(n):
     # call the musicxml property on Stream
     return out.musicxml
     
-def noteheadToMxNotehead(obj):
+def noteheadToMxNotehead(obj, defaultColor=None):
     '''
     Translate a music21 :class:`~music21.note.Note` object or :class:`~music21.pitch.Pitch` object to a
     into a musicxml.Notehead object.
-    
-    
-    If a pitch object is given then (since it doesn't store its own notehead)
-    the notehead must be given as a string via overRiddenNotehead. Similarly, because a pitch
-    can't store information about any other attributes (such as fill status or whether or not
-    it's on parentheses), that information is passed in from overRiddenNoteheadAttr.
-
 
     >>> from music21 import *
     >>> n = note.Note('C#4')
@@ -1764,54 +1823,35 @@ def noteheadToMxNotehead(obj):
     >>> mxN4._attr['parentheses']
     'yes'
     '''
-    
     from music21 import note # needed for note.noteheadTypeNames
-
     mxNotehead = musicxmlMod.Notehead()
-
     nh = None
     nhFill = 'default'
     nhParen = False
     
+    # default noteheard, regardless of if set as attr
     nh = 'normal'
-#     if 'Pitch' in obj.classes:
-#         if overRiddenNotehead is not None:
-#             nh = overRiddenNotehead
     if hasattr(obj, 'notehead'):
         nh = obj.notehead
-        
     nhFill = 'default'
-#     if 'Pitch' in obj.classes:
-#         if overRiddenNoteheadFill is not None:
-#             nhFill = overRiddenNoteheadFill
     if hasattr(obj, 'noteheadFill'):
         nhFill = obj.noteheadFill
-    #environLocal.pd(['nhFill', nhFill])        
-
     nhParen = False
-#     if 'Pitch' in obj.classes:
-#         if overRiddenNoteheadParen is not None:
-#             nhParen = overRiddenNoteheadParen
     if hasattr(obj, 'noteheadParen'):
-        nhParen = obj.noteheadParen
+        nhParen = obj.noteheadParen    
     
     if nh not in note.noteheadTypeNames:
-        raise NoteheadException('This notehead type is not supported by MusicXML.')
+        raise NoteheadException('This notehead type is not supported by MusicXML: "%s"' % nh)
     else:
         # should only set if needed, otherwise creates extra mxl data
         #if nh not in ['normal']: 
         mxNotehead.set('charData', nh)
-        
     if nhFill != 'default':
-        mxNotehead._attr['filled'] = nhFill
-    
-    if nhParen != False:
-        mxNotehead._attr['parentheses'] = nhParen
-
-    # -- Music Hack Day - color is now set in nothead object
-    if obj.color:
-        mxNotehead._attr['color'] = obj.color
-        
+        mxNotehead.set('filled', nhFill)
+    if nhParen is not False:
+        mxNotehead.set('parentheses', nhParen)
+    if obj.color not in [None, '']:
+        mxNotehead.set('color', obj.color)
     return mxNotehead
 
 def noteToMxNotes(n, spannerBundle=None):
@@ -1830,9 +1870,10 @@ def noteToMxNotes(n, spannerBundle=None):
 
         # get a new spanner bundle that only has components relevant to this 
         # note.
-        spannerBundle = spannerBundle.getByComponent(n)
+        #environLocal.printDebug(['noteToMxNotes(): spannerBundle[0].getComponentIds()', spannerBundle[0].getComponentIds()])
 
-        #environLocal.printDebug(['noteToMxNotes(): spannerBundle post-filter by component:', spannerBundle])
+        spannerBundle = spannerBundle.getByComponent(n)
+        #environLocal.printDebug(['noteToMxNotes(): spannerBundle post-filter by component:', spannerBundle, n, id(n)])
 
     mxNoteList = []
     pitchMx = n.pitch.mx
@@ -1846,14 +1887,13 @@ def noteToMxNotes(n, spannerBundle=None):
     #for mxNote in n.duration.mx: # returns a list of mxNote objs
         # merge method returns a new object; but can use existing here
         mxNote = mxNote.merge(pitchMx, returnDeepcopy=False)
-        # get color from within .editorial using attribute
-        if noteColor != "":
-            pass
-            #mxNote.set('color', noteColor)  -- Music Hack Day - Color is set in notheadToMxNotehead
+        # get color from within .editorial using property
+        # only set note-level color for rests, otherwise set notehead
+        if noteColor is not None and n.isRest:
+            mxNote.set('color', noteColor)
         if n.hideObjectOnPrint == True:
             mxNote.set('printObject', "no")
             mxNote.set('printSpacing', "yes")
-
         mxNoteList.append(mxNote)
 
     # note: lyric only applied to first note
@@ -1877,7 +1917,6 @@ def noteToMxNotes(n, spannerBundle=None):
 
     # need to apply beams to notes, but application needs to be
     # reconfigured based on what is gotten from n.duration.mx
-
     # likely, this means that many continue beams will need to be added
 
     # this is setting the same beams for each part of this 
@@ -1900,13 +1939,19 @@ def noteToMxNotes(n, spannerBundle=None):
     # notations and articulations are mixed in musicxml
     for expObj in n.expressions:
         if hasattr(expObj, 'mx'):
-            mxNoteList[0].notationsObj.componentList.append(expObj.mx)
+            # some expressions must be wrapped in a musicxml ornament
+            if 'Ornament' in expObj.classes:
+                ornamentsObj = musicxmlMod.Ornaments()
+                ornamentsObj.append(expObj.mx)
+                mxNoteList[0].notationsObj.componentList.append(ornamentsObj)
+            else:
+                mxNoteList[0].notationsObj.componentList.append(expObj.mx)
 
-    
-
-    if spannerBundle is not None:
+    if spannerBundle is not None and len(spannerBundle) > 0:
         # already filtered for just the spanner that have this note as
         # a component
+        #environLocal.pd(['noteToMxNotes()', 'len(spannerBundle)', len(spannerBundle) ])
+
         for su in spannerBundle.getByClass('Slur'):     
             mxSlur = musicxmlMod.Slur()
             mxSlur.set('number', su.idLocal)
@@ -1925,9 +1970,9 @@ def noteToMxNotes(n, spannerBundle=None):
             mxNoteList[0].notationsObj.componentList.append(mxSlur)
             
     #Adds the notehead type if it is not set to the default 'normal'.
-    # -- Music Hack Day - Color is set in notheadToMxNotehead
-    if n.notehead != 'normal' or n.noteheadFill != 'default' or n.color:
-       mxNoteList[0].noteheadObj = noteheadToMxNotehead(n)
+    if (n.notehead != 'normal' or n.noteheadFill != 'default' or 
+        n.color not in [None, '']):
+        mxNoteList[0].noteheadObj = noteheadToMxNotehead(n)
     
     #If the stem direction is not 'unspecified'    
     if n.stemDirection != 'unspecified':
@@ -1935,7 +1980,6 @@ def noteToMxNotes(n, spannerBundle=None):
             mxNoteList[0].stem = 'none'
         else:
             mxNoteList[0].stem = n.stemDirection
-        
 
     return mxNoteList
 
@@ -1956,10 +2000,9 @@ def mxToNote(mxNote, spannerBundle=None, inputM21=None):
         n = note.Note()
     else:
         n = inputM21
- 
     # doing this will create an instance, but will not be passed
     # out of this method, and thus is only for testing
-    if spannerBundle == None:
+    if spannerBundle is None:
         #environLocal.printDebug(['mxToNote()', 'creating SpannerBundle'])
         spannerBundle = spanner.SpannerBundle()
 
@@ -1980,8 +2023,12 @@ def mxToNote(mxNote, spannerBundle=None, inputM21=None):
     n.beams.mx = mxNote.beamList
     
     mxStem = mxNote.get('stem')
-    if mxStem != None:
+    if mxStem is not None:
         n.stemDirection = mxStem
+
+    # get color from Note first; if not, try to get from notehead
+    if mxNote.get('color') is not None:
+        n.color = mxNote.get('color')
 
     # can use mxNote.tieList instead
     mxTieList = mxNote.get('tieList')
@@ -1992,10 +2039,9 @@ def mxToNote(mxNote, spannerBundle=None, inputM21=None):
         n.tie = tieObj
 
     # things found in notations object:
-    # articulations
-    # slurs
+    # articulations, slurs
     mxNotations = mxNote.get('notationsObj')
-    if mxNotations != None:
+    if mxNotations is not None:
         # get a list of mxArticulationMarks, not mxArticulations
         mxArticulationMarkList = mxNotations.getArticulations()
         for mxObj in mxArticulationMarkList:
@@ -2009,7 +2055,6 @@ def mxToNote(mxNote, spannerBundle=None, inputM21=None):
             fermataObj = expressions.Fermata()
             fermataObj.mx = mxObj
             n.expressions.append(fermataObj)
-
             #environLocal.printDebug(['_setMX(), n.mxFermataList', mxFermataList])
 
         # get slurs; requires a spanner bundle
@@ -2036,17 +2081,19 @@ def mxToNote(mxNote, spannerBundle=None, inputM21=None):
 
             # add a reference of this note to this spanner
             su.addComponents(n)
+            #environLocal.pd(['adding n', n, id(n), 'su.getComponents', su.getComponents(), su.getComponentIds()])
             if mxObj.get('type') == 'stop':
                 su.completeStatus = True
                 # only add after complete
-                
-
             #environLocal.printDebug(['got slur:', su, mxObj.get('placement'), mxObj.get('number')])
     
     # gets the notehead object from the mxNote and sets value of the music21 note to the value of the notehead object        
     mxNotehead = mxNote.get('noteheadObj')
-    if mxNotehead != None:
-        n.notehead = mxNotehead.charData
+    if mxNotehead is not None:
+        if mxNotehead.charData not in ['', None]:
+            n.notehead = mxNotehead.charData
+        if mxNotehead.get('color') is not None:
+            n.color = mxNotehead.get('color')
 
     return n
 
@@ -2089,6 +2136,10 @@ def mxToRest(mxNote, inputM21=None):
     except duration.DurationException:
         environLocal.printDebug(['failed extaction of duration from musicxml', 'mxNote:', mxNote, r])
         raise
+
+    if mxNote.get('color') is not None:
+        r.color = mxNote.get('color')
+
     return r
 
 
@@ -2100,11 +2151,12 @@ def mxToRest(mxNote, inputM21=None):
 def measureToMx(m, spannerBundle=None, mxTranspose=None):
     '''Translate a :class:`~music21.stream.Measure` to a MusicXML :class:`~music21.musicxml.Measure` object.
     '''
-    #environLocal.printDebug(['measureToMx(): m.isSorted:', m.isSorted, 'm._mutable', m._mutable])
+    from music21 import duration
+
+    #environLocal.printDebug(['measureToMx(): m.isSorted:', m.isSorted, 'm._mutable', m._mutable, 'len(spannerBundle)', len(spannerBundle)])
     if spannerBundle is not None:
         # get all spanners that have this measure as a component    
-        rbSpanners = spannerBundle.getByComponentAndClass(
-                          m, 'RepeatBracket')
+        rbSpanners = spannerBundle.getByComponentAndClass(m, 'RepeatBracket')
     else:
         rbSpanners = [] # for size comparison
 
@@ -2120,7 +2172,6 @@ def measureToMx(m, spannerBundle=None, mxTranspose=None):
     if len(found) > 0:
         sl = found[0] # assume only one per measure
         mxPrint = sl.mx
-        
     found = m.getElementsByClass('SystemLayout')
     if len(found) > 0:
         sl = found[0] # assume only one per measure
@@ -2215,13 +2266,14 @@ def measureToMx(m, spannerBundle=None, mxTranspose=None):
             mFlat = nonVoiceMeasureItems # this is a Stream
         else:
             mFlat = m.flat
+
         for obj in mFlat:
             #environLocal.pd(['iterating flat M components', obj, obj.offset])
             classes = obj.classes # store result of property call once
             if 'Note' in classes:
                 mxMeasure.componentList += noteToMxNotes(obj, 
                     spannerBundle=spannerBundle)
-            elif 'GeneralNote' in classes:
+            elif 'GeneralNote' in classes: # this includes chords
                 # .mx here returns a list of notes; this could be a rest
                 mxMeasure.componentList += obj.mx
             elif 'Dynamic' in classes:
@@ -2626,7 +2678,11 @@ def mxToMeasure(mxMeasure, spannerBundle=None, inputM21=None):
                 else:
                     #n = note.Note()
                     #n.mx = mxNote
-                    n = mxToNote(mxNote, spannerBundle=spannerBundle)
+                    try:
+                        n = mxToNote(mxNote, spannerBundle=spannerBundle)
+                    except TranslateException as strerror:
+                        raise TranslateException('cannot translate note in measure %s: %s' % (mNumRaw, strerror))
+                    
                     _addToStaffReference(mxNote, n, staffReference)
                     if useVoices:
                         m.voices[mxNote.voice]._insertCore(offsetMeasureNote, n)
@@ -2768,35 +2824,13 @@ def measureToMusicXML(m):
     >>> m = stream.Measure()
     >>> m.repeatAppend(note.Note('g3'), 4)
     >>> post = musicxml.translate.measureToMusicXML(m)
-    >>> post[-100:].replace('\\n', '')
-    ' <type>quarter</type>        <notations/>      </note>    </measure>  </part></score-partwise>'
     '''
     from music21 import stream, duration
     # search for time signatures, either defined locally or in context
-
     #environLocal.printDebug(['measureToMusicXML', m]) 
-
     # we already have a deep copy passed in, which happens in 
     # stream.Measure._getMusicXML()
     m.makeNotation(inPlace=True)
-
-# this is now in Measure.makeNotation
-#     found = m.getTimeSignatures(returnDefault=False)
-#     if len(found) == 0:
-#         try:
-#             ts = m.bestTimeSignature()
-#         # may raise an exception if cannot find a rational match
-#         except stream.StreamException:
-#             ts = None # get the default
-#     else:
-#         ts = found[0]
-
-    # might similarly look for key signature, instrument, and clef
-    # must copy here b/c do not want to alter original, and need to set
-    # new objects in some cases (time signature, etc)
-#     mCopy = copy.deepcopy(m)    
-#     if ts != None:
-#         mCopy.timeSignature = ts
 
     out = stream.Part()
     out.append(m)
@@ -2826,7 +2860,7 @@ def streamPartToMx(part, instStream=None, meterStream=None,
     from music21 import spanner
     from music21 import stream
 
-    #environLocal.printDebug(['calling Stream._getMXPart'])
+    #environLocal.printDebug(['calling Stream._getMXPart', 'len(spannerBundle)', len(spannerBundle)])
     # note: meterStream may have TimeSignature objects from an unrelated
     # Stream.
     if instStream is None:
@@ -2852,9 +2886,7 @@ def streamPartToMx(part, instStream=None, meterStream=None,
     # may need to be semi flat?
     measureStream = part.getElementsByClass('Measure')
     if len(measureStream) == 0:
-
         part.makeMutable() # must mutate
-
         # try to add measures if none defined
         # returns a new stream w/ new Measures but the same objects
         measureStream = part.makeNotation(meterStream=meterStream,
@@ -2875,16 +2907,22 @@ def streamPartToMx(part, instStream=None, meterStream=None,
         # check that first measure has any atributes in outer Stream
         # this is for non-standard Stream formations (some kern imports)
         # that place key/clef information in the containing stream
-        if measureStream[0].clef == None:
+
+        if measureStream[0].clef is None:
             measureStream[0].makeMutable() # must mutate
             outerClefs = part.getElementsByClass('Clef')
             if len(outerClefs) > 0:
                 measureStream[0].clef = outerClefs[0]
-        if measureStream[0].keySignature == None:
+        if measureStream[0].keySignature is None:
             measureStream[0].makeMutable() # must mutate
             outerKeySignatures = part.getElementsByClass('KeySignature')
             if len(outerKeySignatures) > 0:
                 measureStream[0].keySignature = outerKeySignatures[0]
+        if measureStream[0].timeSignature is None:
+            measureStream[0].makeMutable() # must mutate
+            outerTimeSignatures = part.getElementsByClass('TimeSignature')
+            if len(outerTimeSignatures) > 0:
+                measureStream[0].timeSignature = outerTimeSignatures[0]
 
         # see if accidentals/beams can be processed
         if not measureStream.haveAccidentalsBeenMade():
@@ -2979,12 +3017,14 @@ def streamToMx(s, spannerBundle=None):
         meterStream = s.flat.getTimeSignatures(searchContext=False,
                     sortByCreationTime=True, returnDefault=True) 
 
+    # get all text boxes
+    textBoxes = s.flat.getElementsByClass('TextBox') 
+
     # we need independent sub-stream elements to shift in presentation
     highestTime = 0
 
     if s.hasPartLikeStreams():
         #environLocal.printDebug('Stream._getMX: interpreting multipart')
-
         # must set spanner after copying
         if spannerBundle is None: 
             # no spanner bundle provided, get one from the flat stream
@@ -3001,7 +3041,6 @@ def streamToMx(s, spannerBundle=None):
                 highestTime = ht
 
         refStreamOrTimeRange = [0, highestTime]
-
         # would like to do something like this but cannot
         # replace object inside of the stream
         for obj in streamOfStreams:
@@ -3063,6 +3102,10 @@ def streamToMx(s, spannerBundle=None):
         mxScore = s.metadata.mx # returns an mx score
     else:
         mxScore = musicxmlMod.Score()
+
+    # add text boxes
+    for tb in textBoxes: # a stream of text boxes
+        mxScore.creditList.append(textBoxToMxCredit(tb))
 
     mxScoreDefault = musicxmlMod.Score()
     mxScoreDefault.setDefaults()
@@ -3257,13 +3300,27 @@ def mxToStreamPart(mxScore, partId, spannerBundle=None, inputM21=None):
     # note: this presently has to look at _idLastDeepCopyOf to get matches
     # to find removed elements after copying; this is probably not the
     # best way to do this. 
+
+    # for this part, if any elements are components in the spannerBundle,
+    # then then we need to update the spannerBundle after the part is copied
+
     streamPartStaff = None
     if mxPart.getStavesCount() > 1:
+        # transfer all spanners to the streamPart such that they get
+        # updated in copying, then remove them
+        rm = []
+        for sp in spannerBundle.getByCompleteStatus(True):
+            streamPart._insertCore(0, sp)
+            rm.append(sp)
+        # remove from original spanner bundle
+        for sp in rm:
+            spannerBundle.remove(sp)
+
         # get staves will return a number, between 1 and count
         #for staffCount in range(mxPart.getStavesCount()):
         for staffCount in _getUniqueStaffKeys(staffReferenceList):
             partIdStaff = '%s-Staff%s' % (partId, staffCount)
-            #environLocal.printDebug(['partIdStaff', partIdStaff])
+            #environLocal.printDebug(['partIdStaff', partIdStaff, 'copying streamPart'])
             # this deepcopy is necessary, as we will remove components
             # in each staff that do not belong
             streamPartStaff = copy.deepcopy(streamPart)
@@ -3283,12 +3340,14 @@ def mxToStreamPart(mxScore, partId, spannerBundle=None, inputM21=None):
                         for eVoice in v.elements:
                             if eVoice._idLastDeepCopyOf == id(eRemove):
                                 v.remove(eVoice)
-                # after adjusting voices see of voices can be reduced or
+                # after adjusting voices see if voices can be reduced or
                 # removed
                 #environLocal.printDebug(['calling flattenUnnecessaryVoices: voices before:', len(m.voices)])
                 m.flattenUnnecessaryVoices(force=False, inPlace=True)
                 #environLocal.printDebug(['calling flattenUnnecessaryVoices: voices after:', len(m.voices)])
-
+            # TODO: copying spanners may have created orphaned
+            # spanners that no longer have valid connections
+            # in this part; should be deleted
             streamPartStaff.addGroupForElements(partIdStaff) 
             streamPartStaff.groups.append(partIdStaff) 
             streamPartStaff._elementsChanged()
@@ -3302,8 +3361,6 @@ def mxToStreamPart(mxScore, partId, spannerBundle=None, inputM21=None):
 
         # copy spanners that are complete into the part, as this is the 
         # highest level container that needs them
-        # note that this may cause problems when creating staff copies, 
-        # as is down below
         rm = []
         for sp in spannerBundle.getByCompleteStatus(True):
             streamPart._insertCore(0, sp)
@@ -3335,6 +3392,7 @@ def mxToStream(mxScore, spannerBundle=None, inputM21=None):
     from music21 import metadata
     from music21 import spanner
     from music21 import layout
+    from music21 import text
 
     if inputM21 == None:
         from music21 import stream
@@ -3351,8 +3409,11 @@ def mxToStream(mxScore, spannerBundle=None, inputM21=None):
     for partId in partNameIds: # part names are part ids
         # NOTE: setting partId not partId: might change
         # return the part; however, it is still already attached to the Score
-        part = mxToStreamPart(mxScore, partId=partId, 
-            spannerBundle=spannerBundle, inputM21=s)
+        try:
+            part = mxToStreamPart(mxScore, partId=partId, 
+                                  spannerBundle=spannerBundle, inputM21=s)
+        except TranslateException as strerror:
+            raise TranslateException('cannot translate part %s: %s' % (partId, strerror))
         # update dictionary to store music21 part
         partIdDictionary[partId] = part
 
@@ -3373,8 +3434,13 @@ def mxToStream(mxScore, spannerBundle=None, inputM21=None):
     # add metadata object; this is placed after all other parts now
     # these means that both Parts and other objects live on Stream.
     md = metadata.Metadata()
-    md.mx = mxScore
+    md.mx = mxScore # TODO: this needs to be updated to normal translation
     s._insertCore(0, md)
+
+    # store credits on Score stream
+    for mxCredit in mxScore.creditList:
+        co = mxCreditToTextBox(mxCredit)
+        s._insertCore(0, co) # insert position does not matter
 
     # only insert complete spanners; at each level possible, complete spanners
     # are inserted into either the Score or the Part
@@ -3519,7 +3585,7 @@ class Test(unittest.TestCase):
         self.assertEqual(len(s.flat.spanners) >= 2, True)
 
 
-        environLocal.printDebug(['pre s.measures(2,3)', 's', s])
+        #environLocal.printDebug(['pre s.measures(2,3)', 's', s])
         ex = s.measures(2, 3) # this needs to get all spanners too
 
         # all spanners are referenced over; even ones that may not be relevant
@@ -3710,7 +3776,6 @@ spirit</words>
         
         from music21.musicxml import testPrimitive
         from music21 import converter
-        
         # this 2 part segments was importing multiple voices within
         # a measure, even though there was no data in the second voice
         s = converter.parse(testPrimitive.mixedVoices1a)
@@ -3721,8 +3786,6 @@ spirit</words>
         
         #s.parts[0].show('t')
         #self.assertEqual(len(s.parts[0].voices), 2)
-        
-        
         s = converter.parse(testPrimitive.mixedVoices1b)
         self.assertEqual(len(s.parts), 2)
         self.assertEqual(len(s.parts[0].getElementsByClass(
@@ -4127,8 +4190,8 @@ spirit</words>
         #c.show()
         input = converter.parse(xml)
         chordResult = input.flat.notes[0]
-        for n in chordResult:
-            print n.stemDirection       
+#         for n in chordResult:
+#             print n.stemDirection       
 
         self.assertEqual(chordResult.getStemDirection(chordResult.pitches[0]), 'down')
         self.assertEqual(chordResult.getStemDirection(chordResult.pitches[1]), 'noStem')
@@ -4258,7 +4321,6 @@ spirit</words>
         from music21.musicxml import testPrimitive        
 
         s = converter.parse(testPrimitive.transposing01)
-
         self.assertEqual(len(s.flat.getElementsByClass('Instrument')), 7)
         #s.show()
 
@@ -4267,7 +4329,6 @@ spirit</words>
 
 
     def testHarmonyA(self):
-
         from music21.musicxml import testPrimitive        
         from music21 import converter, corpus
 
@@ -4365,11 +4426,11 @@ spirit</words>
         h.kind = 'major'
         h.kindStr = 'M'
         
-        hd = harmony.HarmonyDegree()
+        hd = harmony.ChordStepModification()
         hd.type = 'alter'
         hd.interval = -1
         hd.degree = 3
-        h.addHarmonyDegree(hd)
+        h.addChordStepModification(hd)
         
         s = stream.Stream()
         s.append(h)
@@ -4410,6 +4471,143 @@ spirit</words>
             m.repeatAppend(n, 5)
             s.append(m)
         raw = s.musicxml
+
+
+    def testOrnamentA(self):
+        from music21 import stream, note, expressions, chord
+        s = stream.Stream()
+        s.repeatAppend(note.Note(), 4)
+        s.repeatAppend(chord.Chord(['c4','g5']), 4)
+
+        #s.insert(4, expressions.Trill())
+        s.notes[3].expressions.append(expressions.Trill())
+        s.notes[2].expressions.append(expressions.Mordent())
+        s.notes[1].expressions.append(expressions.InvertedMordent())
+
+        s.notes[6].expressions.append(expressions.Trill())
+        s.notes[7].expressions.append(expressions.Mordent())
+        s.notes[5].expressions.append(expressions.InvertedMordent())
+        
+        raw = s.musicxml
+        #s.show()
+
+        self.assertEqual(raw.count('<ornaments>'), 6)
+        self.assertEqual(raw.count('<inverted-mordent/>'), 2)
+        self.assertEqual(raw.count('<mordent/>'), 2)
+
+
+    def testNoteColorA(self):
+        from music21 import note, stream, chord
+        n1 = note.Note()
+        n2 = note.Note()
+        n2.color = '#ff1111'
+        n3 = note.Note()
+        n3.color = '#1111ff'
+        r1 = note.Rest()
+        r1.color = '#11ff11'
+
+        c1 = chord.Chord(['c2', 'd3', 'e4'])
+        c1.color = '#ff0000'
+        s = stream.Stream()
+        s.append([n1, n2, n3, r1, c1])
+        #s.show()
+
+        raw = s.musicxml
+        # three color indications
+        self.assertEqual(raw.count("color="), 6)
+        # color set at note level only for rest, so only 1
+        self.assertEqual(raw.count('note color="#11ff11"'), 1)
+    
+
+    def testNoteColorB(self):
+        from music21 import converter, stream
+        from music21.musicxml import testPrimitive        
+
+        s = converter.parse(testPrimitive.colors01)
+        #s.show()
+        raw = s.musicxml
+        self.assertEqual(raw.count("color="), 6)
+        # color set at note level only for rest, so only 1
+        self.assertEqual(raw.count('note color="#11ff11"'), 1)
+
+
+    def testTextBoxA(self):
+        from music21 import converter, stream
+        from music21.musicxml import testPrimitive
+
+        s = converter.parse(testPrimitive.textBoxes01)
+        tbs = s.flat.getElementsByClass('TextBox')
+        self.assertEqual(len(tbs), 5)
+
+        msg = []
+        for tb in tbs:
+            msg.append(tb.content)
+        self.assertEqual(msg, [u'This is a text box!', u'pos 200/300 (lower left)', u'pos 1000/300 (lower right)', u'pos 200/1500 (upper left)', u'pos 1000/1500 (upper right)'])
+        
+    def testTextBoxB(self):
+        from music21 import converter, stream, text
+        y = 1000
+        s = stream.Stream()
+        
+        tb3 = text.TextBox('c', 200, y)
+        tb3.size = 40
+        tb3.alignVertical = 'bottom'
+        s.append(tb3)
+        
+        tb2 = text.TextBox('B', 300, y)
+        tb2.size = 60
+        tb2.alignVertical = 'bottom'
+        s.append(tb2)
+        
+        tb2 = text.TextBox('!*&', 500, y)
+        tb2.size = 100
+        tb2.alignVertical = 'bottom'
+        s.append(tb2)
+        
+        tb1 = text.TextBox('slowly', 700, y)
+        tb1.alignVertical = 'bottom'
+        tb1.size = 20
+        tb1.style = 'italic'
+        s.append(tb1)
+        
+        
+        tb1 = text.TextBox('A', 850, y)
+        tb1.alignVertical = 'bottom'
+        tb1.size = 80
+        tb1.weight = 'bold'
+        tb1.style = 'italic'
+        s.append(tb1)
+        
+        raw = s.musicxml
+        self.assertEqual(raw.count('</credit>'), 5)
+        self.assertEqual(raw.count('font-size'), 5)
+
+
+    def testImportSlursA(self):
+        from music21 import corpus, spanner
+        # this is a good test as this encoding uses staffs, not parts
+        # to encode both parts; this requires special spanner handling
+        s = corpus.parse('k545')
+        slurs = s.flat.getElementsByClass(spanner.Slur)
+        # TODO: this value should be 2, but due to staff encoding we 
+        # have orphaned spanners that are not cleaned up
+        self.assertEqual(len(slurs), 4)
+
+        n1, n2 = s.parts[0].flat.notes[3], s.parts[0].flat.notes[5]
+        #environLocal.pd(['n1', n1, 'id(n1)', id(n1), slurs[0].getComponentIds(), slurs[0].getComponents()])
+        self.assertEqual(id(n1) == slurs[0].getComponentIds()[0], True)
+        self.assertEqual(id(n2) == slurs[0].getComponentIds()[1], True)
+
+        #environLocal.pd(['n2', n2, 'id(n2)', id(n2), slurs[0].getComponentIds()])
+        raw = s.musicxml
+        self.assertEqual(raw.count('<slur'), 4) # 2 pairs of start/stop
+        #s.show()
+
+
+
+#-------------------------------------------------------------------------------
+# define presented order in documentation
+_DOC_ORDER = [mxToStream, streamToMx]
 
 if __name__ == "__main__":
     # sys.arg test options will be used in mainTest()

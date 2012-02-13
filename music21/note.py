@@ -6,7 +6,7 @@
 # Authors:      Michael Scott Cuthbert
 #               Christopher Ariza
 #
-# Copyright:    (c) 2009-2011 The music21 Project
+# Copyright:    (c) 2009-2012 The music21 Project
 # License:      LGPL
 #-------------------------------------------------------------------------------
 '''Classes and functions for creating and manipulating notes, ties, and durations.
@@ -53,6 +53,45 @@ class LyricException(Exception):
 
 
 class Lyric(object):
+    '''
+    An object representing a single Lyric as part of a note's .lyrics property.
+    
+    The note.lyric property is a simple way of specifying a single lyric, but
+    Lyric objects are needed for working with multiple lyrics.
+    
+    
+    >>> from music21 import *
+    >>> l = note.Lyric(text="hello")
+    >>> l
+    <music21.note.Lyric number=1 syllabic=single text="hello">
+    
+    
+    Music21 processes leading and following hyphens intelligently...
+    
+    >>> l2 = note.Lyric(text='hel-')
+    >>> l2
+    <music21.note.Lyric number=1 syllabic=begin text="hel">
+    
+    
+    ...unless applyRaw is set to True
+    
+    
+    >>> l3 = note.Lyric(number=3, text='hel-', applyRaw=True)
+    >>> l3
+    <music21.note.Lyric number=3 syllabic=single text="hel-">
+
+
+    Lyrics have three properties: text, number, syllabic (single, begin, middle, end)
+
+    >>> l3.text
+    'hel-'
+    >>> l3.number
+    3
+    >>> l3.syllabic
+    'single'
+
+    
+    '''
 
     def __init__(self, text=None, number=1, syllabic=None, applyRaw = False):
         # these are set by _setTextAndSyllabic
@@ -65,6 +104,15 @@ class Lyric(object):
         if not common.isNum(number):
             raise LyricException('Number best be number')
         self.number = number
+
+    def __repr__(self):
+        if self.text is not None:
+            if self.syllabic is not None:
+                return '<music21.note.Lyric number=%d syllabic=%s text="%s">' % (self.number, self.syllabic, self.text)
+            else:
+                return '<music21.note.Lyric number=%d text="%s">' % (self.number, self.text)
+        else:
+            return '<music21.note.Lyric number=%d>' % (self.number)
 
 
     def _setTextAndSyllabic(self, rawText, applyRaw):
@@ -358,7 +406,31 @@ class GeneralNote(music21.Music21Object):
             if foundLyric is False:
                 self.lyrics.append(Lyric(text, lyricNumber, applyRaw = applyRaw))
 
+    def insertLyric(self, text, index = 0, applyRaw = False):
+        '''Inserts a lyric into the Note, Chord, or Rest's lyric list in front of 
+        the index specified (0 by default), using index + 1 as the inserted lyric's
+        line number. shifts line numbers of all following lyrics in list 
 
+        >>> from music21 import *
+        >>> n1 = note.Note()
+        >>> n1.addLyric("second")
+        >>> n1.lyrics
+        [<music21.note.Lyric number=1 syllabic=single text="second">]
+        >>> n1.insertLyric("first", 0)
+        >>> n1.lyrics
+        [<music21.note.Lyric number=1 syllabic=single text="first">, <music21.note.Lyric number=2 syllabic=single text="second">]
+        
+        OMIT_FROM_DOCS
+        >>> n1.insertLyric("newSecond", 1)
+        >>> n1.lyrics
+        [<music21.note.Lyric number=1 syllabic=single text="first">, <music21.note.Lyric number=2 syllabic=single text="newSecond">, <music21.note.Lyric number=3 syllabic=single text="second">]
+        '''
+        if not common.isStr(text):
+            text = str(text)
+        for lyric in self.lyrics[index:]:
+            lyric.number += 1
+        self.lyrics.insert(index, Lyric(text, (index+ 1), applyRaw ))
+        
     def hasLyrics(self):
         '''Return True if this object has any lyrics defined
         '''

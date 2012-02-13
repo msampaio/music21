@@ -179,7 +179,9 @@ class ArchiveManager(object):
                 post = []
                 for subFp in mdd.getPaths():
                     component = f.open(subFp, 'rU')
-                    post.append(''.join(component.readlines()))    
+                    lines = component.readlines()
+                    #environLocal.pd(['subFp', subFp, len(lines)]) 
+                    post.append(''.join(lines))    
                     
                     # note: the following methods do not properly employ
                     # universal new lines; this is a python problem:
@@ -496,7 +498,7 @@ class ConverterMusicXML(object):
         c.read(xmlString)
         self._mxScore = c.score #  the mxScore object from the musicxml Document
         if len(self._mxScore) == 0:
-            print xmlString
+            #print xmlString
             raise ConverterException('score from xmlString (%s...) has no parts defined' % xmlString[:30])
         self.load()
 
@@ -540,8 +542,8 @@ class ConverterMusicXML(object):
                 #environLocal.printDebug(['pickled file version is compatible', c.score.m21Version])
             else:
                 try:
-                    environLocal.printDebug(['pickled file version is not compatible' , c.score.m21Version])
-                except AttributeError:
+                    environLocal.printDebug(['pickled file version is not compatible', c.score.m21Version])
+                except (AttributeError, TypeError):
                     # some old pickles have no versions
                     pass
                 pickleError = True
@@ -560,10 +562,10 @@ class ConverterMusicXML(object):
 
         # get mxScore object from .score attribute
         self._mxScore = c.score
-
+        #print self._mxScore
         # check that we have parts
         if len(self._mxScore) == 0:
-            raise ConverterException('score from file path (...%s) no parts defined' % fp)
+            raise ConverterException('score from file path (%s) no parts defined' % fp)
 
         # movement titles can be stored in more than one place in musicxml
         # manually insert file name as a title if no titles are defined
@@ -749,7 +751,7 @@ class ConverterMuseData(object):
             #environLocal.printDebug(['ConverterMuseData: found archive', fp])
             # get data will return all data from the zip as a single string
             for partStr in af.getData(format='musedata'):
-                #environLocal.printDebug(['partStr', partStr])
+                #environLocal.printDebug(['partStr', len(partStr)])
                 mdw.addString(partStr)            
         else:
             if os.path.isdir(fp):
@@ -905,13 +907,7 @@ class Converter(object):
         >>> c = converter.Converter()
         >>> c.parseURL(jeanieLightBrownURL)
         >>> jeanieStream = c.stream
-        >>> jeanieStream.parts[0].measure(2).show('text')
-        {0.0} <music21.bar.Repeat direction=start>
-        {0.0} <music21.clef.TrebleClef>
-        {0.0} <music21.instrument.Instrument P1: : >
-        {0.0} <music21.key.KeySignature of no sharps or flats>
-        {0.0} <music21.meter.TimeSignature 4/4>
-        {0.0} <music21.harmony.ChordSymbol kind=major () root=F bass=None inversion=None duration=0.0>
+        >>> jeanieStream.parts[0].measure(2).notes.show('text')
         {0.0} <music21.note.Note C>
         {3.0} <music21.note.Note A>
         '''
@@ -1338,11 +1334,11 @@ class Test(unittest.TestCase):
         self.assertEqual(type(clefs[0]).__name__, 'Treble8vbClef')
 
         # third part
-        clefs = a[2].flat.getElementsByClass(clef.Clef)
+        clefs = a.parts[2].flat.getElementsByClass(clef.Clef)
         self.assertEqual(len(clefs), 1)
 
         # check time signature count
-        ts = a[1].flat.getElementsByClass(meter.TimeSignature)
+        ts = a.parts[1].flat.getElementsByClass(meter.TimeSignature)
         self.assertEqual(len(ts), 4)
 
         from music21 import corpus
@@ -1519,7 +1515,7 @@ class Test(unittest.TestCase):
         #for fn in ['test01.mid', 'test02.mid', 'test03.mid', 'test04.mid']:
         s = parseFile(fp)
         #s.show()
-        self.assertEqual(len(s.flat.getElementsByClass(note.Note)), 17)
+        self.assertEqual(len(s.flat.getElementsByClass(note.Note)), 18)
 
 
         # has chords and notes
@@ -1529,7 +1525,7 @@ class Test(unittest.TestCase):
         #environLocal.printDebug(['\nopening fp', fp])
 
         self.assertEqual(len(s.flat.getElementsByClass(note.Note)), 2)
-        self.assertEqual(len(s.flat.getElementsByClass(chord.Chord)), 3)
+        self.assertEqual(len(s.flat.getElementsByClass(chord.Chord)), 4)
 
         self.assertEqual(len(s.flat.getElementsByClass(meter.TimeSignature)), 0)
         self.assertEqual(len(s.flat.getElementsByClass(key.KeySignature)), 0)

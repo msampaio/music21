@@ -33,8 +33,12 @@ from music21.analysis import windowed as analysisWindowed
 
 
 from music21 import articulations
+
+from music21 import bar
 from music21 import base
 from music21 import beam
+
+from music21.braille import basic as brailleBasic
 from music21.braille import translate as brailleTranslate
 
 from music21 import clef
@@ -58,6 +62,7 @@ from music21.features import base as features
 from music21.features import jSymbolic as featuresJSymbolic
 from music21.features import native as featuresNative
 
+from music21.figuredBass import checker as fbChecker
 from music21.figuredBass import examples as fbExamples
 from music21.figuredBass import fbPitch
 from music21.figuredBass import notation as fbNotation
@@ -69,6 +74,9 @@ from music21.figuredBass import rules as fbRules
 from music21.figuredBass import segment as fbSegment
 
 from music21 import graph
+
+from music21 import harmony
+
 from music21.humdrum import spineParser as humdrumSpineParser
 
 from music21 import instrument
@@ -91,6 +99,7 @@ from music21.musicxml import base as musicxml
 from music21.musicxml import translate as musicxmlTranslate
 from music21.romanText import base as romanText
 from music21.romanText import translate as romanTextTranslate
+from music21.romanText import clercqTemperley as romanTextClercqTemperley
 
 from music21 import note
 
@@ -111,9 +120,11 @@ from music21 import spanner
 from music21 import stream
 
 from music21 import tempo
-from music21 import volume
-
+from music21 import text
 from music21 import tinyNotation
+
+from music21 import voiceLeading
+from music21 import volume
 from music21 import xmlnode
 
 from music21.trecento import cadencebook as trecentoCadencebook
@@ -131,6 +142,8 @@ INDENT = ' '*4
 OMIT_STR = 'OMIT_FROM_DOCS'
 HIDE_LINE_STR = '#_DOCS_HIDE'
 SHOW_LINE_STR = '#_DOCS_SHOW'
+# used in rst doc-tests to avoid calling .show(), etc; remove comment
+DOC_TEST_SKIP = '# doctest: +SKIP'
 
 FORMATS = ['html', 'latex', 'pdf']
 
@@ -154,20 +167,25 @@ MODULES = [
     analysisWindowed,
     
     articulations,
+
+    bar,
     base,
     beam,
+    
+    brailleBasic,
     brailleTranslate,
+
     clef, 
     common, 
-
     #composition
     compositionPhasing,
-    
     converter,
     corpus, 
     chord, 
+
     duration, 
     dynamics,
+
     editorial,
     environment, 
     expressions,
@@ -176,6 +194,7 @@ MODULES = [
     featuresJSymbolic,
     featuresNative,
     
+    fbChecker,
     fbExamples,
     fbPitch,
     fbNotation,
@@ -187,33 +206,36 @@ MODULES = [
     fbSegment,
     
     graph,
+    
+    harmony,
     humdrumSpineParser,
+    
     instrument,
     interval, 
     intervalNetwork,
+    
     key,
 
     medren,
     meter, 
     metadata,
-
     midi,
     midiTranslate,
-
     musedata,
     musedataTranslate,
     musedataBase40,
-
     musicxmlTranslate,
 
     note, 
     noteworthyTranslate,
 
     pitch,
+
+    repeat,
     roman, 
     romanText,
     romanTextTranslate,
-    repeat,
+    romanTextClercqTemperley,
 
     scala,
     scale,     
@@ -224,16 +246,17 @@ MODULES = [
     stream,     
   
     tempo,     
+    text,
     tinyNotation,
-
+    # trecento
+    #    trecentoCadencebook
     trecentoPolyphonicSnippet,
 
+    voiceLeading,
     volume,
-    xmlnode, 
 
+    xmlnode, 
     
-# trecento
-#    trecentoCadencebook
 ]
 
 
@@ -333,9 +356,7 @@ class PartitionedModule(PartitionedName):
     '''
     def __init__(self, srcNameEval):
         PartitionedName.__init__(self, srcNameEval)
-
         self.srcNameStr = self.srcNameEval.__name__
-
         self.namesOrdered = [] # any defined order for names
         if hasattr(self.srcNameEval, '_DOC_ORDER'):
             # these are evaluated class names, not strings
@@ -450,7 +471,6 @@ class PartitionedModule(PartitionedName):
         >>> a.getNames('functions')    
         ['convertCentsToAlterAndCents', 'convertFqToPs', 'convertHarmonicToCents', 'convertNameToPitchClass', 'convertNameToPs', 'convertPitchClassToNumber', 'convertPitchClassToStr', 'convertPsToFq', 'convertPsToOct', 'convertPsToStep', 'convertStepToPs']
         '''
-
         post = []
         if nameKind.lower() in ['classes', 'class']:
             nameKind = 'class'
@@ -467,7 +487,6 @@ class PartitionedModule(PartitionedName):
                 # this is really defining module
                 if element.defining_class != self.srcNameEval:
                     continue
-
             if public:
                 if name.startswith('__'): # ignore private variables
                     continue
@@ -477,13 +496,10 @@ class PartitionedModule(PartitionedName):
                     continue
                 elif 'Exception' in name: # ignore exceptions
                     continue
-
             if not element.kind == nameKind:
                 continue
-
             post.append(name)
         return post
-
 
     def getDoc(self, partName):
         element = self.getElement(partName)
@@ -753,8 +769,15 @@ class PartitionedClass(PartitionedName):
         # the object object returns by default 
         # x.__init__(...) initializes x; see x.__class__.__doc__ for signature
         # this should be returned as Documentation
+        ifInitializes = False
+        if not match is None:
+            try:
+                ifInitializes = match.startswith('x.__init__(...) initializes x')
+            except UnicodeDecodeError: # this happens with some docs
+                environLocal.pd(['cannot decode doc string, getting UnicodeDecodeError', partName])
+                return NO_DOC
 
-        if match == None or match.startswith('x.__init__(...) initializes x'):
+        if match is None or ifInitializes:
             return NO_DOC
         # default for a dictionary
         elif match.startswith('dict() -> new empty dictionary'):
@@ -977,6 +1000,11 @@ class RestructuredWriter(object):
         u' there\nuser!\n\n'
 
         '''
+
+        # TODO: need to remove lines as follow:
+        # # doctest: +SKIP
+        # <BLANKLINE>
+
         if doc == None:
             return ''
         else:
@@ -1009,6 +1037,8 @@ class RestructuredWriter(object):
                     line = line.replace(SHOW_LINE_STR, ' ')
                 else:
                     line = lineNew
+            elif DOC_TEST_SKIP in line: # do not show in docs
+                line = line.replace(DOC_TEST_SKIP, ' ')
 
             match = False
             for stub in rstExclude:
@@ -1145,7 +1175,6 @@ class RestructuredWriter(object):
                     stripL = l.lstrip()
                     lengthStrip = len(l) - len(stripL)
                     break
-
         returnLine = u''
         for i in range(lengthStrip):
             returnLine += u' '
@@ -1167,7 +1196,6 @@ class CorpusDoc(RestructuredWriter):
         msg.append('.. _%s:\n\n' % self.fileRef)
         msg += self._heading('List of Works Found in the music21 Corpus' , '=')
         msg.append(WARN_EDIT)
-
 
         msg += self._para('''The following list shows all files available in the music21 corpus and available through the virtual corpus. To load a work from the corpus, provide the file path stub provided. For example::
 
@@ -1216,10 +1244,7 @@ class CorpusDoc(RestructuredWriter):
 
                 msg += self._list(fileList)
                 #msg += self._list(fileList, INDENT*2)
-
-
             msg.append('\n'*2)
-
         msg.append('\n'*1)
         return ''.join(msg) # return as tring not a list
 
@@ -1560,7 +1585,7 @@ class Documentation(RestructuredWriter):
     def updateDirs(self):
         '''Update file paths.
         '''
-        self.dir = os.getcwd()
+        self.dir = common.getBuildDocFilePath()
         self.parentDir = os.path.dirname(self.dir)
         parentContents = os.listdir(self.parentDir)
         # make sure we are in the the proper directory
@@ -1697,7 +1722,8 @@ class Documentation(RestructuredWriter):
                 import sphinx
             except ImportError:
                 raise BuildException("Building documentation requires the Sphinx toolkit. Download it by typing 'easy_install -U Sphinx' at the command line or at http://sphinx.pocoo.org/")
-            sphinxList = ['sphinx', '-E', '-b', format, '-d', self.dirBuildDoctrees,
+            sphinxList = ['sphinx', '-E', '-b', format, 
+                         '-d', self.dirBuildDoctrees,
                          self.dirRst, dirOut] 
             statusCode = sphinx.main(sphinxList)
 

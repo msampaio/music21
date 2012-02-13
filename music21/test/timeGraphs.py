@@ -6,7 +6,7 @@
 # Authors:       Michael Scott Cuthbert
 #                Christopher Ariza
 #
-# Copyright:     (c) 2009-2010 The music21 Project
+# Copyright:     (c) 2009-2011 The music21 Project
 # License:       GPL
 #-------------------------------------------------------------------------------
 
@@ -272,7 +272,7 @@ class TestMusicXMLObjectTypeChecking(CallTest):
         assert(len(f) == self.count)
 
 
-class TestGetContextByClass(CallTest):
+class TestGetContextByClassA(CallTest):
 
     def __init__(self):
 
@@ -363,14 +363,6 @@ class TestGetElementsByClassA(CallTest):
         found = self.s.flat.notes
 
 
-class TestMeasuresA(CallTest):
-
-    def __init__(self):
-        from music21 import corpus
-        self.s = corpus.parse('symphony94/02')
-
-    def testFocus(self):
-        found = self.s.measures(3, 10)
 
 class TestGetElementsByClassB(CallTest):
 
@@ -392,6 +384,95 @@ class TestGetElementsByClassB(CallTest):
             self.s.getElementsByClass(['BassClef'])
             self.s.getElementsByClass(['Clef'])
             self.s.getElementsByClass(['TimeSignature'])
+
+
+class TestGetContextByClassB(CallTest):
+    def __init__(self):
+        from music21 import stream, note, meter, converter
+
+        self.s = stream.Score()
+
+        p1 = stream.Part()
+        m1 = stream.Measure()
+        m1.repeatAppend(note.Note(), 3)
+        m1.timeSignature = meter.TimeSignature('3/4')
+        m2 = stream.Measure()
+        m2.repeatAppend(note.Note(), 3)
+        p1.append(m1)
+        p1.append(m2)
+
+        p2 = stream.Part()
+        m3 = stream.Measure()
+        m3.timeSignature = meter.TimeSignature('3/4')
+        m3.repeatAppend(note.Note(), 3)
+        m4 = stream.Measure()
+        m4.repeatAppend(note.Note(), 3)
+        p2.append(m3)
+        p2.append(m4)
+
+        self.s.insert(0, p1)
+        self.s.insert(0, p2)
+
+        p3 = stream.Part()
+        m5 = stream.Measure()
+        m5.timeSignature = meter.TimeSignature('3/4')
+        m5.repeatAppend(note.Note(), 3)
+        m6 = stream.Measure()
+        m6.repeatAppend(note.Note(), 3)
+        p3.append(m5)
+        p3.append(m6)
+
+        p4 = stream.Part()
+        m7 = stream.Measure()
+        m7.timeSignature = meter.TimeSignature('3/4')
+        m7.repeatAppend(note.Note(), 3)
+        m8 = stream.Measure()
+        m8.repeatAppend(note.Note(), 3)
+        p4.append(m7)
+        p4.append(m8)
+
+        self.s.insert(0, p3)
+        self.s.insert(0, p4)
+
+        #self.targetMeasures = m4
+        self.targetNoteA = m4[-1] # last element is a note
+        self.targetNoteB = m1[-1] # last element is a note
+
+    def testFocus(self):
+        #post = self.targetNoteA.getContextByClass('TimeSignature')
+        post = self.targetNoteA.previous('TimeSignature')
+
+
+
+class TestMeasuresA(CallTest):
+
+    def __init__(self):
+        from music21 import corpus
+        self.s = corpus.parse('symphony94/02')
+
+    def testFocus(self):
+        found = self.s.measures(3, 10)
+
+
+class TestMeasuresB(CallTest):
+    def __init__(self):
+        from music21 import stream, note, meter, converter
+
+        self.s = stream.Score()
+        for pn in [1]:
+            p = stream.Part()
+            for mn in range(10):
+                m = stream.Measure()
+                if mn == 0:
+                    m.timeSignature = meter.TimeSignature('3/4')
+                for nn in range(3):
+                    m.append(note.Note())
+                p.append(m)
+            self.s.insert(0, p)
+        #self.s.show()
+
+    def testFocus(self):
+        post = self.s.measures(3, 6)
 
 
 #-------------------------------------------------------------------------------
@@ -425,7 +506,9 @@ class CallGraph:
         #self.callTest = TestCommonContextSearches
         #self.callTest = TestBigMusicXML
 
-        self.callTest = TestMeasuresA
+        #self.callTest = TestMeasuresA
+        self.callTest = TestGetContextByClassB
+        #self.callTest = TestMeasuresB
 
     def run(self):
         '''Main code runner for testing. To set a new test, update the self.callTest attribute in __init__(). 
