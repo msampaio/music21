@@ -1524,9 +1524,207 @@ def mxToInstrument(mxScorePart, inputM21=None):
 
 
 #-------------------------------------------------------------------------------
+# unified processors for Chords and Notes
+
+
+def spannersToMx(target, mxNoteList, mxDirectionPre, mxDirectionPost, 
+    spannerBundle):
+    '''
+    The `target` parameter here may be music21 Note or Chord. 
+    This may edit the mxNoteList and direction lists in place, and thus returns None.
+    '''
+    if spannerBundle is None or len(spannerBundle) == 0:
+        return
+
+    # already filtered for just the spanner that have this note as
+    # a component
+    #environLocal.pd(['noteToMxNotes()', 'len(spannerBundle)', len(spannerBundle) ])
+
+    for su in spannerBundle.getByClass('Slur'):     
+        mxSlur = musicxmlMod.Slur()
+        mxSlur.set('number', su.idLocal)
+        mxSlur.set('placement', su.placement)
+        # is this note first in this spanner?
+        if su.isFirst(target):
+            mxSlur.set('type', 'start')
+        elif su.isLast(target):
+            mxSlur.set('type', 'stop')
+        else:
+            # this may not always be an error
+            environLocal.printDebug(['spanner w/ a component that is neither a start nor an end.', su, target])
+            continue
+        mxNoteList[0].notationsObj.componentList.append(mxSlur)
+
+    for su in spannerBundle.getByClass('TrillExtension'):     
+        mxWavyLine = musicxmlMod.WavyLine()
+        mxWavyLine.set('number', su.idLocal)
+        mxWavyLine.set('placement', su.placement)
+        # is this note first in this spanner?
+        if su.isFirst(target):
+            mxWavyLine.set('type', 'start')
+        elif su.isLast(target):
+            mxWavyLine.set('type', 'stop')
+        else:
+            # this may not always be an error
+            environLocal.printDebug(['spanner w/ a component that is neither a start nor an end.', su, target])
+        mxOrnamentsList = mxNoteList[0].notationsObj.getOrnaments()
+        if mxOrnamentsList == []: # need to create ornaments obj
+            mxOrnaments = musicxmlMod.Ornaments()
+            mxNoteList[0].notationsObj.componentList.append(mxOrnaments)
+            mxOrnamentsList = [mxOrnaments] # emulate returned obj
+        mxOrnamentsList[0].append(mxWavyLine) # add to first
+        environLocal.pd(['wl', 'mxOrnamentsList', mxOrnamentsList ])
+
+    for su in spannerBundle.getByClass('GlissandoLine'):     
+        mxGlissando = musicxmlMod.Glissando()
+        mxGlissando.set('number', su.idLocal)
+        mxGlissando.set('line-type', su.lineType)
+        # is this note first in this spanner?
+        if su.isFirst(target):
+            mxGlissando.set('type', 'start')
+        elif su.isLast(target):
+            mxGlissando.set('type', 'stop')
+        else:
+            # this may not always be an error
+            environLocal.printDebug(['spanner w/ a component that is neither a start nor an end.', su, target])
+        mxNoteList[0].notationsObj.append(mxGlissando) # add to first
+        environLocal.pd(['gliss', 'notationsObj', mxNoteList[0].notationsObj])
+
+    for su in spannerBundle.getByClass('OctaveShift'):     
+        mxOctaveShift = musicxmlMod.OctaveShift()
+        mxOctaveShift.set('number', su.idLocal)
+        # is this note first in this spanner?
+        if su.isFirst(target):
+            pmtrs = su.getStartParameters()
+            mxOctaveShift.set('type', pmtrs['type'])
+            mxOctaveShift.set('size', pmtrs['size'])
+        elif su.isLast(target):
+            pmtrs = su.getEndParameters()
+            mxOctaveShift.set('type', pmtrs['type'])
+            mxOctaveShift.set('size', pmtrs['size'])
+        else:
+            # this may not always be an error
+            environLocal.printDebug(['spanner w/ a component that is neither a start nor an end.', su, target])
+        mxDirection = musicxmlMod.Direction()
+        mxDirection.set('placement', su.placement) # placement goes here
+        mxDirectionType = musicxmlMod.DirectionType()
+        mxDirectionType.append(mxOctaveShift)
+        mxDirection.append(mxDirectionType)
+        environLocal.pd(['os', 'mxDirection', mxDirection ])
+        if su.isFirst(target):
+            mxDirectionPre.append(mxDirection)
+        else:
+            mxDirectionPost.append(mxDirection)
+
+    # get common base class of cresc and decresc
+    for su in spannerBundle.getByClass('DynamicWedge'):     
+        mxWedge = musicxmlMod.Wedge()
+        mxWedge.set('number', su.idLocal)
+        # is this note first in this spanner?
+        if su.isFirst(target):
+            pmtrs = su.getStartParameters()
+            mxWedge.set('type', pmtrs['type'])
+            mxWedge.set('spread', pmtrs['spread'])
+        elif su.isLast(target):
+            pmtrs = su.getEndParameters()
+            mxWedge.set('type', pmtrs['type'])
+            mxWedge.set('spread', pmtrs['spread'])
+        else:
+            # this may not always be an error
+            environLocal.printDebug(['spanner w/ a component that is neither a start nor an end.', su, target])
+        mxDirection = musicxmlMod.Direction()
+        mxDirection.set('placement', su.placement) # placement goes here
+        mxDirectionType = musicxmlMod.DirectionType()
+        mxDirectionType.append(mxWedge)
+        mxDirection.append(mxDirectionType)
+        environLocal.pd(['os', 'mxDirection', mxDirection ])
+
+        mxDirectionPre.append(mxDirection)
+
+    for su in spannerBundle.getByClass('Line'):     
+        mxBracket = musicxmlMod.Bracket()
+        mxBracket.set('number', su.idLocal)
+        mxBracket.set('line-type', su.lineType)
+        if su.isFirst(target):
+            pmtrs = su.getStartParameters()
+            mxBracket.set('type', pmtrs['type'])
+            mxBracket.set('line-end', pmtrs['line-end'])
+            mxBracket.set('end-length', pmtrs['end-length'])
+        elif su.isLast(target):
+            pmtrs = su.getEndParameters()
+            mxBracket.set('type', pmtrs['type'])
+            mxBracket.set('line-end', pmtrs['line-end'])
+            mxBracket.set('end-length', pmtrs['end-length'])
+        else:
+            # this may not always be an error
+            environLocal.printDebug(['spanner w/ a component that is neither a start nor an end.', su, target])
+        mxDirection = musicxmlMod.Direction()
+        mxDirection.set('placement', su.placement) # placement goes here
+        mxDirectionType = musicxmlMod.DirectionType()
+        mxDirectionType.append(mxBracket)
+        mxDirection.append(mxDirectionType)
+        environLocal.pd(['os', 'mxDirection', mxDirection ])
+
+        #mxDirectionPre.append(mxDirection)
+
+        if su.isFirst(target):
+            mxDirectionPre.append(mxDirection)
+        else:
+            mxDirectionPost.append(mxDirection)
+
+
+    for su in spannerBundle.getByClass('DashedLine'):     
+        mxDashes = musicxmlMod.Dashes()
+        mxDashes.set('number', su.idLocal)
+        # is this note first in this spanner?
+        if su.isFirst(target):
+            mxDashes.set('type', 'start')
+        elif su.isLast(target):
+            mxDashes.set('type', 'stop')
+        else: # this may not always be an error
+            environLocal.printDebug(['spanner w/ a component that is neither a start nor an end.', su, target])
+        mxDirection = musicxmlMod.Direction()
+        mxDirection.set('placement', su.placement) # placement goes here
+        mxDirectionType = musicxmlMod.DirectionType()
+        mxDirectionType.append(mxDashes)
+        mxDirection.append(mxDirectionType)
+        environLocal.pd(['os', 'mxDirection', mxDirection ])
+
+        if su.isFirst(target):
+            mxDirectionPre.append(mxDirection)
+        else:
+            mxDirectionPost.append(mxDirection)
+
+
+
+def articulationsAndExpressionsToMx(target, mxNoteList):
+    '''The `target` parameter is the music21 object. 
+    '''
+    # if we have any articulations, they only go on the first of any 
+    # component notes
+    mxArticulations = musicxmlMod.Articulations()
+    for artObj in target.articulations:
+        mxArticulations.append(artObj.mx) # returns mxArticulationMark to append to mxArticulations
+    if len(mxArticulations) > 0:
+        mxNoteList[0].notationsObj.componentList.append(mxArticulations)
+
+    # notations and articulations are mixed in musicxml
+    for expObj in target.expressions:
+        if hasattr(expObj, 'mx'):
+            # some expressions must be wrapped in a musicxml ornament
+            if 'Ornament' in expObj.classes:
+                ornamentsObj = musicxmlMod.Ornaments()
+                ornamentsObj.append(expObj.mx)
+                mxNoteList[0].notationsObj.componentList.append(ornamentsObj)
+            else:
+                mxNoteList[0].notationsObj.componentList.append(expObj.mx)
+
+
+
+#-------------------------------------------------------------------------------
 # Chords
 
-def chordToMx(c):
+def chordToMx(c, spannerBundle=None):
     '''
     Returns a List of mxNotes
     Attributes of notes are merged from different locations: first from the 
@@ -1565,6 +1763,13 @@ def chordToMx(c):
     'diamond'
     
     '''
+    if spannerBundle is not None and len(spannerBundle) > 0:
+        # this will get all spanners that participate with this note
+        # get a new spanner bundle that only has components relevant to this 
+        # note.
+        spannerBundle = spannerBundle.getByComponent(c)
+        #environLocal.printDebug(['noteToMxNotes(): spannerBundle post-filter by component:', spannerBundle, n, id(n)])
+
     #environLocal.printDebug(['chordToMx', c])
     mxNoteList = []
     durPos = 0 # may have more than one dur
@@ -1647,29 +1852,43 @@ def chordToMx(c):
     for lyricObj in c.lyrics:
         mxNoteList[0].lyricList.append(lyricObj.mx)
 
+
     # if we have any articulations, they only go on the first of any 
     # component notes
-    mxArticulations = musicxmlMod.Articulations()
-    for i in range(len(c.articulations)):
-        obj = c.articulations[i]
-        if hasattr(obj, 'mx'):
-            mxArticulations.append(obj.mx)
-    #if mxArticulations != None:
-    if len(mxArticulations) > 0:
-        mxNoteList[0].notationsObj.componentList.append(mxArticulations)
+    # our source target 
+    articulationsAndExpressionsToMx(c, mxNoteList)
 
-    # notations and articulations are mixed in musicxml
-    for i in range(len(c.expressions)):
-        obj = c.expressions[i]
-        if hasattr(obj, 'mx'):
-            # some expressions must be wrapped in a musicxml ornament
-            if 'Ornament' in obj.classes:
-                ornamentsObj = musicxmlMod.Ornaments()
-                ornamentsObj.append(obj.mx)
-                mxNoteList[0].notationsObj.componentList.append(ornamentsObj)
-            else: 
-                mxNoteList[0].notationsObj.componentList.append(obj.mx)
-    return mxNoteList
+#     mxArticulations = musicxmlMod.Articulations()
+#     for i in range(len(c.articulations)):
+#         obj = c.articulations[i]
+#         if hasattr(obj, 'mx'):
+#             mxArticulations.append(obj.mx)
+#     #if mxArticulations != None:
+#     if len(mxArticulations) > 0:
+#         mxNoteList[0].notationsObj.componentList.append(mxArticulations)
+# 
+#     # notations and articulations are mixed in musicxml
+#     for i in range(len(c.expressions)):
+#         obj = c.expressions[i]
+#         if hasattr(obj, 'mx'):
+#             # some expressions must be wrapped in a musicxml ornament
+#             if 'Ornament' in obj.classes:
+#                 ornamentsObj = musicxmlMod.Ornaments()
+#                 ornamentsObj.append(obj.mx)
+#                 mxNoteList[0].notationsObj.componentList.append(ornamentsObj)
+#             else: 
+#                 mxNoteList[0].notationsObj.componentList.append(obj.mx)
+
+    # some spanner produce direction tags, and sometimes these need
+    # to go before or after the notes of this element
+    mxDirectionPre = []
+    mxDirectionPost = []
+    # will update and fill all lists passed in as args
+    spannersToMx(c, mxNoteList, mxDirectionPre, mxDirectionPost, spannerBundle)
+
+    return mxDirectionPre + mxNoteList + mxDirectionPost
+
+
 
 def mxToChord(mxNoteList, inputM21=None):
     '''
@@ -1858,20 +2077,16 @@ def noteToMxNotes(n, spannerBundle=None):
     '''
     Translate a music21 :class:`~music21.note.Note` into a 
     list of :class:`~music21.musicxml.Note` objects.
+
+    Note that, some note-attached spanners, such as octave shifts, produce direction (and direction types) in this method. 
     '''
     #Attributes of notes are merged from different locations: first from the 
     #duration objects, then from the pitch objects. Finally, GeneralNote 
     #attributes are added.
-    if spannerBundle is not None:
+    if spannerBundle is not None and len(spannerBundle) > 0:
         # this will get all spanners that participate with this note
-        if len(spannerBundle) > 0:
-            pass # assume have already gathered
-            #environLocal.printDebug(['noteToMxNotes(): spannerBundle pre-filter:', spannerBundle, 'spannerBundle[0]', spannerBundle[0], 'id(spannerBundle[0])', id(spannerBundle[0]), 'spannerBundle[0].getComponentIds()', spannerBundle[0].getComponentIds(), 'id(n)', id(n)])
-
         # get a new spanner bundle that only has components relevant to this 
         # note.
-        #environLocal.printDebug(['noteToMxNotes(): spannerBundle[0].getComponentIds()', spannerBundle[0].getComponentIds()])
-
         spannerBundle = spannerBundle.getByComponent(n)
         #environLocal.printDebug(['noteToMxNotes(): spannerBundle post-filter by component:', spannerBundle, n, id(n)])
 
@@ -1928,47 +2143,6 @@ def noteToMxNotes(n, spannerBundle=None):
         for mxNote in mxNoteList:
             mxNote.beamList = nBeamsMx
 
-    # if we have any articulations, they only go on the first of any 
-    # component notes
-    mxArticulations = musicxmlMod.Articulations()
-    for artObj in n.articulations:
-        mxArticulations.append(artObj.mx) # returns mxArticulationMark to append to mxArticulations
-    if len(mxArticulations) > 0:
-        mxNoteList[0].notationsObj.componentList.append(mxArticulations)
-
-    # notations and articulations are mixed in musicxml
-    for expObj in n.expressions:
-        if hasattr(expObj, 'mx'):
-            # some expressions must be wrapped in a musicxml ornament
-            if 'Ornament' in expObj.classes:
-                ornamentsObj = musicxmlMod.Ornaments()
-                ornamentsObj.append(expObj.mx)
-                mxNoteList[0].notationsObj.componentList.append(ornamentsObj)
-            else:
-                mxNoteList[0].notationsObj.componentList.append(expObj.mx)
-
-    if spannerBundle is not None and len(spannerBundle) > 0:
-        # already filtered for just the spanner that have this note as
-        # a component
-        #environLocal.pd(['noteToMxNotes()', 'len(spannerBundle)', len(spannerBundle) ])
-
-        for su in spannerBundle.getByClass('Slur'):     
-            mxSlur = musicxmlMod.Slur()
-            mxSlur.set('number', su.idLocal)
-            mxSlur.set('placement', su.placement)
-            # is this note first in this spanner?
-            if su.isFirst(n):
-                mxSlur.set('type', 'start')
-            elif su.isLast(n):
-                mxSlur.set('type', 'stop')
-            else:
-                # this may not always be an error
-                environLocal.printDebug(['have a slur that has this note as a component but that note is neither a start nor an end.', su, n])
-                #raise TranslateException('have a slur that has this note as a component but that note is neither a start nor an end.')
-                continue
-
-            mxNoteList[0].notationsObj.componentList.append(mxSlur)
-            
     #Adds the notehead type if it is not set to the default 'normal'.
     if (n.notehead != 'normal' or n.noteheadFill != 'default' or 
         n.color not in [None, '']):
@@ -1981,7 +2155,35 @@ def noteToMxNotes(n, spannerBundle=None):
         else:
             mxNoteList[0].stem = n.stemDirection
 
-    return mxNoteList
+    articulationsAndExpressionsToMx(n, mxNoteList)
+
+    # if we have any articulations, they only go on the first of any 
+    # component notes
+#     mxArticulations = musicxmlMod.Articulations()
+#     for artObj in n.articulations:
+#         mxArticulations.append(artObj.mx) # returns mxArticulationMark to append to mxArticulations
+#     if len(mxArticulations) > 0:
+#         mxNoteList[0].notationsObj.componentList.append(mxArticulations)
+# 
+#     # notations and articulations are mixed in musicxml
+#     for expObj in n.expressions:
+#         if hasattr(expObj, 'mx'):
+#             # some expressions must be wrapped in a musicxml ornament
+#             if 'Ornament' in expObj.classes:
+#                 ornamentsObj = musicxmlMod.Ornaments()
+#                 ornamentsObj.append(expObj.mx)
+#                 mxNoteList[0].notationsObj.componentList.append(ornamentsObj)
+#             else:
+#                 mxNoteList[0].notationsObj.componentList.append(expObj.mx)
+
+    # some spanner produce direction tags, and sometimes these need
+    # to go before or after the notes of this element
+    mxDirectionPre = []
+    mxDirectionPost = []
+    # will update and fill all lists passed in as args
+    spannersToMx(n, mxNoteList, mxDirectionPre, mxDirectionPost, spannerBundle)
+
+    return mxDirectionPre + mxNoteList + mxDirectionPost
 
 
 
@@ -2245,12 +2447,17 @@ def measureToMx(m, spannerBundle=None, mxTranspose=None):
                     for sub in objList:
                         sub.voice = voiceId # the voice id is the voice number
                     mxMeasure.componentList += objList
-                elif 'GeneralNote' in classes:
+                elif 'Chord' in classes:
                     # increment offset before getting mx, as this way a single
                     # chord provides only one value
                     offsetMeasureNote += obj.quarterLength
-                    # .mx here returns a list of notes
-                    objList = obj.mx
+                    objList = chordToMx(obj, spannerBundle=spannerBundle)
+                    for sub in objList:
+                        sub.voice = voiceId # the voice id is the voice number
+                    mxMeasure.componentList += objList
+                elif 'GeneralNote' in classes:
+                    offsetMeasureNote += obj.quarterLength
+                    objList = obj.mx # .mx here returns a list of notes
                     # need to set voice for each contained mx object
                     for sub in objList:
                         sub.voice = voiceId # the voice id is the voice number
@@ -2273,6 +2480,9 @@ def measureToMx(m, spannerBundle=None, mxTranspose=None):
             if 'Note' in classes:
                 mxMeasure.componentList += noteToMxNotes(obj, 
                     spannerBundle=spannerBundle)
+            elif 'Chord' in classes:
+                mxMeasure.componentList += chordToMx(obj, 
+                    spannerBundle=spannerBundle)
             elif 'GeneralNote' in classes: # this includes chords
                 # .mx here returns a list of notes; this could be a rest
                 mxMeasure.componentList += obj.mx
@@ -2282,6 +2492,7 @@ def measureToMx(m, spannerBundle=None, mxTranspose=None):
                            obj.getOffsetBySite(mFlat))
                 mxDirection = dynamicToMx(obj)
                 mxDirection.offset = mxOffset 
+                # positioning dynamics by offset, not position in measure
                 mxMeasure.insert(0, mxDirection)
             elif 'ChordSymbol' in classes:
                 mxMeasure.componentList.append(chordSymbolToMx(obj))
@@ -2850,10 +3061,8 @@ def streamPartToMx(part, instStream=None, meterStream=None,
     If there are Measures within this stream, use them to create and
     return an MX Part and ScorePart. 
 
-
     An `instObj` may be assigned from caller; this Instrument is pre-collected 
     from this Stream in order to configure id and midi-channel values. 
-
 
     The `meterStream`, if given, provides a template of meters. 
     '''
@@ -2889,9 +3098,11 @@ def streamPartToMx(part, instStream=None, meterStream=None,
         part.makeMutable() # must mutate
         # try to add measures if none defined
         # returns a new stream w/ new Measures but the same objects
-        measureStream = part.makeNotation(meterStream=meterStream,
-                        refStreamOrTimeRange=refStreamOrTimeRange)
+        part.makeNotation(meterStream=meterStream,
+                        refStreamOrTimeRange=refStreamOrTimeRange, 
+                        inPlace=True)
         #environLocal.printDebug(['Stream._getMXPart: post makeNotation, length', len(measureStream)])
+        measureStream = part.getElementsByClass('Measure')
 
         # after calling measuresStream, need to update Spanners, as a deepcopy
         # has been made
@@ -2901,13 +3112,12 @@ def streamPartToMx(part, instStream=None, meterStream=None,
         #                measureStream.flat.getAllContextsByClass('Spanner'))
         # only getting spanners at this level
         #spannerBundle = spanner.SpannerBundle(measureStream.flat)
-        spannerBundle = measureStream.spannerBundle
+        spannerBundle = part.spannerBundle
     # if this is a Measure, see if it needs makeNotation
     else: # there are measures
         # check that first measure has any atributes in outer Stream
         # this is for non-standard Stream formations (some kern imports)
         # that place key/clef information in the containing stream
-
         if measureStream[0].clef is None:
             measureStream[0].makeMutable() # must mutate
             outerClefs = part.getElementsByClass('Clef')
@@ -2923,7 +3133,6 @@ def streamPartToMx(part, instStream=None, meterStream=None,
             outerTimeSignatures = part.getElementsByClass('TimeSignature')
             if len(outerTimeSignatures) > 0:
                 measureStream[0].timeSignature = outerTimeSignatures[0]
-
         # see if accidentals/beams can be processed
         if not measureStream.haveAccidentalsBeenMade():
             measureStream.makeAccidentals(inPlace=True)
@@ -2936,6 +3145,8 @@ def streamPartToMx(part, instStream=None, meterStream=None,
         if spannerBundle is None:
             spannerBundle = spanner.SpannerBundle(measureStream.flat)
 
+    # make sure that all instances of the same class have unique ids
+    spannerBundle.setIdLocals()
 
     # for each measure, call .mx to get the musicxml representation
     for obj in measureStream:
@@ -2953,13 +3164,10 @@ def streamPartToMx(part, instStream=None, meterStream=None,
                     mxTranspose = intervalToMXTranspose(
                                     instSubObj.transposition)
                     #raise TranslateException('cannot get transposition for a part that is not at sounding pitch.')
-            
         mxPart.append(measureToMx(obj, spannerBundle=spannerBundle, 
                  mxTranspose=mxTranspose))
-
     # might to post processing after adding all measures to the Stream
     # TODO: need to find all MetricModulations and updateByContext
-
     # mxScorePart contains mxInstrument
     return mxScorePart, mxPart
 

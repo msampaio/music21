@@ -7,7 +7,7 @@
 #               Christopher Ariza
 #               Neena Parikh
 #
-# Copyright:    (c) 2009-2011 The music21 Project
+# Copyright:    (c) 2009-2012 The music21 Project
 # License:      LGPL
 #-------------------------------------------------------------------------------
 
@@ -27,6 +27,7 @@ import music21.interval
 from music21 import musicxml
 from music21 import text
 from music21 import common
+from music21 import spanner
 
 _MOD = 'expressions'
 
@@ -494,7 +495,6 @@ class Trill(Ornament):
 
         for n in trillNotes:
             n.accidental = currentKeySig.accidentalByStep(n.step)
-
         
         if self.nachschlag:
             firstNoteNachschlag = copy.deepcopy(srcObject)
@@ -505,7 +505,8 @@ class Trill(Ornament):
             secondNoteNachschlag = copy.deepcopy(srcObject)
             #TODO: remove expressions
             secondNoteNachschlag.duration.quarterLength = self.quarterLength
-            secondNoteNachschlag.transpose(transposeIntervalReverse, inPlace = True)
+            secondNoteNachschlag.transpose(transposeIntervalReverse, 
+                inPlace = True)
             secondNoteNachschlag.accidental = currentKeySig.accidentalByStep(secondNoteNachschlag.step)
             
             nachschlag = [firstNoteNachschlag, secondNoteNachschlag]
@@ -816,6 +817,60 @@ class Fermata(Expression):
 
 
 
+#-------------------------------------------------------------------------------
+# spanner expressions
+
+class TrillExtensionException(music21.Music21Exception):
+    pass
+
+class TrillExtension(spanner.Spanner):
+    '''A wavy line trill extension, placed between two notes. Note that some MusicXML readers include a trill symbol with the wavy line.
+
+    >>> from music21 import *
+    >>> s = stream.Stream()
+    >>> s.repeatAppend(note.Note(), 8)
+    >>> # create between notes 2 and 3
+    >>> te = expressions.TrillExtension(s.notes[1], s.notes[2])
+    >>> s.append(te) # can go anywhere in the Stream
+    >>> te.getDurationBySite(s).quarterLength
+    2.0
+    >>> print te
+    <music21.spanner.TrillExtension <music21.note.Note C><music21.note.Note C>>
+    '''
+    # musicxml defines a start, stop, and a continue; will try to avoid continue
+    # note that this always includes a trill symbol
+    def __init__(self, *arguments, **keywords):
+        spanner.Spanner.__init__(self, *arguments, **keywords)
+        self._placement = 'below' # can above or below, after musicxml
+    
+    def _getPlacement(self):
+        return self._placement
+
+    def _setPlacement(self, value):
+        if value.lower() not in ['above', 'below']:
+            raise TrillExtensionException('incorrect placement value: %s' % value)
+        self._placement = value.lower()
+        
+    placement = property(_getPlacement, _setPlacement, doc='''
+        Get or set the placement as either above or below.
+
+        >>> from music21 import *
+        >>> s = stream.Stream()
+        >>> s.repeatAppend(note.Note(), 8)
+        >>> te = expressions.TrillExtension(s.notes[1], s.notes[2])
+        >>> te.placement = 'above'
+        >>> te.placement
+        'above'
+        ''')
+
+    def __repr__(self):
+        msg = spanner.Spanner.__repr__(self)
+        msg = msg.replace(self._reprHead, '<music21.spanner.TrillExtension ')
+        return msg
+
+
+
+
 
 
 
@@ -917,6 +972,34 @@ class Test(unittest.TestCase):
         cpe = corpus.parse('cpebach/h186').parts[0].measures(1,4)
         cpe2 = cpe.realizeOrnaments()
         #cpe2.show()
+
+
+    def testTrillExtensionA(self):
+        '''Test basic wave line creation and output, as well as passing
+        objects through make measure calls. 
+        '''
+        from music21 import stream, note, spanner, chord, expressions
+        s = stream.Stream()
+        s.repeatAppend(note.Note(), 12)
+        n1 = s.notes[0]
+        n2 = s.notes[-1]
+        sp1 = expressions.TrillExtension(n1, n2)
+        s.append(sp1)
+        raw = s.musicxml
+        self.assertEqual(raw.count('wavy-line'), 2)
+
+        s = stream.Stream()
+        s.repeatAppend(chord.Chord(['c-3', 'g4']), 12)
+        n1 = s.notes[0]
+        n2 = s.notes[-1]
+        sp1 = expressions.TrillExtension(n1, n2)
+        s.append(sp1)
+        raw = s.musicxml
+        #s.show()
+        self.assertEqual(raw.count('wavy-line'), 2)
+
+
+
 
 #-------------------------------------------------------------------------------
 # define presented order in documentation
