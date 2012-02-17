@@ -1,6 +1,6 @@
 from music21.stream import Stream
 from collections import MutableSequence
-
+import music21.contour.plot
 
 class Contour(MutableSequence):
     def __init__(self, args):
@@ -88,4 +88,8 @@ class Contour(MutableSequence):
         print self
 
     def plot(self):
-        print self
+        g_title = 'MusiContour in Music21'
+        obj = music21.contour.plot.GraphPlot(doneAction=None, title=g_title)
+        obj.setData(self)
+        obj.process()
+        obj.show()
