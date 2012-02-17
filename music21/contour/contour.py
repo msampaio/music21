@@ -1,6 +1,9 @@
 from music21.stream import Stream
 from collections import MutableSequence
-import music21.contour.plot
+import plot
+import matrix
+import auxiliary
+
 
 class Contour(MutableSequence):
     def __init__(self, args):
@@ -83,12 +86,24 @@ class Contour(MutableSequence):
 
         return Contour([sorted(list(set(self))).index(x) for x in self])
 
+    def comparison_matrix(self):
+        """Returns Morris (1987) a cseg COM-Matrix.
+
+        >>> Contour([0, 1, 3, 2]).comparison_matrix()
+        0 + + +
+        - 0 + +
+        - - 0 -
+        - - + 0
+        """
+
+        return matrix.ComparisonMatrix([[auxiliary.comparison([a, b]) for b in self] for a in self])
+
     def show(self):
         print self
 
     def plot(self):
         g_title = 'MusiContour in Music21'
-        obj = music21.contour.plot.GraphPlot(doneAction=None, title=g_title)
+        obj = plot.GraphPlot(doneAction=None, title=g_title)
         obj.setData(self)
         obj.process()
         obj.show()
