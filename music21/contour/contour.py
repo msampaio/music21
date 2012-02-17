@@ -81,8 +81,7 @@ class Contour(MutableSequence):
         < 2 1 3 0 >
         """
 
-        sorted_contour = sorted(list(set(self)))
-        return Contour([sorted_contour.index(x) for x in self])
+        return Contour([sorted(list(set(self))).index(x) for x in self])
 
     def show(self):
         print self
