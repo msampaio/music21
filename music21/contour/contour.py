@@ -5,7 +5,7 @@ from collections import MutableSequence
 class Contour(MutableSequence):
     def __init__(self, args):
         """args can be either a music21.stream or a list of numbers"""
-        
+
         if isinstance(args, Stream):
             self.items = [n.pitchClass for n in args.notes]
         else:
@@ -51,6 +51,38 @@ class Contour(MutableSequence):
         subset = self[n:]
         subset.extend(self[0:n])
         return Contour(subset)
+
+    def retrograde(self):
+        """Returns contour retrograde.
+
+        >>> Contour([0, 1, 2, 3]).retrograde()
+        < 3 2 1 0 >
+        """
+
+        tmp = self[:]
+        tmp.reverse()
+        return Contour(tmp)
+
+    def inversion(self):
+        """Returns contour inversion.
+
+        >>> Contour([0, 3, 1, 2]).inversion()
+        < 3 0 2 1 >
+        """
+
+        maxim = max(self)
+        return Contour([(maxim - cps) for cps in self])
+
+    def translation(self):
+        """Returns the normal form (Marvin 1987) of a given contour.
+        It's the same of Friedmann (1985, 1987) contour class (CC).
+
+        >>> Contour([4, 2, 6, 1]).translation()
+        < 2 1 3 0 >
+        """
+
+        sorted_contour = sorted(list(set(self)))
+        return Contour([sorted_contour.index(x) for x in self])
 
     def show(self):
         print self
