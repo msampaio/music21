@@ -327,6 +327,22 @@ class Contour(MutableSequence):
         else:
             return self.__repeated_prime_form_marvin_laprade()
 
+    def class_representatives(self, prime_algorithm="prime_form_marvin_laprade"):
+        """Returns the four csegclass representatives (Marvin and
+        Laprade 1987, p. 237): prime, inversion, and retrograde
+        inversion.
+
+        >>> Contour([0, 1, 3, 2]).class_representatives()
+        [< 0 1 3 2 >, < 3 2 0 1 >, < 2 3 1 0 >, < 1 0 2 3 >]
+        """
+
+        p = auxiliary.apply_fn(Contour(self), prime_algorithm)
+        i = Contour(self).inversion()
+        r = Contour(self).retrograde()
+        ri = Contour(i).retrograde()
+
+        return [p, i, r, ri]
+
     def show(self):
         print self
 
