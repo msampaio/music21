@@ -20,23 +20,7 @@ def interval(els):
     -4
     """
 
-    el1, el2 = els
-    return el2 - el1
-
-
-def comparison(els):
-    """Returns Morris (1987) comparison [COM(a, b)] for two
-    c-pitches.
-
-    This function calls interval(), but in contour theory there is no
-    relation between them. This calling reason is only to reduce code.
-
-    >>> comparison([4, 0])
-    -1
-    """
-
-    delta = interval(els)
-    return 0 if abs(delta) == 0 else (delta) / abs(delta)
+    return els[1] - els[0]
 
 
 def position_comparison(list_1, list_2):

@@ -105,7 +105,7 @@ class Contour(MutableSequence):
         - - + 0
         """
 
-        return matrix.ComparisonMatrix([[auxiliary.comparison([a, b]) for b in self] for a in self])
+        return matrix.ComparisonMatrix([[cmp(b, a) for b in self] for a in self])
 
     def internal_diagonals(self, n=1):
         """Returns Morris (1987) int_n. The first internal diagonal
