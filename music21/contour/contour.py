@@ -228,6 +228,105 @@ class Contour(MutableSequence):
 
         return [sum(x) for x in self.interval_array()]
 
+    def __unequal_edges(self):
+        """Returns the first cps position with different value from
+        its symmetric. For instance, given a cseg C [0, 3, 1, 4, 2, 3,
+        0], the first cps with different value for its symmetric is
+        C_2 = 1.
+        C_0 == C_-1
+        c_1 == C_-2
+        c_2 != C_-3
+        So, the function returns cpitch position: 2.
+        """
+
+        for position in range(len(self) / 2):
+            if self[position] != self[(position * -1) - 1]:
+                return position
+
+    def __prime_form_marvin_laprade_step_2(self, position):
+        """Runs Marvin and Laprade (1987) second step of prime form
+        algorithm.
+
+        If (n - 1) - last pitch < first pitch, invert.
+
+        position: the first cps position that its value is different
+        for its symmetric (cf. unequal_edges).
+        """
+
+        cseg = self
+        n = len(cseg)
+
+        # if first and last cps are equal, the second must be compared
+        # to penultimate cps and so on to break the "tie".
+        false_first = cseg[position]
+        false_last = cseg[(position * -1) - 1]
+
+        if ((n - 1) - false_last) < false_first:
+            cseg = cseg.inversion()
+
+        return cseg
+
+    def __prime_form_marvin_laprade_step_3(self, position):
+        """Runs Marvin and Laprade (1987) third step of prime form
+        algorithm.
+
+        If last cpitch < first cpitch, retrograde.
+
+        position: the first cps position that its value is different
+        for its symmetric (cf. unequal_edges).
+        """
+
+        cseg = self
+
+        if cseg[(position * -1) - 1] < cseg[position]:
+            cseg = cseg.retrograde()
+
+        return cseg
+
+    def __non_repeated_prime_form_marvin_laprade(self):
+        """Returns the prime form of a given contour (Marvin and
+        Laprade, 1987)."""
+
+        # the first cps position that its value is different for its
+        # symmetric (cf. unequal_edges).
+        position = self.__unequal_edges()
+
+        # step 1: translate if necessary
+        step1 = Contour(self).translation()
+        step2 = step1.__prime_form_marvin_laprade_step_2(position)
+        step3 = step2.__prime_form_marvin_laprade_step_3(position)
+
+        return step3
+
+    def __repeated_prime_generic(self, prime_algorithm):
+        """Returns prime forms of a repeated cpitch cseg calculated
+        with a given prime_algorithm.
+        """
+
+        triangle = self.comparison_matrix().superior_triangle()
+        csegs = matrix.triangle_zero_replace_to_cseg(triangle)
+
+        return sorted([auxiliary.apply_fn(t, prime_algorithm) for t in csegs])
+
+    def __repeated_prime_form_marvin_laprade(self):
+        """Returns prime forms of a repeated cpitch cseg."""
+
+        return self.__repeated_prime_generic("prime_form_marvin_laprade")
+
+    def prime_form_marvin_laprade(self):
+        """Returns the prime form of a given contour (Marvin and
+        Laprade, 1987).
+
+        >>> Contour([4, 2, 6, 1]).prime_form_marvin_laprade()
+        < 0 3 1 2 >
+        """
+
+        # tests if cseg has repeated elements
+        if len(self) == len(set([x for x in self])):
+            return self.__non_repeated_prime_form_marvin_laprade()
+        else:
+            return self.__repeated_prime_form_marvin_laprade()
+
     def show(self):
         print self
 

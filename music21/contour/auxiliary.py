@@ -1,3 +1,15 @@
+import contour
+
+def apply_fn(cseg, fn):
+    """Apply a method to a contour.
+
+    >>> apply_fn(Contour([0, 1, 2]), 'retrograde')
+    < 2 1 0 >
+    """
+
+    return apply(getattr(contour.Contour(cseg), fn))
+
+
 def interval(els):
     """Returns Friedmann (1985) CI, the distance between one
     element in a CC (normal_form cseg here), and a later element
