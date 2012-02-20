@@ -37,3 +37,19 @@ def comparison(els):
 
     delta = interval(els)
     return 0 if abs(delta) == 0 else (delta) / abs(delta)
+
+
+def position_comparison(list_1, list_2):
+    """Returns a similarity index based on the number of equal
+    elements in same positions in two lists.
+
+    >>> position_comparison([0, 1, 2, 3], [0, 1, 3, 2])
+    0.5
+    """
+
+    value = 0
+    size = len(list_1)
+    for pos in range(size):
+        if list_1[pos] == list_2[pos]:
+            value += 1
+    return value / float(size)
