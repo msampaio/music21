@@ -7,7 +7,14 @@ import auxiliary
 
 class Contour(MutableSequence):
     def __init__(self, args):
-        """args can be either a music21.stream or a list of numbers"""
+        """args can be either a music21.stream or a list of numbers
+
+        >>> Contour(tinyNotation.TinyNotationStream('c4 d8 f g16 a g f#', '3/4'))
+        < 0 2 5 7 9 7 6 >
+
+        >>> Contour([0, 3, 2, 1])
+        < 0 3 2 1 >
+        """
 
         if isinstance(args, Stream):
             self.items = [n.pitchClass for n in args.notes]
