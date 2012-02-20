@@ -3,6 +3,7 @@ from collections import MutableSequence
 import plot
 import matrix
 import auxiliary
+import diagonal
 
 
 class Contour(MutableSequence):
@@ -104,6 +105,19 @@ class Contour(MutableSequence):
         """
 
         return matrix.ComparisonMatrix([[auxiliary.comparison([a, b]) for b in self] for a in self])
+
+    def internal_diagonals(self, n=1):
+        """Returns Morris (1987) int_n. The first internal diagonal
+        (int_1) is the same of Friedmann (1985, 1987) contour
+        adjacency series (CC).
+
+        >>> Contour([0, 1, 3, 2]).internal_diagonals()
+        < + + - >
+        """
+
+        matrix = self.comparison_matrix()
+        int_d = [row[i + n] for i, row in enumerate(matrix[:-n])]
+        return diagonal.InternalDiagonal([x for x in int_d if x != 0])
 
     def show(self):
         print self
