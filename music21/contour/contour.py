@@ -4,6 +4,7 @@ import plot
 import matrix
 import auxiliary
 import diagonal
+import itertools
 
 
 class Contour(MutableSequence):
@@ -118,6 +119,114 @@ class Contour(MutableSequence):
         matrix = self.comparison_matrix()
         int_d = [row[i + n] for i, row in enumerate(matrix[:-n])]
         return diagonal.InternalDiagonal([x for x in int_d if x != 0])
+
+    def interval_succession(self):
+        """Return Friedmann (1985) CIS, a series which indicates the
+        order of Contour Intervals in a given CC (normal form cseg
+        here).
+
+        >>> Contour([1, 2, 3, 5, 4, 0]).interval_succession()
+        [1, 1, 2, -1, -4]
+        """
+
+        return [(self[pos + 1] - self[pos]) for pos in range(len(self) - 1)]
+
+    def adjacency_series_vector(self):
+        """Returns Friedmann (1985) CASV, a two digit summation of ups
+        and downs of a CAS (internal diagonal n=1 here). For example,
+        [2, 1] means 2 ups and 1 down.
+
+        'internal_diagonal' stores cseg internal diagonal, n = 1.
+
+        'ups' stores the total number of ups
+
+        'downs' stores the total number of downs
+
+        >>> Contour([0, 1, 3, 2]).adjacency_series_vector()
+        [2, 1]
+        """
+
+        internal_diagonal = self.internal_diagonals(1)
+        ups = sum([(x if x > 0 else 0) for x in internal_diagonal])
+        downs = sum([(x if x < 0 else 0) for x in internal_diagonal])
+        return [ups, abs(downs)]
+
+    def interval_array(self):
+        """Return Friedmann (1985) CIA, an ordered series of numbers
+        that indicates the multiplicity of each Contour Interval type
+        in a given CC (normal form cseg here). For cseg < 0 1 3 2 >,
+        there are 2 instances of type +1 CI, 2 type +2 CI, 1. CIA =
+        ([2, 2, 1], [1, 0, 0])
+
+        'up_intervals' and 'down_intervals' store the contour intervals
+        that the method counts.
+
+        The loop appends positive elements in ups_list and negative in
+        downs_list.
+
+        'ups' and 'downs' stores contour intervals counting for all
+        types of positive and negative intervals in the cseg.
+
+        >>> Contour([0, 1, 3, 2]).interval_array()
+        ([2, 2, 1], [1, 0, 0])
+        """
+
+        up_intervals = range(1, len(self))
+        down_intervals = [-x for x in up_intervals]
+        ups_list = []
+        downs_list = []
+
+        for x in itertools.combinations(self, 2):
+            y = auxiliary.interval(x)
+            if y > 0:
+                ups_list.append(y)
+            elif y < 0:
+                downs_list.append(y)
+
+        ups = [ups_list.count(x) for x in up_intervals]
+        downs = [downs_list.count(x) for x in down_intervals]
+
+        return ups, downs
+
+    def class_vector_i(self):
+        """Return Friedmann (1985) CCVI, a two-digit summation of
+        degrees of ascent and descent expressed in contour interval
+        array. The first digit is the total of products of frequency
+        and contour interval types of up contour intervals, and the
+        second, of down contour intervals. For example, in CIA([2, 2,
+        1], [1, 0, 0], CCVI = [(2 * 1) + (2 * 2) + (1 * 3)], [(1 * 1),
+        (2 * 0), (3 * 0)]. So, CCVI = [5, 1].
+
+        'items' stores the contour intervals to be sum.
+
+        'up_list' and 'down_list' stores the up and down contour
+        interval frequency lists.
+
+        'up_sum' and 'down_sum' stores the sum of the product of each
+        contour interval frequency and contour interval value.
+
+        >>> Contour([0, 1, 3, 2]).class_vector_i()
+        [9, 1]
+        """
+
+        items = range(1, len(self))
+        up_list, down_list = self.interval_array()
+        up_sum = sum([a * b for a, b in itertools.izip(up_list, items)])
+        down_sum = sum([a * b for a, b in itertools.izip(down_list, items)])
+        return [up_sum, down_sum]
+
+    def class_vector_ii(self):
+        """Return Friedmann (1985) CCVII, a two-digit summation of
+        degrees of ascent and descent expressed in contour interval
+        array. The first digit is the total of frequency of up contour
+        intervals, and the second, of down contour intervals. For
+        example, in CIA([2, 2, 1], [1, 0, 0], CCVII = [5, 1].
+
+        >>> Contour([0, 1, 3, 2]).class_vector_ii()
+        [5, 1]
+        """
+
+        return [sum(x) for x in self.interval_array()]
 
     def show(self):
         print self
