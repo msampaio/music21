@@ -117,8 +117,8 @@ class Contour(MutableSequence):
         """
 
         matrix = self.comparison_matrix()
-        int_d = [row[i + n] for i, row in enumerate(matrix[:-n])]
-        return diagonal.InternalDiagonal([x for x in int_d if x != 0])
+        int_d = [x for x in itertools.imap(cmp, matrix, itertools.islice(matrix, n, None)) if x != 0]
+        return diagonal.InternalDiagonal(int_d)
 
     def interval_succession(self):
         """Return Friedmann (1985) CIS, a series which indicates the
