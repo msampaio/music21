@@ -803,7 +803,6 @@ class AbstractCyclicalScale(AbstractScale):
         self.type = 'Abstract Cyclical'
         self.octaveDuplicating = False
         self._buildNetwork(mode=mode)
-
         # cannot assume that abstract cyclical scales are octave duplicating
         # until we have the intervals in use
 
@@ -813,11 +812,9 @@ class AbstractCyclicalScale(AbstractScale):
         '''
         if not common.isListLike(mode):
             mode = [mode] # place in list
-
         self.tonicDegree = 1
         self._net = intervalNetwork.BoundIntervalNetwork(mode, 
                         octaveDuplicating=self.octaveDuplicating)
-
 
 
 
@@ -1447,7 +1444,6 @@ class ConcreteScale(Scale):
 
             if direction is None:
                 direction = DIRECTION_ASCENDING
-
 
             # this creates new pitches on each call
             return self._abstract.getRealization(pitchObj, 
@@ -2481,11 +2477,26 @@ class SieveScale(ConcreteScale):
     >>> sc.pitches
     [C2, D2, E2, F2, G2, A2, B2, C3]
 
+
+    OMIT_FROM_DOCS
+    
+    Test that an empty SieveScale can be created...
+    
+    >>> sc = scale.SieveScale()
     '''
-    def __init__(self, tonic=None, sieveString='2@0'):
+    def __init__(self, tonic=None, sieveString='2@0', eld=1):
         ConcreteScale.__init__(self, tonic=tonic)
 
-        self._pitchSieve = sieve.PitchSieve(sieveString)
+        # self._tonic is a Pitch
+        if self._tonic is not None:
+            tonic = self._tonic
+        else:
+            tonic = pitch.Pitch('C4')
+        self._pitchSieve = sieve.PitchSieve(sieveString, 
+            pitchLower=str(tonic), 
+            pitchUpper=str(tonic.transpose(48)), eld=eld) 
+            # four octave default
+
         #environLocal.printDebug([self._pitchSieve.sieveObject.represent(), self._pitchSieve.getIntervalSequence()])
         # mode here is a list of intervals
         self._abstract = AbstractCyclicalScale(
@@ -3445,6 +3456,27 @@ Franck Jedrzejewski continued fractions approx. of 12-tet
         cs = ChromaticScale('c4')
         self.assertEqual(str(cs.pitches), '[C4, C#4, D4, E-4, E4, F4, F#4, G4, A-4, A4, B-4, B4, C5]')
         
+
+
+    def testSieveScaleA(self):
+        from music21 import scale
+
+#         sc = scale.SieveScale('d4', '3@0')
+#         self.assertEqual(str(sc.getPitches('c2', 'c4')), '[D2, E#2, G#2, B2, D3, E#3, G#3, B3]') 
+
+
+        sc = scale.SieveScale('d4', '1@0', eld=2)
+        self.assertEqual(str(sc.getPitches('c2', 'c4')), '[C2, D2, F-2, G-2, A-2, B-2, C3, D3, F-3, G-3, A-3, B-3, C4]') 
+
+
+        sc = scale.SieveScale('d4', '1@0', eld=.5)
+        self.assertEqual(str(sc.getPitches('c2', 'c4')), '[C2, C~2, D-2, D`2, D2, D~2, E-2, E`2, F-2, F`2, F2, F~2, G-2, G`2, G2, G~2, A-2, A`2, A2, A~2, B-2, B`2, C-3, C`3, C3, C~3, D-3, D`3, D3, D~3, E-3, E`3, F-3, F`3, F3, F~3, G-3, G`3, G3, G~3, A-3, A`3, A3, A~3, B-3, B`3, C-4, C`4, C4]') 
+
+
+        sc = scale.SieveScale('d4', '1@0', eld=.25)
+        self.assertEqual(str(sc.getPitches('c2', 'c4')), '[C2, C2(+25c), C~2, C#2(-25c), D-2, D`2(-25c), D`2, D2(-25c), D2, D2(+25c), D~2, D#2(-25c), E-2, E`2(-25c), E`2, E2(-25c), F-2, F`2(-25c), F`2, F2(-25c), F2, F2(+25c), F~2, F#2(-25c), G-2, G`2(-25c), G`2, G2(-25c), G2, G2(+25c), G~2, G#2(-25c), A-2, A`2(-25c), A`2, A2(-25c), A2, A2(+25c), A~2, A#2(-25c), B-2, B`2(-25c), B`2, B2(-25c), C-3, C`3(-25c), C`3, C3(-25c), C3, C3(+25c), C~3, C#3(-25c), D-3, D`3(-25c), D`3, D3(-25c), D3, D3(+25c), D~3, D#3(-25c), E-3, E`3(-25c), E`3, E3(-25c), F-3, F`3(-25c), F`3, F3(-25c), F3, F3(+25c), F~3, F#3(-25c), G-3, G`3(-25c), G`3, G3(-25c), G3, G3(+25c), G~3, G#3(-25c), A-3, A`3(-25c), A`3, A3(-25c), A3, A3(+25c), A~3, A#3(-25c), B-3, B`3(-25c), B`3, B3(-25c), C-4, C`4(-25c), C`4, C4(-25c), C4]') 
+
+
 
 #-------------------------------------------------------------------------------
 # define presented order in documentation

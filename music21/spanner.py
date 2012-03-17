@@ -403,7 +403,7 @@ class Spanner(music21.Music21Object):
             else:
                 pass
                 # it makes sense to not have multiple copies
-                #environLocal.printDebug(['attempting to add an object (%s) that is already found in the SpannerStorage stream of spaner %s; this may not be an erorr.' % (c, self)])
+                #environLocal.printDebug(['attempting to add an object (%s) that is already found in the SpannerStorage stream of spaner %s; this may not be an error.' % (c, self)])
 
         self._components._elementsChanged()
         # always clear cache
@@ -567,6 +567,12 @@ class Spanner(music21.Music21Object):
         # these are in order
         post = []
         idSite = id(site)
+
+        # special handling for case of a single component spanner
+        if len(self._components) == 1:
+            o = self._components[0].getOffsetBySite(site)
+            return o, o + self._components[0].duration.quarterLength
+
         offsetComponent = [] # store pairs
         for c in self._components._elements:
         #for c in self.getComponents():
@@ -625,6 +631,12 @@ class SpannerBundle(object):
             elif 'Spanner' in arg.classes:
                 self._storage.append(arg)
     
+        # a special spanners, stored in storage, can be identified in the 
+        # SpannerBundle as missing a component; the next obj that meets
+        # the class expectation will then be assigned and the component 
+        # cleared
+        self._pendingComponentAssignment = []
+
     def append(self, other):
         self._storage.append(other)
         if self._cache > 0:
@@ -846,8 +858,10 @@ class SpannerBundle(object):
         return self._cache[cacheKey]
 
 
-    def setIdLocalByClass(self, className):
+    def setIdLocalByClass(self, className, maxId=6):
         '''Automatically set id local values for all members of the provided class. This is necessary in cases where spanners are newly created in potentially overlapping boundaries and need to be tagged for MusicXML or other output. Note that, if some Spanners already have ids, they will be overwritten.
+
+        The `maxId` parameter sets the largest number used in id ass
 
         >>> from music21 import *
         >>> su1 = spanner.Slur()
@@ -867,7 +881,8 @@ class SpannerBundle(object):
         found = []
         # note that this over rides previous values
         for i, sp in enumerate(self.getByClass(className)):
-            sp.idLocal = i+1
+            # 6 seems to be limit in musicxml processing
+            sp.idLocal = (i % maxId) + 1
                 
 
     def setIdLocals(self):
@@ -940,6 +955,24 @@ class SpannerBundle(object):
         return self.getByClass(className).getByCompleteStatus(completeStatus)
 
 
+    def setPendingComponentAssignment(self, sp, className):
+        ref = {'spanner':sp, 'className':className}
+        self._pendingComponentAssignment.append(ref)
+
+    def freePendingComponentAssignment(self, componentCandidate):
+        if len(self._pendingComponentAssignment) == 0:
+            return
+
+        remove = None
+        for i, ref in enumerate(self._pendingComponentAssignment):
+            #environLocal.pd(['calling freePendingComponentAssignment()', self._pendingComponentAssignment])
+            if componentCandidate.isClassOrSubclass([ref['className']]):
+                ref['spanner'].addComponents(componentCandidate)
+                remove = i      
+                #environLocal.pd(['freePendingComponentAssignment()', 'added component', ref['spanner']])
+                break
+        if remove is not None:
+            self._pendingComponentAssignment.pop(remove)
 
 #-------------------------------------------------------------------------------
 # connect two or more notes anywhere in the score
@@ -1074,90 +1107,13 @@ class RepeatBracket(Spanner):
 
 
 #-------------------------------------------------------------------------------
-class DynamicWedge(Spanner):
-    '''Common base-class for Crescendo and Diminuendo. 
-    '''
-    def __init__(self, *arguments, **keywords):
-        Spanner.__init__(self, *arguments, **keywords)
-
-        self.type = None # crescendo or diminuendo
-        self.placement = 'below' # can above or below, after musicxml
-        self.spread = 15 # this unit is probably in tenth
-
-    def __repr__(self):
-        msg = Spanner.__repr__(self)
-        msg = msg.replace(self._reprHead, '<music21.spanner.DynamicWedge ')
-        return msg
-
-class Crescendo(DynamicWedge):
-    '''A spanner crescendo wedge.
-
-    >>> from music21 import spanner
-    >>> d = spanner.Crescendo()
-    >>> d.getStartParameters()
-    {'spread': 0, 'type': 'crescendo'}
-    >>> d.getEndParameters()
-    {'spread': 15, 'type': 'stop'}
-    '''
-    def __init__(self, *arguments, **keywords):
-        DynamicWedge.__init__(self, *arguments, **keywords)
-        self.type = 'crescendo'
-
-    def getStartParameters(self):
-        '''Return the parameters for the start of this spanner
-        ''' 
-        post = {}
-        post['type'] = self.type # cresc 
-        post['spread'] = 0 # start at zero
-        return post
-
-    def getEndParameters(self):
-        '''Return the parameters for the start of this spanner
-        ''' 
-        post = {}
-        post['type'] = 'stop'  # end is always stop
-        post['spread'] = self.spread # end with spread
-        return post
-
-class Diminuendo(DynamicWedge):
-    '''A spanner diminuendo wedge.
-
-    >>> from music21 import spanner
-    >>> d = spanner.Diminuendo()
-    >>> d.getStartParameters()
-    {'spread': 15, 'type': 'diminuendo'}
-    >>> d.getEndParameters()
-    {'spread': 0, 'type': 'stop'}
-    '''
-    def __init__(self, *arguments, **keywords):
-        DynamicWedge.__init__(self, *arguments, **keywords)
-        self.type = 'diminuendo'
-
-    def getStartParameters(self):
-        '''Return the parameters for the start of this spanner
-        ''' 
-        post = {}
-        post['type'] = self.type # dim
-        post['spread'] = self.spread # start with spread
-        return post
-
-    def getEndParameters(self):
-        '''Return the parameters for the start of this spanner
-        ''' 
-        post = {}
-        post['type'] = 'stop'  # end is always stop
-        post['spread'] = 0
-        return post
-
-
-#-------------------------------------------------------------------------------
 # line-based spanners
 
-class OctaveShift(Spanner):
+class Ottava(Spanner):
     '''An octave shift line
 
     >>> from music21 import *
-    >>> os = spanner.OctaveShift(type='8va')
+    >>> os = spanner.Ottava(type='8va')
     >>> os.type
     '8va'
     >>> os.type = 15
@@ -1167,7 +1123,7 @@ class OctaveShift(Spanner):
     >>> os.type
     '8vb'
     >>> print os
-    <music21.spanner.OctaveShift 8vb >
+    <music21.spanner.Ottava 8vb >
     '''
     def __init__(self, *arguments, **keywords):
         Spanner.__init__(self, *arguments, **keywords)
@@ -1181,7 +1137,7 @@ class OctaveShift(Spanner):
 
     def __repr__(self):
         msg = Spanner.__repr__(self)
-        msg = msg.replace(self._reprHead, '<music21.spanner.OctaveShift %s ' % 
+        msg = msg.replace(self._reprHead, '<music21.spanner.Ottava %s ' % 
             self.type)
         return msg
     
@@ -1212,14 +1168,14 @@ class OctaveShift(Spanner):
             if not common.isStr(type) or type.lower() not in [
                 '8va', '8vb', '15ma', '15mb']:
                 raise SpannerException(
-                    'cannot create OctaveShift of type: %s' % type)
+                    'cannot create Ottava of type: %s' % type)
             self._type = type.lower()
     
     type = property(_getType, _setType, doc='''
-        Get or set OctaveShift type. This can be set by as complete string (such as 8va or 15mb) or with a pair specifying size and direction.
+        Get or set Ottava type. This can be set by as complete string (such as 8va or 15mb) or with a pair specifying size and direction.
 
         >>> from music21 import *
-        >>> os = spanner.OctaveShift()
+        >>> os = spanner.Ottava()
         >>> os.type = 15, 'down'
         >>> os.type
         '15mb'
@@ -1237,16 +1193,18 @@ class OctaveShift(Spanner):
     def _getShiftDirection(self):
         '''Get basic parameters of shift.
         '''
-        if self._type.endswith('a'): return 'up'
-        if self._type.endswith('b'): return 'down'
+        # an 8va means that the notes must be shifted down with the mark
+        if self._type.endswith('a'): return 'down'
+        # an 8vb means that the notes must be shifted upward with the mark
+        if self._type.endswith('b'): return 'up'
 
     def getStartParameters(self):
         '''Return the parameters for the start of this spanners required by MusicXML output. 
 
         >>> from music21 import *
-        >>> os = spanner.OctaveShift(type='15mb')
+        >>> os = spanner.Ottava(type='15mb')
         >>> os.getStartParameters()
-        {'type': 'down', 'size': 15}
+        {'type': 'up', 'size': 15}
         >>> os.getEndParameters()
         {'type': 'stop', 'size': 15}
         ''' 
@@ -1259,9 +1217,9 @@ class OctaveShift(Spanner):
         '''Return the parameters for the start of this spanner required by MusicXML output. 
 
         >>> from music21 import *
-        >>> os = spanner.OctaveShift(type=8)
+        >>> os = spanner.Ottava(type=8)
         >>> os.getStartParameters()
-        {'type': 'up', 'size': 8}
+        {'type': 'down', 'size': 8}
         >>> os.getEndParameters()
         {'type': 'stop', 'size': 8}
         ''' 
@@ -1273,109 +1231,96 @@ class OctaveShift(Spanner):
 
 
 class Line(Spanner):
-    '''A line or bracket represented as a spanner between two Notes. 
+    '''A line or bracket represented as a spanner above two Notes. 
 
-    Lines can take many line types. 
+    Brackets can take many line types. 
 
     >>> from music21 import *
     >>> b = spanner.Line()
     >>> b.lineType = 'dotted'
     >>> b.lineType
     'dotted'
-    >>> b = spanner.Line(endLength=20)
-    >>> b.endLength 
+    >>> b = spanner.Line(endHeight=20)
+    >>> b.endHeight 
     20
 
     '''
     def __init__(self, *arguments, **keywords):
         Spanner.__init__(self, *arguments, **keywords)
 
-        self._startTick = 'none' # can ne up/down/arrow/both/None
-        self._endTick = 'none' # can ne up/down/arrow/both/None
+        self._endTick = 'down' # can ne up/down/arrow/both/None
+        self._startTick = 'down' # can ne up/down/arrow/both/None
 
-        self._startLength = None # for up/down, specified in tenths
-        self._endLength = None # for up/down, specified in tenths
+        self._endHeight = None # for up/down, specified in tenths
+        self._startHeight = None # for up/down, specified in tenths
 
-        self._lineType = 'solid' # can be solid, dashed, dotter, wavy
-        self._placement = 'above' # can above or below, after musicxml
+        self._lineType = 'solid' # can be solid, dashed, dotted, wavy
+        self.placement = 'above' # can above or below, after musicxml
         
         if 'lineType' in keywords.keys():
             self.lineType = keywords['lineType'] # use property
-        if 'endTick' in keywords.keys():
-            self.endTick = keywords['endTick'] # use property
-        if 'endLength' in keywords.keys():
-            self.endLength = keywords['endLength'] # use property
+
         if 'startTick' in keywords.keys():
             self.startTick = keywords['startTick'] # use property
-        if 'startLength' in keywords.keys():
-            self.startLength = keywords['startLength'] # use property
+        if 'endTick' in keywords.keys():
+            self.endTick = keywords['endTick'] # use property
+        if 'tick' in keywords.keys():
+            self.tick = keywords['tick'] # use property
 
+        if 'endHeight' in keywords.keys():
+            self.endHeight = keywords['endHeight'] # use property
+        if 'startHeight' in keywords.keys():
+            self.startHeight = keywords['startHeight'] # use property
 
     def __repr__(self):
         msg = Spanner.__repr__(self)
         msg = msg.replace(self._reprHead, '<music21.spanner.Line ')
         return msg
 
-
-    def _getPlacement(self):
-        return self._placement
-
-    def _setPlacement(self, value):
-        if value.lower() not in ['above', 'below']:
-            raise SpannerException('incorrect placement value: %s' % value)
-        self._placement = value.lower()
-        
-    placement = property(_getPlacement, _setPlacement, doc='''
-        Get or set the placement as either above or below.
-
-        >>> from music21 import *
-        >>> s = stream.Stream()
-        >>> s.repeatAppend(note.Note(), 8)
-        >>> ln = spanner.Line(s.notes[1], s.notes[2])
-        >>> ln.placement = 'above'
-        >>> ln.placement
-        'above'
-        ''')
-
     def _getEndTick(self):
         return self._endTick
 
     def _setEndTick(self, value):
-        # need to test None
         if value.lower() not in ['up', 'down', 'arrow', 'both', 'none']:
             raise SpannerException('not a valid value: %s' % value)
         self._endTick = value.lower()
 
     endTick = property(_getEndTick, _setEndTick, doc='''
         Get or set the endTick property.
-
-        >>> from music21 import *
-        >>> b = spanner.Line()
-        >>> b.endTick = 'down'
-        >>> b.endTick
-        'down'
         ''')
 
     def _getStartTick(self):
         return self._startTick
 
     def _setStartTick(self, value):
-        # need to test None
         if value.lower() not in ['up', 'down', 'arrow', 'both', 'none']:
             raise SpannerException('not a valid value: %s' % value)
         self._startTick = value.lower()
 
     startTick = property(_getStartTick, _setStartTick, doc='''
         Get or set the startTick property.
+        ''')
+
+
+    def _getTick(self):
+        return self._startTick # just returning start
+
+    def _setTick(self, value):
+        if value.lower() not in ['up', 'down', 'arrow', 'both', 'none']:
+            raise SpannerException('not a valid value: %s' % value)
+        self._startTick = value.lower()
+        self._endTick = value.lower()
+
+    tick = property(_getTick, _setTick, doc='''
+        Set the start and end tick to the same value
 
         >>> from music21 import *
         >>> b = spanner.Line()
-        >>> b.startTick = 'arrow'
+        >>> b.tick = 'arrow'
         >>> b.startTick
         'arrow'
-        >>> b.startTick = 'junk'
-        Traceback (most recent call last):
-        SpannerException: not a valid value: junk
+        >>> b.endTick
+        'arrow'
         ''')
 
 
@@ -1383,68 +1328,48 @@ class Line(Spanner):
         return self._lineType
 
     def _setLineType(self, value):
-        if value.lower() not in ['solid', 'dashed', 'dotted', 'wavy']:
+        if value is not None and value.lower() not in [
+            'solid', 'dashed', 'dotted', 'wavy']:
             raise SpannerException('not a valid value: %s' % value)
-        self._lineType = value.lower()
+        # not sure if we should permit setting as None
+        if value is not None:
+            self._lineType = value.lower()
 
     lineType = property(_getLineType, _setLineType, doc='''
-        Get or set the lineType property.
+        Get or set the lineType property. Valid line types are "solid", "dashed", "dotted", or "wavy".
 
         >>> from music21 import *
         >>> b = spanner.Line()
-        >>> b.lineType = 'dashed'
-        >>> b.lineType
-        'dashed'
+        >>> b.lineType = 'dotted'
         >>> b.lineType = 'junk'
         Traceback (most recent call last):
         SpannerException: not a valid value: junk
         ''')
 
+    def _getEndHeight(self):
+        return self._endHeight
 
-    def _getEndLength(self):
-        return self._endLength
-
-    def _setEndLength(self, value):
+    def _setEndHeight(self, value):
         if not common.isNum(value) and value >= 0:
             raise SpannerException('not a valid value: %s' % value)
-        self._endLength = value
+        self._endHeight = value
 
-    endLength = property(_getEndLength, _setEndLength, doc='''
-        Get or set the endLength property.
-
-        >>> from music21 import *
-        >>> b = spanner.Line()
-        >>> b.endLength = 10
-        >>> b.endLength
-        10
-        >>> b.endLength = 'junk'
-        Traceback (most recent call last):
-        SpannerException: not a valid value: junk
+    endHeight = property(_getEndHeight, _setEndHeight, doc='''
+        Get or set the endHeight property.
         ''')
 
 
-    def _getStartLength(self):
-        return self._startLength
+    def _getStartHeight(self):
+        return self._startHeight
 
-    def _setStartLength(self, value):
+    def _setStartHeight(self, value):
         if not common.isNum(value) and value >= 0:
             raise SpannerException('not a valid value: %s' % value)
-        self._startLength = value
+        self._startHeight = value
 
-    startLength = property(_getStartLength, _setStartLength, doc='''
-        Get or set the startLength property.
-
-        >>> from music21 import *
-        >>> b = spanner.Line()
-        >>> b.startLength = 11
-        >>> b.startLength
-        11
-        >>> b.startLength = 'junk'
-        Traceback (most recent call last):
-        SpannerException: not a valid value: junk
-
+    startHeight = property(_getStartHeight, _setStartHeight, doc='''
+        Get or set the startHeight property.
         ''')
-
 
 
     def getStartParameters(self):
@@ -1452,8 +1377,8 @@ class Line(Spanner):
         ''' 
         post = {}
         post['type'] = 'start'
-        post['line-end'] = self._startTick
-        post['end-length'] = self._startLength
+        post['line-end'] = self._getStartTick()
+        post['end-length'] = self._getStartHeight()
         return post
 
     def getEndParameters(self):
@@ -1461,42 +1386,28 @@ class Line(Spanner):
         ''' 
         post = {}
         post['type'] = 'stop' # always stop
-        post['line-end'] = self._endTick
-        post['end-length'] = self._endLength
+        post['line-end'] = self._getEndTick()
+        post['end-length'] = self._getEndHeight()
         return post
 
 
-class DashedLine(Spanner):
-    '''A dashed line represented as a spanner between two Notes. 
-    '''
-    # this is the musicxml dashes entity
-    def __init__(self, *arguments, **keywords):
-        Spanner.__init__(self, *arguments, **keywords)
-        # note: musicxml provides a color attribute 
-        self.placement = 'above' # can above or below, after musicxml
-
-    def __repr__(self):
-        msg = Spanner.__repr__(self)
-        msg = msg.replace(self._reprHead, '<music21.spanner.DashedLine ')
-        return msg
-
-
-
-
-
-class GlissandoLine(Spanner):
-    '''A wavy represented as a spanner between two Notes. 
+class Glissando(Spanner):
+    '''A between two Notes specifying a glissando or similar alteration. Different line types can be specified. 
     '''
     def __init__(self, *arguments, **keywords):
         Spanner.__init__(self, *arguments, **keywords)
 
-        self.lineType = 'wavy' # shold be default
+        self._lineType = 'wavy'
+        self._label = None
+
         if 'lineType' in keywords.keys():
             self.lineType = keywords['lineType'] # use property
+        if 'label' in keywords.keys(): 
+            self.label = keywords['label'] # use property
 
     def __repr__(self):
         msg = Spanner.__repr__(self)
-        msg = msg.replace(self._reprHead, '<music21.spanner.Line ')
+        msg = msg.replace(self._reprHead, '<music21.spanner.BracketLine ')
         return msg
 
     def _getLineType(self):
@@ -1512,9 +1423,32 @@ class GlissandoLine(Spanner):
         ''')
 
 
+    def _getLabel(self):
+        return self._label
+
+    def _setLabel(self, value):
+        self._label = value
+
+    label = property(_getLabel, _setLabel, doc='''
+        Get or set the label property.
+        ''')
 
 
-
+# class DashedLine(Spanner):
+#     '''A dashed line represented as a spanner between two Notes. 
+#     '''
+#     # this is the musicxml dashes entity
+#     def __init__(self, *arguments, **keywords):
+#         Spanner.__init__(self, *arguments, **keywords)
+#         # note: musicxml provides a color attribute 
+#         self.placement = 'above' # can above or below, after musicxml
+# 
+#     def __repr__(self):
+#         msg = Spanner.__repr__(self)
+#         msg = msg.replace(self._reprHead, '<music21.spanner.DashedLine ')
+#         return msg
+# 
+# 
 
 #-------------------------------------------------------------------------------
 # other ideas for spanners
@@ -1987,9 +1921,7 @@ class Test(unittest.TestCase):
 
 
 
-
-
-    def testOctaveShiftA(self):
+    def testOttavaShiftA(self):
         '''Test basic octave shift creation and output, as well as passing
         objects through make measure calls. 
         '''
@@ -1999,21 +1931,63 @@ class Test(unittest.TestCase):
         #s.repeatAppend(note.Note(), 12)
         n1 = s.notes[0]
         n2 = s.notes[-1]
-        sp1 = spanner.OctaveShift(n1, n2)
+        sp1 = spanner.Ottava(n1, n2) # default is 8va
         s.append(sp1)
-        #s.show()
         raw = s.musicxml
         self.assertEqual(raw.count('octave-shift'), 2)
+        self.assertEqual(raw.count('type="down"'), 1)
+        #s.show()
 
         s = stream.Stream()
         s.repeatAppend(note.Note(), 12)
         n1 = s.notes[0]
         n2 = s.notes[-1]
-        sp1 = spanner.OctaveShift(n1, n2, type='15mb')
+        sp1 = spanner.Ottava(n1, n2, type='8vb')
         s.append(sp1)
         #s.show()
         raw = s.musicxml
         self.assertEqual(raw.count('octave-shift'), 2)
+        self.assertEqual(raw.count('type="up"'), 1)
+
+        s = stream.Stream()
+        s.repeatAppend(note.Note(), 12)
+        n1 = s.notes[0]
+        n2 = s.notes[-1]
+        sp1 = spanner.Ottava(n1, n2, type='15ma')
+        s.append(sp1)
+        #s.show()
+        raw = s.musicxml
+        self.assertEqual(raw.count('octave-shift'), 2)
+        self.assertEqual(raw.count('type="down"'), 1)
+
+        s = stream.Stream()
+        s.repeatAppend(note.Note(), 12)
+        n1 = s.notes[0]
+        n2 = s.notes[-1]
+        sp1 = spanner.Ottava(n1, n2, type='15mb')
+        s.append(sp1)
+        #s.show()
+        raw = s.musicxml
+        self.assertEqual(raw.count('octave-shift'), 2)
+        self.assertEqual(raw.count('type="up"'), 1)
+
+
+
+    def testOttavaShiftB(self):
+        '''Test a single note octave
+        '''
+        from music21 import stream, note, spanner
+        s = stream.Stream()
+        n = note.Note('c4')
+        sp = spanner.Ottava(n)
+        s.append(n)
+        s.append(sp)
+        #s.show()
+        raw = s.musicxml
+        self.assertEqual(raw.count('octave-shift'), 2)
+        self.assertEqual(raw.count('type="down"'), 1)
+
+        
 
 
     def testCrescendoA(self):
@@ -2022,13 +1996,13 @@ class Test(unittest.TestCase):
         #s.repeatAppend(chord.Chord(['c-3', 'g4']), 12)
         s.repeatAppend(note.Note(), 12)
         n1 = s.notes[0]
-        s.insert(n1.offset, dynamics.Dynamic('fff'))
+        #s.insert(n1.offset, dynamics.Dynamic('fff'))
         n2 = s.notes[len(s.notes) / 2]
-        s.insert(n2.offset, dynamics.Dynamic('ppp'))
+        #s.insert(n2.offset, dynamics.Dynamic('ppp'))
         n3 = s.notes[-1]
-        s.insert(n3.offset, dynamics.Dynamic('ff'))
-        sp1 = spanner.Diminuendo(n1, n2)
-        sp2 = spanner.Crescendo(n2, n3)
+        #s.insert(n3.offset, dynamics.Dynamic('ff'))
+        sp1 = dynamics.Diminuendo(n1, n2)
+        sp2 = dynamics.Crescendo(n2, n3)
         s.append(sp1)
         s.append(sp2)
         #s.show()
@@ -2045,14 +2019,39 @@ class Test(unittest.TestCase):
         n1 = s.notes[0]
         n2 = s.notes[len(s.notes) / 2]
         n3 = s.notes[-1]
-        sp1 = spanner.Line(n1, n2, endTick='both', lineType='wavy')
-        sp2 = spanner.Line(n2, n3, endTick='down', lineType='dashed',
-                                    endLength=40)
+        sp1 = spanner.Line(n1, n2, startTick='up', lineType='dotted')
+        sp2 = spanner.Line(n2, n3, startTick='down', lineType='dashed',
+                                    endHeight=40)
         s.append(sp1)
         s.append(sp2)
         #s.show()
         raw = s.musicxml
         self.assertEqual(raw.count('<bracket'), 4)
+
+
+    def testLineB(self):
+        from music21 import stream, note, spanner, chord, dynamics
+        s = stream.Stream()
+        s.repeatAppend(note.Note(), 12)
+        n1 = s.notes[4]
+        n2 = s.notes[-1]
+
+        n3 = s.notes[0]
+        n4 = s.notes[2]
+
+        sp1 = spanner.Line(n1, n2, startTick='up', endTick='down', lineType='solid')
+        sp2 = spanner.Line(n3, n4, startTick='arrow', endTick='none', lineType='solid')
+
+        s.append(sp1)
+        s.append(sp2)
+
+        #s.show()
+        raw = s.musicxml
+        self.assertEqual(raw.count('<bracket'), 4)
+        self.assertEqual(raw.count('line-end="arrow"'), 1)
+        self.assertEqual(raw.count('line-end="none"'), 1)
+        self.assertEqual(raw.count('line-end="up"'), 1)
+        self.assertEqual(raw.count('line-end="down"'), 1)
 
 
     def testGlissandoA(self):
@@ -2066,35 +2065,69 @@ class Test(unittest.TestCase):
         n1 = s.notes[0]
         n2 = s.notes[len(s.notes) / 2]
         n3 = s.notes[-1]
-        sp1 = spanner.GlissandoLine(n1, n2)
-        sp2 = spanner.GlissandoLine(n2, n3)
+        sp1 = spanner.Glissando(n1, n2)
+        sp2 = spanner.Glissando(n2, n3)
+        sp2.lineType = 'dashed'
         s.append(sp1)
         s.append(sp2)
         #s.show()
         raw = s.musicxml
         self.assertEqual(raw.count('<glissando'), 4)
-        
+        self.assertEqual(raw.count('line-type="dashed"'), 2)        
 
-    def testDashedLineA(self):
+
+    def testGlissandoB(self):
         from music21 import stream, note, spanner, chord, dynamics
         s = stream.Stream()
         s.repeatAppend(note.Note(), 12)
         for i, n in enumerate(s.notes):
             n.transpose(i + (i%2*12), inPlace=True)
 
-        # note: musedata presently does not support these
+        # note: this does not suppor glissandi between non-adjacent notes
         n1 = s.notes[0]
-        n2 = s.notes[len(s.notes) / 2]
-        n3 = s.notes[-1]
-        sp1 = spanner.DashedLine(n1, n2)
-        sp2 = spanner.DashedLine(n2, n3)
+        n2 = s.notes[1]
+        sp1 = spanner.Glissando(n1, n2)
+        sp1.lineType = 'solid'
+        sp1.label = 'gliss.'
         s.append(sp1)
-        s.append(sp2)
+
         #s.show()
         raw = s.musicxml
-        self.assertEqual(raw.count('<dashes'), 4)
+        self.assertEqual(raw.count('<glissando'), 2)
+        self.assertEqual(raw.count('line-type="solid"'), 2)        
+        self.assertEqual(raw.count('>gliss.<'), 1)        
+
+
+#     def testDashedLineA(self):
+#         from music21 import stream, note, spanner, chord, dynamics
+#         s = stream.Stream()
+#         s.repeatAppend(note.Note(), 12)
+#         for i, n in enumerate(s.notes):
+#             n.transpose(i + (i%2*12), inPlace=True)
+# 
+#         # note: musedata presently does not support these
+#         n1 = s.notes[0]
+#         n2 = s.notes[len(s.notes) / 2]
+#         n3 = s.notes[-1]
+#         sp1 = spanner.DashedLine(n1, n2)
+#         sp2 = spanner.DashedLine(n2, n3)
+#         s.append(sp1)
+#         s.append(sp2)
+#         #s.show()
+#         raw = s.musicxml
+#         self.assertEqual(raw.count('<dashes'), 4)
         
 
+    def testOneElementSpanners(self):
+        from music21 import note, spanner
+
+        n1 = note.Note()
+        sp = spanner.Spanner()
+        sp.addComponents(n1)
+        sp.completeStatus = True
+        self.assertEqual(sp.completeStatus, True)
+        self.assertEqual(sp.isFirst(n1), True)
+        self.assertEqual(sp.isLast(n1), True)
 
 #-------------------------------------------------------------------------------
 # define presented order in documentation

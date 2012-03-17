@@ -24,7 +24,7 @@ from music21.demos.theoryAnalysis import theoryResult
 
 import string
 import unittest
-
+from sets import Set
 
 class TheoryAnalyzer(object):
     '''
@@ -38,6 +38,11 @@ class TheoryAnalyzer(object):
     >>> from music21 import *
     >>> p = corpus.parse('bwv66.6')
     >>> ta = TheoryAnalyzer(p)
+    
+    demonstrate features of entire class
+    
+    
+    
     '''
     
     
@@ -46,6 +51,8 @@ class TheoryAnalyzer(object):
     }
     
     def __init__(self, theoryScore, keyMeasureMap={}):
+        #caching information about stream
+        
         self._theoryScore = theoryScore
         self._vlqCache = {} #Voice Leading Quartet
         self._tnlsCache = {} #Three Note Linear Segment
@@ -175,11 +182,12 @@ class TheoryAnalyzer(object):
     # The little pieces are all from voiceLeading.py, such as
     # Vertical Slices, VoiceLeadingQuartet, ThreeNoteLinearSegment, and VerticalSliceNTuplet       
         
-    def getVerticalSlices(self):
+    def getVerticalSlices(self, classFilterList=['Note', 'Chord', 'Harmony', 'Rest']):
         '''
         returns a list of :class:`~music21.voiceLeading.VerticalSlice` objects in
         the Theory Analyzer's score. Note that it uses the combined rhythm of the parts 
-        to determine what vertical slices to take.
+        to determine what vertical slices to take. Default is to return only objects of
+        type Note, Chord, Harmony, and Rest.
         
         >>> from music21 import *
         
@@ -203,6 +211,8 @@ class TheoryAnalyzer(object):
         '''
         vsList = []
         
+        # if elements exist at same offset, return both 
+        
         # If speed is an issue, could try using offset maps...
         chordifiedSc = self._theoryScore.chordify()
         for c in chordifiedSc.flat.getElementsByClass('Chord'):
@@ -210,12 +220,16 @@ class TheoryAnalyzer(object):
             partNum= 0
             for part in self._theoryScore.parts:
                 
-                el = part.flat.getElementAtOrBefore(c.offset,classList=['Note','Rest', 'Chord', 'Harmony'])
-                if el.isClassOrSubclass(['Note', 'Chord', 'Harmony']):
-                    contentDict[partNum] = el                    
-                else:
-                    #TODO: currently rests are stored as None...change to store them as music21 Rests soon
-                    contentDict[partNum] = None # rests are stored as None...change to store them as Rests soon
+                elementStream = part.flat.getElementsByOffset(c.offset,mustBeginInSpan=False, classList=classFilterList)
+                #el = part.flat.getElementAtOrBefore(c.offset,classList=['Note','Rest', 'Chord', 'Harmony'])
+                
+                for el in elementStream.elements:
+                    contentDict[partNum] = []
+                    #if el.isClassOrSubclass(['Rest']):
+                        #TODO: currently rests are stored as None...change to store them as music21 Rests soon
+                    #    contentDict[partNum].append(None) # rests are stored as None...change to store them as Rests soon
+                    #else:
+                    contentDict[partNum].append(el)    
                 partNum+=1
             vs = voiceLeading.VerticalSlice(contentDict)
             vsList.append(vs)
@@ -255,13 +269,14 @@ class TheoryAnalyzer(object):
         for (i, verticalSlice) in enumerate(self._verticalSlices[:-1]):
             nextVerticalSlice = self._verticalSlices[i + 1]
             
-            v1n1 = verticalSlice.noteFromPart(partNum1)
-            v1n2 = nextVerticalSlice.noteFromPart(partNum1)
+            v1n1 = verticalSlice.getObjectsByPart(partNum1, classFilterList=['Note'])
+            v1n2 = nextVerticalSlice.getObjectsByPart(partNum1, classFilterList=['Note'])
             
-            v2n1 = verticalSlice.noteFromPart(partNum2)
-            v2n2 = nextVerticalSlice.noteFromPart(partNum2)
-            vlq = voiceLeading.VoiceLeadingQuartet(v1n1,v1n2,v2n1,v2n2, key=self.keyAtMeasure(v1n1.measureNumber))
-            vlqList.append(vlq)
+            v2n1 = verticalSlice.getObjectsByPart(partNum2, classFilterList=['Note'])
+            v2n2 = nextVerticalSlice.getObjectsByPart(partNum2, classFilterList=['Note'])
+            if v1n1 != None and v1n2 != None and v2n1 != None and v2n2 != None:
+                vlq = voiceLeading.VoiceLeadingQuartet(v1n1,v1n2,v2n1,v2n2, key=self.keyAtMeasure(v1n1.measureNumber))
+                vlqList.append(vlq)
             
             self._vlqCache[vlqCacheKey] = vlqList
         
@@ -285,7 +300,7 @@ class TheoryAnalyzer(object):
         >>> len(ta.getThreeNoteLinearSegments(0))
         2
         >>> ta.getThreeNoteLinearSegments(0)[1]
-        <music21.voiceLeading.ThreeNoteLinearSegment n1=<music21.note.Note G> n2=<music21.note.Note C> n3=<music21.note.Note C> 
+        <music21.voiceLeading.NObjectLinearSegment objectList=[None, None, None]  
 
         '''
         # Caches the list of TNLS once they have been computed
@@ -300,14 +315,13 @@ class TheoryAnalyzer(object):
         
         return self._tnlsCache[tnlsCacheKey]
 
-    def getLinearSegments(self, partNum, lengthLinearSegment):
+    def getLinearSegments(self, partNum, lengthLinearSegment, classFilterList=None):
         '''
         extracts and returns a list of all the linear segments in the piece at 
         the partNum specified, the length of which specified by lengthLinearSegment: 
         Currently Supported: :class:`~music21.voiceLeading.ThreeNoteLinearSegment` 
         
         >>> from music21 import *
-        
         >>> sc = stream.Score()
         >>> part0 = stream.Part()
         >>> part0.append(note.Note('c4'))
@@ -316,30 +330,78 @@ class TheoryAnalyzer(object):
         >>> part0.append(note.Note('c6'))
         >>> sc.insert(part0)
         >>> ta = TheoryAnalyzer(sc)
-        >>> len(ta.getLinearSegments(0,3))
+        >>> len(ta.getLinearSegments(0,3, ['Note']))
         2
+        >>> ta.getLinearSegments(0,3, ['Note'])
+        [<music21.voiceLeading.ThreeNoteLinearSegment n1=<music21.note.Note C> n2=<music21.note.Note G> n3=<music21.note.Note C> , <music21.voiceLeading.ThreeNoteLinearSegment n1=<music21.note.Note G> n2=<music21.note.Note C> n3=<music21.note.Note C> ]
+
+        >>> sc2 = stream.Score()
+        >>> part1 = stream.Part()
+        >>> part1.append(chord.Chord(['C','E','G']))
+        >>> part1.append(chord.Chord(['G','B','D']))
+        >>> part1.append(chord.Chord(['E','G','C']))
+        >>> part1.append(chord.Chord(['F','A','C']))
+        >>> sc2.insert(part1)
+        >>> ta2 = TheoryAnalyzer(sc2)
+        >>> len(ta2.getLinearSegments(0,2, ['Chord']))
+        3
+        >>> ta2.getLinearSegments(0,2, ['Chord'])
+        [<music21.voiceLeading.TwoChordLinearSegment objectList=[<music21.chord.Chord C E G>, <music21.chord.Chord G B D>]  , <music21.voiceLeading.TwoChordLinearSegment objectList=[<music21.chord.Chord G B D>, <music21.chord.Chord E G C>]  , <music21.voiceLeading.TwoChordLinearSegment objectList=[<music21.chord.Chord E G C>, <music21.chord.Chord F A C>]  ]
+        >>> for x in ta2.getLinearSegments(0,2, ['Chord']):
+        ...   print x.rootInterval(), x.bassInterval()
+        <music21.interval.ChromaticInterval 7> <music21.interval.ChromaticInterval 2>
+        <music21.interval.ChromaticInterval -7> <music21.interval.ChromaticInterval -2>
+        <music21.interval.ChromaticInterval 5> <music21.interval.ChromaticInterval 0>
+
+
+#        >>> sc3 = stream.Score()
+#        >>> part2 = stream.Part()
+#        >>> part2.append(harmony.ChordSymbol('C'))
+#        >>> part2.append(harmony.ChordSymbol('C'))
+#        >>> part2.append(harmony.ChordSymbol('C'))
+#        >>> sc3.insert(part2)
+#        >>> ta3 = TheoryAnalyzer(sc3)
+#        >>> len(ta3.getLinearSegments(0,2, ['Harmony']))
+#        2
+#        >>> ta3.getLinearSegments(0,2, ['Harmony'])
         '''
         linearSegments = []
-        for i in range(0, len(self._verticalSlices)-lengthLinearSegment+1):
-            notes = []
+        for i in range(0, len(self.getVerticalSlices())-lengthLinearSegment+1):
+            objects = []
             for n in range(0,lengthLinearSegment):
-                notes.append(self._verticalSlices[i+n].noteFromPart(partNum))           
+                objects.append(self.getVerticalSlices()[i+n].getObjectsByPart(partNum, classFilterList))           
             
-            if lengthLinearSegment == 3:
-                tnls = voiceLeading.ThreeNoteLinearSegment()
-                tnls.n1 = notes[0]
-                tnls.n2 = notes[1]
-                
-                tnls.n3 = notes[2]
+            if lengthLinearSegment == 3 and 'Note' in self._getTypeOfAllObjects(objects):
+                tnls = voiceLeading.ThreeNoteLinearSegment(objects[0], objects[1], objects[2])
                 linearSegments.append(tnls)
-
+            elif lengthLinearSegment == 2 and ('Chord' or 'Harmony' in self._getTypeOfAllObjects(objects)):
+                tcls = voiceLeading.TwoChordLinearSegment(objects[0], objects[1])
+                linearSegments.append(tcls)
+            else:
+                nols = voiceLeading.NObjectLinearSegment(objects)
+                linearSegments.append(nols)
         return linearSegments
-
-
+    
+    def _getTypeOfAllObjects(self, objectList):
+        
+        setList = []
+        for obj in objectList:
+            if obj != None:
+                setList.append(Set(obj.classes))
+        if setList:
+            lastSet = setList[0]
+            
+            for setObj in setList:
+                newIntersection = lastSet.intersection(setObj)
+                lastSet = setObj
+            
+            return newIntersection
+        else: return []
+    
     def getVerticalSliceNTuplets(self, ntupletNum):
         '''
-        extracts and returns a list of the :class:`~music21.voiceLeading.VerticalSliceTriplet` 
-        objects present in the score
+        extracts and returns a list of the :class:`~music21.voiceLeading.VerticalSliceNTuplets` or the 
+        corresponding subclass (currenlty only supports triplets) 
         
         >>> from music21 import *
         
@@ -358,7 +420,7 @@ class TheoryAnalyzer(object):
         >>> len(ta.getVerticalSliceNTuplets(3))
         1
         >>> ta.getVerticalSliceNTuplets(3)[0]
-        <music21.voiceLeading.VerticalSliceNTuplet listofVerticalSlices=[<music21.voiceLeading.VerticalSlice contentDict={0: <music21.note.Note C>, 1: <music21.note.Note E>}  , <music21.voiceLeading.VerticalSlice contentDict={0: <music21.note.Note G>, 1: <music21.note.Note F>}  , <music21.voiceLeading.VerticalSlice contentDict={0: <music21.note.Note C>, 1: <music21.note.Note A>}  ] 
+        <music21.voiceLeading.VerticalSliceTriplet listofVerticalSlices=[<music21.voiceLeading.VerticalSlice contentDict={0: [<music21.note.Note C>], 1: [<music21.note.Note E>]}  , <music21.voiceLeading.VerticalSlice contentDict={0: [<music21.note.Note G>], 1: [<music21.note.Note F>]}  , <music21.voiceLeading.VerticalSlice contentDict={0: [<music21.note.Note C>], 1: [<music21.note.Note A>]}  ] 
 
         '''
 
@@ -367,7 +429,10 @@ class TheoryAnalyzer(object):
             verticalSliceList = []
             for countNum in range(i,i+ntupletNum):
                 verticalSliceList.append(self._verticalSlices[countNum])
-            vsnt = voiceLeading.VerticalSliceNTuplet(verticalSliceList)
+            if ntupletNum == 3:
+                vsnt = voiceLeading.VerticalSliceTriplet(verticalSliceList)
+            else: 
+                vsnt = voiceLeading.VerticalSliceNTuplet(verticalSliceList)
             verticalSliceNTuplets.append(vsnt)
         return verticalSliceNTuplets
     
@@ -405,8 +470,8 @@ class TheoryAnalyzer(object):
         hInvList = []
         for verticalSlice in self._verticalSlices:
             
-            nUpper = verticalSlice.noteFromPart(partNum1)
-            nLower = verticalSlice.noteFromPart(partNum2)
+            nUpper = verticalSlice.getObjectsByPart(partNum1, classFilterList=['Note'])
+            nLower = verticalSlice.getObjectsByPart(partNum2, classFilterList=['Note'])
             
             if nLower is None or nUpper is None:
                 hIntv = None
@@ -651,7 +716,7 @@ class TheoryAnalyzer(object):
                     if editorialDictKey != None:
                         tr.markNoteEditorial(editorialDictKey, editorialValue, editorialMarkDict)
                     tr.text = textFunction(vsnt, partNumToIdentify)
-                    if color is not None: 
+                    if color is not None:
                         tr.color(color)
                     self.resultDict[dictKey].append(tr)
     
@@ -1339,7 +1404,7 @@ class TheoryAnalyzer(object):
         
         '''
         def testFunction(vs):
-            noteList = vs.noteList
+            noteList = vs.getObjectsByClass('Note')
             if not None in noteList:
                 inChord = chord.Chord(noteList)
                 inKey = self.keyAtMeasure(noteList[0].measureNumber)
@@ -1351,7 +1416,7 @@ class TheoryAnalyzer(object):
            
         def textFunction(vs, rn):
             notes = ''
-            for n in vs.noteList:
+            for n in vs.getObjectsByClass('Note'):
                 notes+= n.name + ','
             notes = notes[:-1]
             return "Roman Numeral of " + notes + ' is ' + rn
@@ -1642,16 +1707,15 @@ class TestExternal(unittest.TestCase):
 
         #s = converter.parse('C:/Users/bhadley/Dropbox/Music21Theory/WWNortonWorksheets/WWNortonXMLFiles/XML11_worksheets/S11_1_II_cleaned.xml')
         #s = converter.parse('/Users/larsj/Dropbox/Music21Theory/WWNortonWorksheets/WWNortonXMLFiles/XML11_worksheets/S11_1_II_cleaned.xml')
-        s = converter.parse('C:/Users/bhadley/Dropbox/Music21Theory/WWNortonWorksheets/WWNortonXMLFiles/XML11_worksheets/S11_6_IA_completed.xml')
+        #s = converter.parse('C:/Users/bhadley/Dropbox/Music21Theory/WWNortonWorksheets/WWNortonXMLFiles/XML11_worksheets/S11_6_IA_completed.xml')
         #s = converter.parse('C:/Users/bhadley/Dropbox/Music21Theory/TestFiles/FromServer/11_3_A_1.xml')
         #s = converter.parse('/Users/larsj/Dropbox/Music21Theory/TestFiles/TheoryAnalyzer/TATest.xml')
         #s = converter.parse('C:/Users/bhadley/Dropbox/Music21Theory/TestFiles/TheoryAnalyzer/S11_6_IA_student.xml')
-        #s = corpus.parse('bwv7.7')
-        
+        s = corpus.parse('bwv7.7')
         ta = TheoryAnalyzer(s)
         #ta.keyMeasureMap = {1:'C', 2:'D', 3:'Bb', 4:'c', 5:'g',6:'e',7:'G'}
         #ta.keyMeasureMap = {1:'C',3:'d',4:'F',5:'G',6:'e',7:'g',8:'B-',9:'A-',10:'E',11:'f',12:'c#'}
-        ta.keyMeasureMap = {0:'G',5:'D',8:'F'}
+        #ta.keyMeasureMap = {0:'G',5:'D',8:'F'}
 
         #ta.key = music21.key.Key('D')
         #ta.getTwoByThreeLinearSegments(0,1)
@@ -1675,11 +1739,11 @@ class TestExternal(unittest.TestCase):
         #ta.identifyHarmonicIntervals()
 
         #ta.identifyClosesIncorrectly()
-        #ta.identifyPassingTones(color = 'red')
-        #ta.identifyNeighborTones(color = 'yellow')
-        
-        ta.identifyImproperDissonantIntervals(color='blue', partNum1=0, partNum2=1)
-        
+        ta.identifyPassingTones(color = 'red')
+        ta.identifyNeighborTones(color = 'yellow')
+       
+        #ta.identifyImproperDissonantIntervals(color='blue', partNum1=0, partNum2=1)
+        print "identifying..."
 #        ta.identifyRomanNumerals()
 #        ta.identifyObliqueMotion()
 #        ta.identifySimilarMotion()
@@ -1691,7 +1755,7 @@ class TestExternal(unittest.TestCase):
 
         #for vsResult in ta.resultDict['harmonicIntervals']:
         #    vsResult.lyric(str(vsResult.value))
-
+        
         print ta.getResultsString()
         ta.show()
         #for n in ta._theoryScore.flat.notes:
@@ -1699,9 +1763,7 @@ class TestExternal(unittest.TestCase):
 
     
 if __name__ == "__main__":
-
     music21.mainTest(Test)
-    
     #te = TestExternal()
     #te.demo()
     

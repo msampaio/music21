@@ -36,15 +36,17 @@ fileExtensions = {
     'textline' : {'input': ['tl', 'textline'], 'output': 'txt'},
     'musicxml' : {'input': ['xml', 'mxl', 'mx'], 'output': 'xml'},
     'midi' : {'input': ['mid', 'midi'], 'output': 'mid'},
+    'tinynotation' : {'input': ['tntxt', 'tinynotation'], 'output': 'tntxt'},
      # note: this is setting .zip as default mapping to musedata
     'musedata' : {'input': ['md', 'musedata', 'zip'], 'output': 'md'},
-    'noteworthytext': {'input': ['nwctxt'], 'output': 'nwctxt'},
+    'noteworthytext': {'input': ['nwctxt', 'nwc'], 'output': 'nwctxt'},
     'lilypond' : {'input': ['ly', 'lily'], 'output': 'ly'},
     'finale' : {'input': ['mus'], 'output': 'mus'},
     'humdrum' : {'input': ['krn'], 'output': 'krn'},
     'jpeg' : {'input': ['jpg', 'jpeg'], 'output': 'jpg'},
     'png'  : {'input': ['png', 'lily.png', 'lilypond.png'], 'output': 'png'},
     'pdf'  : {'input': ['pdf', 'lily.pdf', 'lilypond.pdf'], 'output': 'pdf'},
+    'svg'  : {'input': ['svg', 'lily.svg', 'lilypond.svg'], 'output': 'svg'},
     'pickle' : {'input': ['p', 'pickle'], 'output': 'p'},
     'romantext' : {'input': ['rntxt', 'rntext', 'romantext', 'rtxt'], 'output': 'rntxt'},
     'scala' : {'input': ['scl'], 'output': 'scl'},
@@ -74,8 +76,8 @@ DEBUG_DEVEL = 63
 DEBUG_ALL = 255
 
 # used for checking preferences, and for setting environment variables
-VALID_SHOW_FORMATS = ['musicxml', 'lilypond', 'text', 'textline', 'midi', 'png', 'pdf', 'lily.pdf', 'lily.png', 'braille']
-VALID_WRITE_FORMATS = ['musicxml', 'lilypond', 'text', 'textline', 'midi', 'png', 'pdf', 'lily.pdf', 'lily.png', 'braille']
+VALID_SHOW_FORMATS = ['musicxml', 'lilypond', 'text', 'textline', 'midi', 'png', 'pdf', 'svg', 'lily.pdf', 'lily.png', 'lily.svg', 'braille']
+VALID_WRITE_FORMATS = ['musicxml', 'lilypond', 'text', 'textline', 'midi', 'png', 'pdf', 'svg', 'lily.pdf', 'lily.png', 'lily.svg', 'braille']
 VALID_AUTO_DOWNLOAD = ['ask', 'deny', 'allow']
 
 
@@ -339,6 +341,31 @@ def cleanupFloat(floatNum, maxDenominator=1000):
         floatNum).limit_denominator(maxDenominator)
     return float(f)
 
+
+def roundToHalfInteger(num):
+    '''Given a floating-point number, round to the nearest half-integer.  
+
+    >>> from music21 import *
+    >>> common.roundToHalfInteger(1.2)
+    1
+    >>> common.roundToHalfInteger(1.35)
+    1.5
+    >>> common.roundToHalfInteger(1.8)
+    2
+    >>> common.roundToHalfInteger(1.6234)
+    1.5
+    '''
+    intVal, floatVal = divmod(num, 1.0)
+    intVal = int(intVal)
+    if floatVal < .25:
+        floatVal = 0
+    elif floatVal >= .25 and floatVal < .75 :
+        floatVal = .5
+    else:
+        floatVal = 1
+    return intVal + floatVal
+
+
 def almostEquals(x, y = 0.0, grain=1e-7):
     '''
     The following four routines work for comparisons between floats that are normally inconsistent.
@@ -499,11 +526,11 @@ def nearestMultiple(n, unit):
     >>> print common.nearestMultiple(.25, .25)
     (0.25, 0.0)
     >>> print common.nearestMultiple(.35, .25)
-    (0.25, 0.1)
+    (0.25, 0.1...)
     
     Note that this one also has an error of .1 but it's a positive error off of 0.5
     >>> print common.nearestMultiple(.4, .25)
-    (0.5, 0.1)
+    (0.5, 0.1...)
 
 
 
@@ -1395,7 +1422,6 @@ def getTestDocsFilePath():
         return post
     raise Exception('no such path exists: %s' % post)
 
-
 def getMetadataCacheFilePath():
     '''Get the stored music21 directory that contains the corpus metadata cache. 
 
@@ -1405,6 +1431,16 @@ def getMetadataCacheFilePath():
     True
     '''
     return os.path.join(getSourceFilePath(), 'corpus', 'metadataCache')
+
+def getCorpusFilePath():
+    '''Get the stored music21 directory that contains the corpus metadata cache. 
+
+    >>> from music21 import *
+    >>> fp = common.getCorpusFilePath()
+    >>> fp.endswith('music21/corpus') or fp.endswith(r'music21\corpus')
+    True
+    '''
+    return os.path.join(getSourceFilePath(), 'corpus')
 
 
 def getPackageDir(fpMusic21=None, relative=True, remapSep='.',
@@ -1424,10 +1460,8 @@ def getPackageDir(fpMusic21=None, relative=True, remapSep='.',
     # a test if this is the correct directory
     if 'corpus' not in os.listdir(fpMusic21):
         raise Exception('cannot find corpus within %s' % fpMusic21)
-
     #fpCorpus = os.path.join(fpMusic21, 'corpus')
     fpParent = os.path.dirname(fpMusic21)
-
     match = []
     for dirpath, dirnames, filenames in os.walk(fpMusic21):
         # remove hidden directories
@@ -1435,7 +1469,6 @@ def getPackageDir(fpMusic21=None, relative=True, remapSep='.',
             continue
         elif '.svn' in dirpath:
             continue
-
         if packageOnly:
             if '__init__.py' not in filenames: # must be to be a package
                 continue
@@ -1446,13 +1479,10 @@ def getPackageDir(fpMusic21=None, relative=True, remapSep='.',
                 fp = fp[fp.find(os.sep)+len(os.sep):]
         else:
             fp = dirpath
-
         # replace os.sep
         if remapSep != None:
             fp = fp.replace(os.sep, remapSep)
-
         match.append(fp)
-
     return match
 
 
