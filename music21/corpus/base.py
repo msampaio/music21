@@ -6,7 +6,7 @@
 # Authors:      Christopher Ariza
 #               Michael Scott Cuthbert
 #
-# Copyright:    (c) 2009-2011 The music21 Project
+# Copyright:    (c) 2009-2012 The music21 Project
 # License:      LGPL
 #-------------------------------------------------------------------------------
 
@@ -20,6 +20,7 @@ To see a complete listing of the works in the music21 corpus, visit  :ref:`refer
 import re
 import os
 import doctest, unittest
+import zipfile
 
 import music21
 from music21 import common
@@ -27,401 +28,16 @@ from music21 import converter
 from music21 import metadata
 from music21 import musicxml
 from music21.corpus import virtual
+from music21.corpus.metadataCache import metadataCache
 
 from music21 import environment
 _MOD = "corpus.base.py"
 environLocal = environment.Environment(_MOD)
 
 
-# import corpus packages as python modules
-from music21.corpus import airdsAirs
-
-from music21.corpus import bach
-from music21.corpus.bach import bwv1080
-from music21.corpus.bach import bwv846
-
-from music21.corpus.bach import bwv847
-from music21.corpus.bach import bwv848
-from music21.corpus.bach import bwv849
-from music21.corpus.bach import bwv850
-from music21.corpus.bach import bwv851
-from music21.corpus.bach import bwv852
-from music21.corpus.bach import bwv853
-from music21.corpus.bach import bwv854
-from music21.corpus.bach import bwv855
-from music21.corpus.bach import bwv856
-from music21.corpus.bach import bwv857
-from music21.corpus.bach import bwv858
-from music21.corpus.bach import bwv859
-from music21.corpus.bach import bwv860
-from music21.corpus.bach import bwv861
-from music21.corpus.bach import bwv862
-from music21.corpus.bach import bwv863
-from music21.corpus.bach import bwv864
-from music21.corpus.bach import bwv865
-from music21.corpus.bach import bwv866
-from music21.corpus.bach import bwv867
-from music21.corpus.bach import bwv868
-from music21.corpus.bach import bwv869
-from music21.corpus.bach import bwv870
-from music21.corpus.bach import bwv871
-from music21.corpus.bach import bwv872
-from music21.corpus.bach import bwv873
-from music21.corpus.bach import bwv874
-from music21.corpus.bach import bwv875
-from music21.corpus.bach import bwv876
-from music21.corpus.bach import bwv877
-from music21.corpus.bach import bwv878
-from music21.corpus.bach import bwv879
-from music21.corpus.bach import bwv880
-from music21.corpus.bach import bwv881
-from music21.corpus.bach import bwv882
-from music21.corpus.bach import bwv883
-from music21.corpus.bach import bwv884
-from music21.corpus.bach import bwv885
-from music21.corpus.bach import bwv886
-from music21.corpus.bach import bwv887
-from music21.corpus.bach import bwv888
-from music21.corpus.bach import bwv889
-from music21.corpus.bach import bwv890
-from music21.corpus.bach import bwv891
-from music21.corpus.bach import bwv892
-from music21.corpus.bach import bwv893
-
-
-from music21.corpus import beethoven
-from music21.corpus.beethoven import opus18no1
-from music21.corpus.beethoven import opus59no1
-from music21.corpus.beethoven import opus59no2
-from music21.corpus.beethoven import opus59no3
-
-from music21.corpus import ciconia
-
-from music21.corpus import corelli
-from music21.corpus.corelli import op3no1
-
-from music21.corpus import cpebach
-
-from music21.corpus import demos
-
-from music21.corpus import essenFolksong
-
-from music21.corpus import josquin
-
-from music21.corpus import handel
-from music21.corpus.handel import hwv56  
-
-from music21.corpus import haydn
-from music21.corpus.haydn import opus1no0
-from music21.corpus.haydn import opus1no1
-from music21.corpus.haydn import opus1no2
-from music21.corpus.haydn import opus1no3
-from music21.corpus.haydn import opus1no4
-from music21.corpus.haydn import opus1no6
-from music21.corpus.haydn import opus9no2
-from music21.corpus.haydn import opus9no3
-from music21.corpus.haydn import opus17no1
-from music21.corpus.haydn import opus17no2
-from music21.corpus.haydn import opus17no3
-from music21.corpus.haydn import opus17no5
-from music21.corpus.haydn import opus17no6
-from music21.corpus.haydn import opus20no1
-from music21.corpus.haydn import opus20no2
-from music21.corpus.haydn import opus20no3
-from music21.corpus.haydn import opus20no4
-from music21.corpus.haydn import opus20no5
-from music21.corpus.haydn import opus20no6
-from music21.corpus.haydn import opus33no1
-from music21.corpus.haydn import opus33no2
-from music21.corpus.haydn import opus33no3
-from music21.corpus.haydn import opus33no4
-from music21.corpus.haydn import opus33no5
-from music21.corpus.haydn import opus33no6
-from music21.corpus.haydn import opus42
-from music21.corpus.haydn import opus50no1
-from music21.corpus.haydn import opus50no2
-from music21.corpus.haydn import opus50no3
-from music21.corpus.haydn import opus50no4
-from music21.corpus.haydn import opus50no5
-from music21.corpus.haydn import opus50no6
-from music21.corpus.haydn import opus54no1
-from music21.corpus.haydn import opus54no2
-from music21.corpus.haydn import opus54no3
-from music21.corpus.haydn import opus55no1
-from music21.corpus.haydn import opus55no2
-from music21.corpus.haydn import opus55no3
-from music21.corpus.haydn import opus64no1
-from music21.corpus.haydn import opus64no2
-from music21.corpus.haydn import opus64no3
-from music21.corpus.haydn import opus64no4
-from music21.corpus.haydn import opus64no5
-from music21.corpus.haydn import opus64no6
-from music21.corpus.haydn import opus71no1
-from music21.corpus.haydn import opus71no2
-from music21.corpus.haydn import opus71no3
-from music21.corpus.haydn import opus74no1  
-from music21.corpus.haydn import opus74no2 
-from music21.corpus.haydn import opus74no3
-from music21.corpus.haydn import opus76no1
-from music21.corpus.haydn import opus76no2
-from music21.corpus.haydn import opus76no3
-from music21.corpus.haydn import opus76no4
-from music21.corpus.haydn import opus76no5
-from music21.corpus.haydn import opus76no6
-from music21.corpus.haydn import opus77no1
-from music21.corpus.haydn import opus77no2 
-
-from music21.corpus.haydn import symphony94
-
-from music21.corpus import leadSheet
-
-from music21.corpus import luca
-
-from music21.corpus import miscFolk
-
-from music21.corpus import monteverdi
-
-from music21.corpus import mozart
-from music21.corpus.mozart import k80
-from music21.corpus.mozart import k155
-from music21.corpus.mozart import k156
-from music21.corpus.mozart import k157
-from music21.corpus.mozart import k158
-from music21.corpus.mozart import k159
-from music21.corpus.mozart import k160
-from music21.corpus.mozart import k168
-from music21.corpus.mozart import k169
-from music21.corpus.mozart import k170
-from music21.corpus.mozart import k171
-from music21.corpus.mozart import k172
-from music21.corpus.mozart import k173
-from music21.corpus.mozart import k285
-from music21.corpus.mozart import k298
-from music21.corpus.mozart import k370
-from music21.corpus.mozart import k387
-from music21.corpus.mozart import k421
-from music21.corpus.mozart import k428
-from music21.corpus.mozart import k458
-from music21.corpus.mozart import k464
-from music21.corpus.mozart import k465
-from music21.corpus.mozart import k499
-from music21.corpus.mozart import k545
-from music21.corpus.mozart import k546
-from music21.corpus.mozart import k575
-from music21.corpus.mozart import k589
-from music21.corpus.mozart import k590
-
-from music21.corpus import oneills1850
-
-from music21.corpus import ryansMammoth
-
-from music21.corpus import schoenberg
-from music21.corpus.schoenberg import opus19
-
-from music21.corpus import schumann
-from music21.corpus.schumann import opus41no1
-
-from music21.corpus import theoryExercises
-
-MODULES = [
-            airdsAirs,
-
-            bach,
-            bwv1080,
-            bwv846,
-            bwv847,
-            bwv848,
-            bwv849,
-            bwv850,
-            bwv851,
-            bwv852,
-            bwv853,
-            bwv854,
-            bwv855,
-            bwv856,
-            bwv857,
-            bwv858,
-            bwv859,
-            bwv860,
-            bwv861,
-            bwv862,
-            bwv863,
-            bwv864,
-            bwv865,
-            bwv866,
-            bwv867,
-            bwv868,
-            bwv869,
-            bwv870,
-            bwv871,
-            bwv872,
-            bwv873,
-            bwv874,
-            bwv875,
-            bwv876,
-            bwv877,
-            bwv878,
-            bwv879,
-            bwv880,
-            bwv881,
-            bwv882,
-            bwv883,
-            bwv884,
-            bwv885,
-            bwv886,
-            bwv887,
-            bwv888,
-            bwv889,
-            bwv890,
-            bwv891,
-            bwv892,
-            bwv893,
-
-            beethoven, 
-            opus18no1,
-            opus59no1,
-            opus59no2,
-            opus59no3,
-
-            ciconia,
-
-            corelli,
-            op3no1,
-            
-            cpebach,
-
-            demos,
-
-            essenFolksong,
-
-            handel,
-            hwv56,
-
-            haydn,
-            opus1no0,
-            opus1no1,
-            opus1no2,
-            opus1no3,
-            opus1no4,
-            opus1no6,
-            opus9no2,
-            opus9no3,
-            opus17no1,
-            opus17no2,
-            opus17no3,
-            opus17no5,
-            opus17no6,
-            opus20no1,
-            opus20no2,
-            opus20no3,
-            opus20no4,
-            opus20no5,
-            opus20no6,
-            opus33no1,
-            opus33no2,
-            opus33no3,
-            opus33no4,
-            opus33no5,
-            opus33no6,
-            opus42,
-            opus50no1,
-            opus50no2,
-            opus50no3,
-            opus50no4,
-            opus50no5,
-            opus50no6,
-            opus54no1,
-            opus54no2,
-            opus54no2,
-            opus55no1,
-            opus55no2,
-            opus55no3,
-            opus64no1,
-            opus64no2,
-            opus64no3,
-            opus64no4,
-            opus64no5,
-            opus64no6,
-            opus71no1,
-            opus71no2,
-            opus71no3,
-            opus74no1,
-            opus74no2,
-            opus74no3,
-            opus76no1,
-            opus76no2,
-            opus76no3,
-            opus76no4,
-            opus76no5,
-            opus76no6,
-            opus77no1,
-            opus77no2,
-            symphony94,
-
-            josquin,
-
-            leadSheet,
-
-            luca,
-
-            miscFolk,
-            
-            monteverdi,
-
-            mozart,
-            k80,
-            k155,
-            k156,
-            k157,
-            k158,
-            k159,
-            k160,
-            k168,
-            k169,
-            k170,
-            k171,
-            k172,
-            k173,
-            k285,
-            k298,
-            k370,
-            k387,
-            k421,
-            k428,
-            k458,
-            k464,
-            k465,
-            k499,
-            k545,
-            k546,
-            k575,
-            k589,
-            k590,
-            
-            oneills1850,
-            
-            ryansMammoth,
-            
-            schoenberg,
-            opus19,
-
-            schumann,
-            opus41no1,
-
-            theoryExercises,
-    ]
-
-
 # a list of metadataCache's can reside in this module-level storage; this 
 # data is loaded on demand. 
 _METADATA_BUNDLES = {'core':None, 'virtual':None, 'local':None}
-
-_ALL_EXTENSIONS = (common.findInputExtension('abc') +
-                   common.findInputExtension('lily') +
-                   common.findInputExtension('musicxml') +
-                   common.findInputExtension('musedata') +
-                   common.findInputExtension('humdrum') +
-                   common.findInputExtension('romantext'))
 
 # store all composers in the corpus (not virtual) 
 # as two element tuples of path name, full name
@@ -462,7 +78,79 @@ class CorpusException(Exception):
 
 
 #-------------------------------------------------------------------------------
-def getPaths(extList=None, expandExtensions=True):    
+def _findPaths(fpRoot, extList):
+    '''Given a root fp file path, recursively search all contained paths for 
+    
+    The `extList` is a list of file extensions. 
+    '''
+    # can replace extension matching with a regex    
+    #escape extension dots (if there) for regex
+    #extList = ["\\%s" % ex for ex in extList if ex.startswith('.')]
+    #extRe = re.compile('.*(%s)' % '|'.join(extList))
+
+    matched = []
+    # walk each top-level dir
+    for dirpath, dirnames, filenames in os.walk(fpRoot):
+        if '.svn' in dirnames:
+            # removing in place will stop recursion into these dirs
+            dirnames.remove('.svn')
+        for fn in filenames:
+            if fn.startswith('.'): 
+                continue
+            for ext in extList:
+                if fn.endswith(ext):
+                    matched.append(os.path.join(dirpath, fn))
+                    break # just break out of outer loop
+    return matched
+
+
+# cached once; default extensions for all corpus entires;
+# returned by _translateExtensions() function below
+_ALL_EXTENSIONS = (common.findInputExtension('abc') +
+                   common.findInputExtension('lily') +
+                   common.findInputExtension('midi') +
+                   common.findInputExtension('musicxml') +
+                   common.findInputExtension('musedata') +
+                   common.findInputExtension('humdrum') +
+                   common.findInputExtension('romantext') +
+                   common.findInputExtension('noteworthytext') 
+                )
+
+def _translateExtensions(extList=None, expandExtensions=True):
+    '''Utility to get default extensions, or, optionally, expand extensions to all known formats. 
+
+    >>> from music21 import *
+    >>> corpus.base._translateExtensions()
+    ['.abc', '.ly', '.lily', '.mid', '.midi', '.xml', '.mxl', '.mx', '.md', '.musedata', '.zip', '.krn', '.rntxt', '.rntext', '.romantext', '.rtxt', '.nwctxt', '.nwc']
+
+    >>> corpus.base._translateExtensions('.mid', False)
+    ['.mid']
+    >>> corpus.base._translateExtensions('.mid', True)
+    ['.mid', '.midi']
+    '''
+    if not common.isListLike(extList):
+        extList = [extList]
+
+    if extList == [None]:
+        extList = _ALL_EXTENSIONS # already expended
+    elif expandExtensions:
+        extMod = []
+        for e in extList:
+            extMod += common.findInputExtension(e)
+        extList = extMod
+    return extList
+
+
+#-------------------------------------------------------------------------------
+# core routines for getting file paths
+
+# module-level cache; only higher-level functions cache results
+_pathsCache = {}
+# store temporary local paths added by a user in a session and not stored in 
+# Environment
+_pathsLocalTemp = [] 
+
+def getCorePaths(extList=None, expandExtensions=True):    
     '''Get all paths in the corpus that match a known extension, or an extenion
     provided by an argument.
 
@@ -470,66 +158,37 @@ def getPaths(extList=None, expandExtensions=True):
 
     >>> from music21 import *
     
-    >>> a = corpus.getPaths()
-    >>> len(a) > 30
-    True
+    >>> a = corpus.getCorePaths()
+    >>> len(a) # the current number of paths; update when adding to corpus
+    2208
 
-    >>> a = corpus.getPaths('krn')
+    >>> a = corpus.getCorePaths('krn')
     >>> len(a) >= 4
     True
 
-    >>> a = corpus.getPaths('abc')
+    >>> a = corpus.getCorePaths('abc')
     >>> len(a) >= 10
     True
 
     '''
-    if not common.isListLike(extList):
-        extList = [extList]
-    if extList == [None]:
-        extList = _ALL_EXTENSIONS
-    elif expandExtensions:
-        extMod = []
-        for e in extList:
-            extMod += common.findInputExtension(e)
-        extList = extMod
-    
-    #escape extension dots (if there) for regex
-    extList = ["\\%s" % ex for ex in extList if ex.startswith('.')]
-    extRe = re.compile('.*(%s)' % '|'.join(extList))
-    #environLocal.printDebug(['getting paths with extensions:', extList])
-    
-    def findPaths():
-        for moduleName in MODULES:
-            if not hasattr(moduleName, '__path__'):
-                # when importing a package name (a directory) the moduleName        
-                # may be a list of all paths contained within the package
-                # this seems to be dependent on the context of the call:
-                # from the command line is different than from the interpreter
-                dirListing = moduleName
-            else:
-                # returns a list with one or more paths
-                # the first is the path to the directory that contains xml files
-                dir = moduleName.__path__[0] 
-                dirListing = [os.path.join(dir, x) for x in os.listdir(dir)]
+    extList = _translateExtensions(extList=extList,
+                expandExtensions=expandExtensions)
+    cacheKey = ('core', tuple(extList))
+    # not cached, fetch and reset 
+    if cacheKey not in _pathsCache.keys():
+        _pathsCache[cacheKey] = _findPaths(common.getCorpusFilePath(), extList)
+    return _pathsCache[cacheKey]
 
-            for fp in dirListing:
-                if extRe.match(fp):
-                    yield fp
-    # set() is to uniquify the list.
-    return sorted(list(set(findPaths())))
 
-def getVirtualPaths(extList=None):
+def getVirtualPaths(extList=None, expandExtensions=True):
     '''Get all paths in the virtual corpus that match a known extension. An extension of None will return all known extensions.
    
     >>> from music21 import *
     >>> len(corpus.getVirtualPaths()) > 6
     True
     '''
-    if not common.isListLike(extList):
-        extList = [extList]
-
-    if extList == [None]:
-        extList = _ALL_EXTENSIONS
+    extList = _translateExtensions(extList=extList,
+                expandExtensions=expandExtensions)
     paths = []
     for obj in VIRTUAL:
         if obj.corpusPath != None:
@@ -542,34 +201,111 @@ def getVirtualPaths(extList=None):
     return paths
 
 
-def getLocalPaths(extList=None):
+def getLocalPaths(extList=None, expandExtensions=True):
     '''
-    Access files in additional directories supplied by the user and defined in environement settings. 
+    Access files in additional directories supplied by the user and defined in environement settings. If addtional paths are added on a per-session basis witht the :func:`~music21.corpus.addPath` function, these paths are also retuned with this method. 
     '''
-    return []
+    extList = _translateExtensions(extList=extList,
+                expandExtensions=expandExtensions)
+    cacheKey = ('local', tuple(extList))
+    # not cached, fetch and reset 
+    if cacheKey not in _pathsCache.keys():
+        # check paths before trying to search
+        candidatePaths = environLocal['localCorpusSettings']
+        validPaths = []
+        for fp in candidatePaths + _pathsLocalTemp:
+            if not os.path.isdir(fp):
+                environLocal.warn(
+                'invalid path set as localCorpusSetting: %s' % fp)
+            else:
+                validPaths.append(fp)
+        # append successive matches into one list
+        matched = []
+        for fp in validPaths:
+            #environLocal.pd(['finding paths in:', fp])
+            matched += _findPaths(fp, extList)
+        _pathsCache[cacheKey] = matched
+    return _pathsCache[cacheKey]
+
+
+def addPath(fp):
+    '''Add a directory path to the local corpus on a temporary basis, i.e., just for the current Python session. All directories contained within the provided directory will be searched for files with file extensions matching the currently readable file types. Any number of file paths can be added one at a time. 
+
+    An error will be raised if the file path does not exist, is already defined as a temporary, or is already being searched by being defined with the :class:`~music21.environment.Environment` 'localCorpusSettings' setting.
+
+    To permanently add a path to the list of stored local corpus paths, set the 'localCorpusPath' or 'localCorpusSettings' setting of the :class:`~music21.environment.UserSettings` object. 
+
+    >>> from music21 import *
+    >>> #_DOCS_SHOW coprus.addPath('~/Documents')
+
+    '''
+    if fp is None or not os.path.exists(fp):
+        raise CorpusException("an invalid file path has been provided: %s" % fp)
+    if fp in _pathsLocalTemp:
+        raise CorpusException("the provided path has already been added: %s" % fp)
+    if fp in environLocal['localCorpusSettings']:
+        raise CorpusException("the provided path is already incldued in the Environment localCorpusSettings: %s" % fp)
+
+    _pathsLocalTemp.append(fp)
+    # delete all local keys in the cache
+    for key in _pathsCache.keys():
+        if key[0] == 'local':
+            del _pathsCache[key]
+
+
+def getPaths(extList=None, expandExtensions=True, 
+    domain=['core', 'virtual', 'local']):
+    '''Get paths from core, virtual, and/or local domains. This is the public interface for getting all corpus paths with one function. 
+    '''
+    post = []
+    if 'core' in domain:
+        post += getCorePaths(extList=extList,
+                expandExtensions=expandExtensions)
+    if 'virtual' in domain:
+        post += getVirtualPaths(extList=extList,
+                expandExtensions=expandExtensions)
+    if 'local' in domain:
+        post += getLocalPaths(extList=extList,
+                expandExtensions=expandExtensions)
+    return post
 
 
 
 #-------------------------------------------------------------------------------
-def _updateMetadataBundle():
+# metadata routines
 
-    for d, f in (('core', getPaths), ('virtual', getVirtualPaths)):
-        if _METADATA_BUNDLES[d] == None:
+def _updateMetadataBundle():
+    '''
+    Update cached metdata bundles.
+    '''
+    for d, f in (('core', getCorePaths), ('virtual', getVirtualPaths),
+                 ('local', getLocalPaths)):
+        if _METADATA_BUNDLES[d] is None:
+            fpList = f()
             _METADATA_BUNDLES[d] = metadata.MetadataBundle(d)
             _METADATA_BUNDLES[d].read()
             # must update access paths for the files found on this system
-            _METADATA_BUNDLES[d].updateAccessPaths(f())
+            _METADATA_BUNDLES[d].updateAccessPaths(fpList)
 
-#     if 'local' in domain:
-#         pass
+def cacheMetadata(domainList=['local']):
+    if not common.isListLike(domainList):
+        domainList = [domainList]
+    for domain in domainList:
+        # remove any cached values
+        _METADATA_BUNDLES[domain] = None
+    metadataCache.cacheMetadata(domainList)        
 
+def search(query, field=None, domain=['core', 'virtual', 'local'],     
+    extList=None):
+    '''Search all stored metadata and return a list of file paths; to 
+    return a list of parsed Streams, use searchParse(). 
 
-def search(query, field=None, domain=['core', 'virtual'], extList=None):
-    '''Search all stored metadata and return a list of file paths; to return a list of parsed Streams, use searchParse(). 
+    The `domain` parameter can be used to specify one of three corpora: 
+    core (included with music21), virtual (defined in music21 but hosted 
+    online), and local (hosted on the user's system (not yet implemented)). 
 
-    The `domain` parameter can be used to specify one of three corpora: core (included with music21), virtual (defined in music21 but hosted online), and local (hosted on the user's system). 
-
-    This method uses stored metadata and thus, on first usage, will incur a performance penalty during metadata loading.
+    This method uses stored metadata and thus, on first usage, will 
+    incur a performance penalty during metadata loading.
     '''
     post = []
     _updateMetadataBundle()
@@ -577,6 +313,9 @@ def search(query, field=None, domain=['core', 'virtual'], extList=None):
         post += _METADATA_BUNDLES['core'].search(query, field, extList)
     if 'virtual' in domain:
         post += _METADATA_BUNDLES['virtual'].search(query, field, extList)
+    if 'local' in domain:
+        post += _METADATA_BUNDLES['local'].search(query, field, extList)
+
     return post
 
 
@@ -638,28 +377,34 @@ def getComposerDir(composerName):
     True
     '''
     match = None
-    for moduleName in MODULES:          
-        if common.isListLike(moduleName):
-            candidate = moduleName[0]         
-        else:
-            candidate = str(moduleName)
+    #for moduleName in MODULES:          
+    for moduleName in sorted(os.listdir(common.getCorpusFilePath())):
+
+#         if common.isListLike(moduleName):
+#             candidate = moduleName[0]         
+#         else:
+#             candidate = str(moduleName)
+
+        candidate = moduleName
+
         if composerName.lower() not in candidate.lower():
             continue
-        # might also slook at .__file__
-        if not hasattr(moduleName, '__path__'): # its a list of files
-            dirCandidate = moduleName[0]
-            while True:
-                dir = os.path.dirname(dirCandidate)
-                if dir.lower().endswith(composerName.lower()):
-                    break
-                else:
-                    dirCandidate = dir
-                if dirCandidate.count(os.sep) < 2: # done enough checks
-                    break
-        else:
-            dir = moduleName.__path__[0] 
+        # might also look at .__file__
+#         if not hasattr(moduleName, '__path__'): # its a list of files
+#             dirCandidate = moduleName[0]
+#             while True:
+#                 dir = os.path.dirname(dirCandidate)
+#                 if dir.lower().endswith(composerName.lower()):
+#                     break
+#                 else:
+#                     dirCandidate = dir
+#                 if dirCandidate.count(os.sep) < 2: # done enough checks
+#                     break
+#         else:
+#             dir = moduleName.__path__[0] 
 
         # last check
+        dir = os.path.join(common.getCorpusFilePath(), moduleName)
         if dir.lower().endswith(composerName.lower()):
             match = dir     
             break
@@ -699,9 +444,10 @@ def getWorkList(workName, movementNumber=None, extList=None):
     # permit workName to be a list of paths/branches
     if common.isListLike(workName):
         workName = os.path.sep.join(workName)
-
     # replace with os-dependent separators 
     workSlashes = workName.replace('/', os.path.sep)
+
+    #environLocal.printDebug(['getWorkList(): searching for workName or workSlashses', workName, workSlashes])
 
     # find all matches for the work name
     # TODO: this should match by path component, not just
@@ -711,7 +457,6 @@ def getWorkList(workName, movementNumber=None, extList=None):
             post.append(path)
         elif workSlashes.lower() in path.lower():
             post.append(path)
-
     #environLocal.printDebug(['getWorkList(): post', post])
 
     postMvt = []
@@ -794,12 +539,12 @@ def getVirtualWorkList(workName, movementNumber=None, extList=None):
     return []
 
 
-#-------------------------------------------------------------------------------
-# high level utilities that mix corpus and virtual corpus
-# this will need to be re-worked after metadata caching is stored
 
+#-------------------------------------------------------------------------------
 def getWorkReferences(sort=True):
     '''Return a data dictionary for all works in the corpus and (optionally) the virtual corpus. Returns a list of reference dictionaries, each each dictionary for a each composer. A 'works' dictionary for each composer provides references to dictionaries for all associated works. 
+
+    This is used in the generation of corpus documentation
 
     >>> from music21 import *
     >>> post = corpus.getWorkReferences()
@@ -825,7 +570,10 @@ def getWorkReferences(sort=True):
             fileComponents = fileStub.split(os.sep)
             # the first is either a directory for containing components
             # or a top-level name
-            format, ext = common.findFormatExtFile(fileComponents[0])
+            format, ext = common.findFormatExtFile(fileComponents[-1])
+            if ext is None:
+                #environLocal.printDebug(['file that does not seem to have an extension', ext, path])
+                continue
             # if not a file w/ ext, we will get None for format
             if format == None:
                 workStub = fileComponents[0]
@@ -854,7 +602,7 @@ def getWorkReferences(sort=True):
 #                 mxDocument = musicxml.Document()
 #                 mxDocument.open(path)
 #                 title = mxDocument.getBestTitle()
-            if title == None:
+            if title is None:
                 title = common.spaceCamelCase(
                     fileComponents[-1].replace(ext, ''))
                 title = title.title()
@@ -926,21 +674,25 @@ def getWork(workName, movementNumber=None, extList=None):
     >>> from music21 import *
     >>> import os
     >>> a = corpus.getWork('opus74no2', 4)
-    >>> a.endswith(os.path.sep.join(['haydn', 'opus74no2', 'movement4.xml']))
+    >>> a.endswith(os.path.sep.join(['haydn', 'opus74no2', 'movement4.mxl']))
     True
 
     >>> a = corpus.getWork(['haydn', 'opus74no2', 'movement4.xml'])
-    >>> a.endswith(os.path.sep.join(['haydn', 'opus74no2', 'movement4.xml']))
+    >>> a.endswith(os.path.sep.join(['haydn', 'opus74no2', 'movement4.mxl']))
     True
 
     '''
     if not common.isListLike(extList):
         extList = [extList]
-
     post = getWorkList(workName, movementNumber, extList)
     if len(post) == 0:
+        wn = workName
+        if common.isListLike(workName):
+            wn = os.path.sep.join(workName)
+        if wn.endswith(".xml"): # might be compressed MXL file
+            newWorkName = wn[0:len(wn)-4] + ".mxl"
+            return getWork(newWorkName,movementNumber,extList)
         post = getVirtualWorkList(workName, movementNumber, extList)
-
     if len(post) == 1:
         return post[0]
     elif len(post) == 0:
@@ -983,6 +735,12 @@ def parse(workName, movementNumber=None, number=None,
     post = getWorkList(workName, movementNumber, extList)
     #environLocal.printDebug(['result of getWorkList()', post])
     if len(post) == 0:
+        wn = workName
+        if common.isListLike(workName):
+            wn = os.path.sep.join(workName)
+        if wn.endswith(".xml"):
+            newWorkName = wn[0:len(wn)-4] + ".mxl" # might be compressed MXL file
+            return parse(newWorkName,movementNumber,number,extList,forceSource)
         post = getVirtualWorkList(workName, movementNumber, extList)    
 
     if len(post) == 1:
@@ -1003,6 +761,52 @@ def parseWork(*arguments, **keywords):
     warnings.warn('the corpus.parseWork() function is depcreciated: use corpus.parse()', DeprecationWarning)
     return parse(*arguments, **keywords)
 
+#-------------------------------------------------------------------------------
+# compression
+
+def compressAllXMLFiles(deleteOriginal = False):
+    '''
+    Takes all filenames in corpus.paths and runs :meth:`music21.corpus.base.compressXML` on each.
+    If the musicXML files are compressed, the originals are deleted from the system.
+    '''
+    environLocal.warn("Compressing musicXML files...")
+    for filename in music21.corpus.paths:
+        compressXML(filename, deleteOriginal=deleteOriginal)
+    environLocal.warn("Compression complete. Run the main test suite, fix bugs if necessary,\n\
+and then commit modified directories in corpus.")
+
+def compressXML(filename, deleteOriginal=False):
+    '''
+    Takes a filename, and if the filename corresponds to a musicXML file with an .xml extension,
+    creates a corresponding compressed .mxl file in the same directory. If deleteOriginal is set
+    to True, the original musicXML file is deleted from the system.
+    '''
+    if not filename.endswith(".xml"):
+        return # not a musicXML file
+    environLocal.warn("Updating file: {0}".format(filename))
+    fnList = filename.split(os.path.sep)
+    arcname = fnList.pop() # find the archive name (name w/out filepath)
+    fnList.append(arcname[0:len(arcname)-4] + ".mxl") # new archive name
+    newFilename = os.path.sep.join(fnList) # new filename
+    
+    # contents of container.xml file in META-INF folder
+    container = '<?xml version="1.0" encoding="UTF-8"?>\n\
+<container>\n\
+  <rootfiles>\n\
+    <rootfile full-path="{0}"/>\n\
+  </rootfiles>\n\
+</container>\n\
+    '.format(arcname)
+
+    # Export container and original xml file to system as a compressed XML.
+    with zipfile.ZipFile(newFilename, 'w', compression=zipfile.ZIP_DEFLATED) as myZip:
+        #os.remove(newFilename)
+        myZip.write(filename = filename, arcname = arcname)
+        myZip.writestr(zinfo_or_arcname = 'META-INF{0}container.xml'.format(os.path.sep), bytes = container)
+
+    # Delete uncompressed xml file from system
+    if deleteOriginal:
+        os.remove(filename)
 
 #-------------------------------------------------------------------------------
 # all paths
@@ -1040,7 +844,7 @@ def getBachChorales(extList='xml'):
     >>> len(a) > 400
     True
     '''
-    names = ['bwv1.6.xml', 'bwv10.7.xml', 'bwv101.7.xml', 'bwv102.7.xml', 'bwv103.6.xml', 'bwv104.6.xml', 'bwv108.6.xml', 'bwv11.6.xml', 'bwv110.7.xml', 'bwv111.6.xml', 'bwv112.5-sc.xml', 'bwv112.5.xml', 'bwv113.8.xml', 'bwv114.7.xml', 'bwv115.6.xml', 'bwv116.6.xml', 'bwv117.4.xml', 'bwv119.9.xml', 'bwv12.7.xml', 'bwv120.6.xml', 'bwv120.8-a.xml', 'bwv121.6.xml', 'bwv122.6.xml', 'bwv123.6.xml', 'bwv124.6.xml', 'bwv125.6.xml', 'bwv126.6.xml', 'bwv127.5.xml', 'bwv128.5.xml', 'bwv13.6.xml', 'bwv130.6.xml', 'bwv133.6.xml', 'bwv135.6.xml', 'bwv136.6.xml', 'bwv137.5.xml', 'bwv139.6.xml', 'bwv14.5.xml', 'bwv140.7.xml', 'bwv144.3.xml', 'bwv144.6.xml', 'bwv145-a.xml', 'bwv145.5.xml', 'bwv146.8.xml', 'bwv148.6.xml', 'bwv149.7.xml', 'bwv151.5.xml', 'bwv153.1.xml', 'bwv153.5.xml', 'bwv153.9.xml', 'bwv154.3.xml', 'bwv154.8.xml', 'bwv155.5.xml', 'bwv156.6.xml', 'bwv157.5.xml', 'bwv158.4.xml', 'bwv159.5.xml', 'bwv16.6.xml', 'bwv161.6.xml', 'bwv162.6-lpz.xml', 'bwv164.6.xml', 'bwv165.6.xml', 'bwv166.6.xml', 'bwv168.6.xml', 'bwv169.7.xml', 'bwv17.7.xml', 'bwv171.6.xml', 'bwv172.6.xml', 'bwv174.5.xml', 'bwv175.7.xml', 'bwv176.6.xml', 'bwv177.5.xml', 'bwv178.7.xml', 'bwv179.6.xml', 'bwv18.5-lz.xml', 'bwv18.5-w.xml', 'bwv180.7.xml', 'bwv183.5.xml', 'bwv184.5.xml', 'bwv185.6.xml', 'bwv187.7.xml', 'bwv188.6.xml', 'bwv19.7.xml', 'bwv190.7-inst.xml', 'bwv190.7.xml', 'bwv194.12.xml', 'bwv194.6.xml', 'bwv195.6.xml', 'bwv197.10.xml', 'bwv197.5.xml', 'bwv197.7-a.xml', 'bwv2.6.xml', 'bwv20.11.xml', 'bwv20.7.xml', 'bwv226.2.xml', 'bwv227.1.xml', 'bwv227.11.xml', 'bwv227.3.xml', 'bwv227.7.xml', 'bwv229.2.xml', 'bwv244.10.xml', 'bwv244.15.xml', 'bwv244.17.xml', 'bwv244.25.xml', 'bwv244.29-a.xml', 'bwv244.3.xml', 'bwv244.32.xml', 'bwv244.37.xml', 'bwv244.40.xml', 'bwv244.44.xml', 'bwv244.46.xml', 'bwv244.54.xml', 'bwv244.62.xml', 'bwv245.11.xml', 'bwv245.14.xml', 'bwv245.15.xml', 'bwv245.17.xml', 'bwv245.22.xml', 'bwv245.26.xml', 'bwv245.28.xml', 'bwv245.3.xml', 'bwv245.37.xml', 'bwv245.40.xml', 'bwv245.5.xml', 'bwv248.12-2.xml', 'bwv248.17.xml', 'bwv248.23-2.xml', 'bwv248.23-s.xml', 'bwv248.28.xml', 'bwv248.33-3.xml', 'bwv248.35-3.xml', 'bwv248.35-3c.xml', 'bwv248.42-4.xml', 'bwv248.42-s.xml', 'bwv248.46-5.xml', 'bwv248.5.xml', 'bwv248.53-5.xml', 'bwv248.59-6.xml', 'bwv248.64-6.xml', 'bwv248.64-s.xml', 'bwv248.9-1.xml', 'bwv248.9-s.xml', 'bwv25.6.xml', 'bwv250.xml', 'bwv251.xml', 'bwv252.xml', 'bwv253.xml', 'bwv254.xml', 'bwv255.xml', 'bwv256.xml', 'bwv257.xml', 'bwv258.xml', 'bwv259.xml', 'bwv26.6.xml', 'bwv260.xml', 'bwv261.xml', 'bwv262.xml', 'bwv263.xml', 'bwv264.xml', 'bwv265.xml', 'bwv266.xml', 'bwv267.xml', 'bwv268.xml', 'bwv269.xml', 'bwv27.6.xml', 'bwv270.xml', 'bwv271.xml', 'bwv272.xml', 'bwv273.xml', 'bwv276.xml', 'bwv277.krn', 'bwv277.xml', 'bwv278.xml', 'bwv279.xml', 'bwv28.6.xml', 'bwv280.xml', 'bwv281.krn', 'bwv281.xml', 'bwv282.xml', 'bwv283.xml', 'bwv284.xml', 'bwv285.xml', 'bwv286.xml', 'bwv287.xml', 'bwv288.xml', 'bwv289.xml', 'bwv29.8.xml', 'bwv290.xml', 'bwv291.xml', 'bwv292.xml', 'bwv293.xml', 'bwv294.xml', 'bwv295.xml', 'bwv296.xml', 'bwv297.xml', 'bwv298.xml', 'bwv299.xml', 'bwv3.6.xml', 'bwv30.6.xml', 'bwv300.xml', 'bwv301.xml', 'bwv302.xml', 'bwv303.xml', 'bwv304.xml', 'bwv305.xml', 'bwv306.xml', 'bwv307.xml', 'bwv308.xml', 'bwv309.xml', 'bwv31.9.xml', 'bwv310.xml', 'bwv311.xml', 'bwv312.xml', 'bwv313.xml', 'bwv314.xml', 'bwv315.xml', 'bwv316.xml', 'bwv317.xml', 'bwv318.xml', 'bwv319.xml', 'bwv32.6.xml', 'bwv320.xml', 'bwv321.xml', 'bwv322.xml', 'bwv323.xml', 'bwv324.xml', 'bwv325.xml', 'bwv326.xml', 'bwv327.xml', 'bwv328.xml', 'bwv329.xml', 'bwv33.6.xml', 'bwv330.xml', 'bwv331.xml', 'bwv332.xml', 'bwv333.xml', 'bwv334.xml', 'bwv335.xml', 'bwv336.xml', 'bwv337.xml', 'bwv338.xml', 'bwv339.xml', 'bwv340.xml', 'bwv341.xml', 'bwv342.xml', 'bwv343.xml', 'bwv344.xml', 'bwv345.xml', 'bwv346.xml', 'bwv347.xml', 'bwv348.xml', 'bwv349.xml', 'bwv350.xml', 'bwv351.xml', 'bwv352.xml', 'bwv353.xml', 'bwv354.xml', 'bwv355.xml', 'bwv356.xml', 'bwv357.xml', 'bwv358.xml', 'bwv359.xml', 'bwv36.4-2.xml', 'bwv36.8-2.xml', 'bwv360.xml', 'bwv361.xml', 'bwv362.xml', 'bwv363.xml', 'bwv364.xml', 'bwv365.xml', 'bwv366.krn', 'bwv366.xml', 'bwv367.xml', 'bwv368.xml', 'bwv369.xml', 'bwv37.6.xml', 'bwv370.xml', 'bwv371.xml', 'bwv372.xml', 'bwv373.xml', 'bwv374.xml', 'bwv375.xml', 'bwv376.xml', 'bwv377.xml', 'bwv378.xml', 'bwv379.xml', 'bwv38.6.xml', 'bwv380.xml', 'bwv381.xml', 'bwv382.xml', 'bwv383.xml', 'bwv384.xml', 'bwv385.xml', 'bwv386.xml', 'bwv387.xml', 'bwv388.xml', 'bwv389.xml', 'bwv39.7.xml', 'bwv390.xml', 'bwv391.xml', 'bwv392.xml', 'bwv393.xml', 'bwv394.xml', 'bwv395.xml', 'bwv396.xml', 'bwv397.xml', 'bwv398.xml', 'bwv399.xml', 'bwv4.8.xml', 'bwv40.3.xml', 'bwv40.6.xml', 'bwv40.8.xml', 'bwv400.xml', 'bwv401.xml', 'bwv402.xml', 'bwv403.xml', 'bwv404.xml', 'bwv405.xml', 'bwv406.xml', 'bwv407.xml', 'bwv408.xml', 'bwv41.6.xml', 'bwv410.xml', 'bwv411.xml', 'bwv412.xml', 'bwv413.xml', 'bwv414.xml', 'bwv415.xml', 'bwv416.xml', 'bwv417.xml', 'bwv418.xml', 'bwv419.xml', 'bwv42.7.xml', 'bwv420.xml', 'bwv421.xml', 'bwv422.xml', 'bwv423.xml', 'bwv424.xml', 'bwv425.xml', 'bwv426.xml', 'bwv427.xml', 'bwv428.xml', 'bwv429.xml', 'bwv43.11.xml', 'bwv430.xml', 'bwv431.xml', 'bwv432.xml', 'bwv433.xml', 'bwv434.xml', 'bwv435.xml', 'bwv436.xml', 'bwv437.xml', 'bwv438.xml', 'bwv44.7.xml', 'bwv45.7.xml', 'bwv47.5.xml', 'bwv48.3.xml', 'bwv48.7.xml', 'bwv5.7.xml', 'bwv52.6.xml', 'bwv55.5.xml', 'bwv56.5.xml', 'bwv57.8.xml', 'bwv59.3.xml', 'bwv6.6.xml', 'bwv60.5.xml', 'bwv64.2.xml', 'bwv64.4.xml', 'bwv64.8.xml', 'bwv65.2.xml', 'bwv65.7.xml', 'bwv66.6.xml', 'bwv67.4.xml', 'bwv67.7.xml', 'bwv69.6-a.xml', 'bwv69.6.xml', 'bwv7.7.xml', 'bwv70.11.xml', 'bwv70.7.xml', 'bwv72.6.xml', 'bwv73.5.xml', 'bwv74.8.xml', 'bwv77.6.xml', 'bwv78.7.xml', 'bwv79.3.xml', 'bwv79.6.xml', 'bwv8.6.xml', 'bwv80.8.xml', 'bwv81.7.xml', 'bwv83.5.xml', 'bwv84.5.xml', 'bwv85.6.xml', 'bwv86.6.xml', 'bwv87.7.xml', 'bwv88.7.xml', 'bwv89.6.xml', 'bwv9.7.xml', 'bwv90.5.xml', 'bwv91.6.xml', 'bwv92.9.xml', 'bwv93.7.xml', 'bwv94.8.xml', 'bwv95.7.xml', 'bwv96.6.xml', 'bwv97.9.xml', 'bwv99.6.xml']
+    names = ['bwv1.6.mxl', 'bwv10.7.mxl', 'bwv101.7.mxl', 'bwv102.7.mxl', 'bwv103.6.mxl', 'bwv104.6.mxl', 'bwv108.6.mxl', 'bwv11.6.mxl', 'bwv110.7.mxl', 'bwv111.6.mxl', 'bwv112.5-sc.mxl', 'bwv112.5.mxl', 'bwv113.8.mxl', 'bwv114.7.mxl', 'bwv115.6.mxl', 'bwv116.6.mxl', 'bwv117.4.mxl', 'bwv119.9.mxl', 'bwv12.7.mxl', 'bwv120.6.mxl', 'bwv120.8-a.mxl', 'bwv121.6.mxl', 'bwv122.6.mxl', 'bwv123.6.mxl', 'bwv124.6.mxl', 'bwv125.6.mxl', 'bwv126.6.mxl', 'bwv127.5.mxl', 'bwv128.5.mxl', 'bwv13.6.mxl', 'bwv130.6.mxl', 'bwv133.6.mxl', 'bwv135.6.mxl', 'bwv136.6.mxl', 'bwv137.5.mxl', 'bwv139.6.mxl', 'bwv14.5.mxl', 'bwv140.7.mxl', 'bwv144.3.mxl', 'bwv144.6.mxl', 'bwv145-a.mxl', 'bwv145.5.mxl', 'bwv146.8.mxl', 'bwv148.6.mxl', 'bwv149.7.mxl', 'bwv151.5.mxl', 'bwv153.1.mxl', 'bwv153.5.mxl', 'bwv153.9.mxl', 'bwv154.3.mxl', 'bwv154.8.mxl', 'bwv155.5.mxl', 'bwv156.6.mxl', 'bwv157.5.mxl', 'bwv158.4.mxl', 'bwv159.5.mxl', 'bwv16.6.mxl', 'bwv161.6.mxl', 'bwv162.6-lpz.mxl', 'bwv164.6.mxl', 'bwv165.6.mxl', 'bwv166.6.mxl', 'bwv168.6.mxl', 'bwv169.7.mxl', 'bwv17.7.mxl', 'bwv171.6.mxl', 'bwv172.6.mxl', 'bwv174.5.mxl', 'bwv175.7.mxl', 'bwv176.6.mxl', 'bwv177.5.mxl', 'bwv178.7.mxl', 'bwv179.6.mxl', 'bwv18.5-lz.mxl', 'bwv18.5-w.mxl', 'bwv180.7.mxl', 'bwv183.5.mxl', 'bwv184.5.mxl', 'bwv185.6.mxl', 'bwv187.7.mxl', 'bwv188.6.mxl', 'bwv19.7.mxl', 'bwv190.7-inst.mxl', 'bwv190.7.mxl', 'bwv194.12.mxl', 'bwv194.6.mxl', 'bwv195.6.mxl', 'bwv197.10.mxl', 'bwv197.5.mxl', 'bwv197.7-a.mxl', 'bwv2.6.mxl', 'bwv20.11.mxl', 'bwv20.7.mxl', 'bwv226.2.mxl', 'bwv227.1.mxl', 'bwv227.11.mxl', 'bwv227.3.mxl', 'bwv227.7.mxl', 'bwv229.2.mxl', 'bwv244.10.mxl', 'bwv244.15.mxl', 'bwv244.17.mxl', 'bwv244.25.mxl', 'bwv244.29-a.mxl', 'bwv244.3.mxl', 'bwv244.32.mxl', 'bwv244.37.mxl', 'bwv244.40.mxl', 'bwv244.44.mxl', 'bwv244.46.mxl', 'bwv244.54.mxl', 'bwv244.62.mxl', 'bwv245.11.mxl', 'bwv245.14.mxl', 'bwv245.15.mxl', 'bwv245.17.mxl', 'bwv245.22.mxl', 'bwv245.26.mxl', 'bwv245.28.mxl', 'bwv245.3.mxl', 'bwv245.37.mxl', 'bwv245.40.mxl', 'bwv245.5.mxl', 'bwv248.12-2.mxl', 'bwv248.17.mxl', 'bwv248.23-2.mxl', 'bwv248.23-s.mxl', 'bwv248.28.mxl', 'bwv248.33-3.mxl', 'bwv248.35-3.mxl', 'bwv248.35-3c.mxl', 'bwv248.42-4.mxl', 'bwv248.42-s.mxl', 'bwv248.46-5.mxl', 'bwv248.5.mxl', 'bwv248.53-5.mxl', 'bwv248.59-6.mxl', 'bwv248.64-6.mxl', 'bwv248.64-s.mxl', 'bwv248.9-1.mxl', 'bwv248.9-s.mxl', 'bwv25.6.mxl', 'bwv250.mxl', 'bwv251.mxl', 'bwv252.mxl', 'bwv253.mxl', 'bwv254.mxl', 'bwv255.mxl', 'bwv256.mxl', 'bwv257.mxl', 'bwv258.mxl', 'bwv259.mxl', 'bwv26.6.mxl', 'bwv260.mxl', 'bwv261.mxl', 'bwv262.mxl', 'bwv263.mxl', 'bwv264.mxl', 'bwv265.mxl', 'bwv266.mxl', 'bwv267.mxl', 'bwv268.mxl', 'bwv269.mxl', 'bwv27.6.mxl', 'bwv270.mxl', 'bwv271.mxl', 'bwv272.mxl', 'bwv273.mxl', 'bwv276.mxl', 'bwv277.krn', 'bwv277.mxl', 'bwv278.mxl', 'bwv279.mxl', 'bwv28.6.mxl', 'bwv280.mxl', 'bwv281.krn', 'bwv281.mxl', 'bwv282.mxl', 'bwv283.mxl', 'bwv284.mxl', 'bwv285.mxl', 'bwv286.mxl', 'bwv287.mxl', 'bwv288.mxl', 'bwv289.mxl', 'bwv29.8.mxl', 'bwv290.mxl', 'bwv291.mxl', 'bwv292.mxl', 'bwv293.mxl', 'bwv294.mxl', 'bwv295.mxl', 'bwv296.mxl', 'bwv297.mxl', 'bwv298.mxl', 'bwv299.mxl', 'bwv3.6.mxl', 'bwv30.6.mxl', 'bwv300.mxl', 'bwv301.mxl', 'bwv302.mxl', 'bwv303.mxl', 'bwv304.mxl', 'bwv305.mxl', 'bwv306.mxl', 'bwv307.mxl', 'bwv308.mxl', 'bwv309.mxl', 'bwv31.9.mxl', 'bwv310.mxl', 'bwv311.mxl', 'bwv312.mxl', 'bwv313.mxl', 'bwv314.mxl', 'bwv315.mxl', 'bwv316.mxl', 'bwv317.mxl', 'bwv318.mxl', 'bwv319.mxl', 'bwv32.6.mxl', 'bwv320.mxl', 'bwv321.mxl', 'bwv322.mxl', 'bwv323.mxl', 'bwv324.mxl', 'bwv325.mxl', 'bwv326.mxl', 'bwv327.mxl', 'bwv328.mxl', 'bwv329.mxl', 'bwv33.6.mxl', 'bwv330.mxl', 'bwv331.mxl', 'bwv332.mxl', 'bwv333.mxl', 'bwv334.mxl', 'bwv335.mxl', 'bwv336.mxl', 'bwv337.mxl', 'bwv338.mxl', 'bwv339.mxl', 'bwv340.mxl', 'bwv341.mxl', 'bwv342.mxl', 'bwv343.mxl', 'bwv344.mxl', 'bwv345.mxl', 'bwv346.mxl', 'bwv347.mxl', 'bwv348.mxl', 'bwv349.mxl', 'bwv350.mxl', 'bwv351.mxl', 'bwv352.mxl', 'bwv353.mxl', 'bwv354.mxl', 'bwv355.mxl', 'bwv356.mxl', 'bwv357.mxl', 'bwv358.mxl', 'bwv359.mxl', 'bwv36.4-2.mxl', 'bwv36.8-2.mxl', 'bwv360.mxl', 'bwv361.mxl', 'bwv362.mxl', 'bwv363.mxl', 'bwv364.mxl', 'bwv365.mxl', 'bwv366.krn', 'bwv366.mxl', 'bwv367.mxl', 'bwv368.mxl', 'bwv369.mxl', 'bwv37.6.mxl', 'bwv370.mxl', 'bwv371.mxl', 'bwv372.mxl', 'bwv373.mxl', 'bwv374.mxl', 'bwv375.mxl', 'bwv376.mxl', 'bwv377.mxl', 'bwv378.mxl', 'bwv379.mxl', 'bwv38.6.mxl', 'bwv380.mxl', 'bwv381.mxl', 'bwv382.mxl', 'bwv383.mxl', 'bwv384.mxl', 'bwv385.mxl', 'bwv386.mxl', 'bwv387.mxl', 'bwv388.mxl', 'bwv389.mxl', 'bwv39.7.mxl', 'bwv390.mxl', 'bwv391.mxl', 'bwv392.mxl', 'bwv393.mxl', 'bwv394.mxl', 'bwv395.mxl', 'bwv396.mxl', 'bwv397.mxl', 'bwv398.mxl', 'bwv399.mxl', 'bwv4.8.mxl', 'bwv40.3.mxl', 'bwv40.6.mxl', 'bwv40.8.mxl', 'bwv400.mxl', 'bwv401.mxl', 'bwv402.mxl', 'bwv403.mxl', 'bwv404.mxl', 'bwv405.mxl', 'bwv406.mxl', 'bwv407.mxl', 'bwv408.mxl', 'bwv41.6.mxl', 'bwv410.mxl', 'bwv411.mxl', 'bwv412.mxl', 'bwv413.mxl', 'bwv414.mxl', 'bwv415.mxl', 'bwv416.mxl', 'bwv417.mxl', 'bwv418.mxl', 'bwv419.mxl', 'bwv42.7.mxl', 'bwv420.mxl', 'bwv421.mxl', 'bwv422.mxl', 'bwv423.mxl', 'bwv424.mxl', 'bwv425.mxl', 'bwv426.mxl', 'bwv427.mxl', 'bwv428.mxl', 'bwv429.mxl', 'bwv43.11.mxl', 'bwv430.mxl', 'bwv431.mxl', 'bwv432.mxl', 'bwv433.mxl', 'bwv434.mxl', 'bwv435.mxl', 'bwv436.mxl', 'bwv437.mxl', 'bwv438.mxl', 'bwv44.7.mxl', 'bwv45.7.mxl', 'bwv47.5.mxl', 'bwv48.3.mxl', 'bwv48.7.mxl', 'bwv5.7.mxl', 'bwv52.6.mxl', 'bwv55.5.mxl', 'bwv56.5.mxl', 'bwv57.8.mxl', 'bwv59.3.mxl', 'bwv6.6.mxl', 'bwv60.5.mxl', 'bwv64.2.mxl', 'bwv64.4.mxl', 'bwv64.8.mxl', 'bwv65.2.mxl', 'bwv65.7.mxl', 'bwv66.6.mxl', 'bwv67.4.mxl', 'bwv67.7.mxl', 'bwv69.6-a.mxl', 'bwv69.6.mxl', 'bwv7.7.mxl', 'bwv70.11.mxl', 'bwv70.7.mxl', 'bwv72.6.mxl', 'bwv73.5.mxl', 'bwv74.8.mxl', 'bwv77.6.mxl', 'bwv78.7.mxl', 'bwv79.3.mxl', 'bwv79.6.mxl', 'bwv8.6.mxl', 'bwv80.8.mxl', 'bwv81.7.mxl', 'bwv83.5.mxl', 'bwv84.5.mxl', 'bwv85.6.mxl', 'bwv86.6.mxl', 'bwv87.7.mxl', 'bwv88.7.mxl', 'bwv89.6.mxl', 'bwv9.7.mxl', 'bwv90.5.mxl', 'bwv91.6.mxl', 'bwv92.9.mxl', 'bwv93.7.mxl', 'bwv94.8.mxl', 'bwv95.7.mxl', 'bwv96.6.mxl', 'bwv97.9.mxl', 'bwv99.6.mxl']
 
     baseDir = getComposerDir('bach')
     post = []
@@ -1056,6 +860,9 @@ def getBachChorales(extList='xml'):
     return post
 
 bachChorales = getBachChorales('xml')
+
+
+
 
 class BachChoraleList(object):
     '''
@@ -1559,11 +1366,11 @@ def getMonteverdiMadrigals(extList='xml'):
     >>> len(a) > 40
     True
     '''
-    names = ['madrigal.3.1.xml', 'madrigal.3.2.xml', 'madrigal.3.3.xml', 'madrigal.3.4.xml', 'madrigal.3.5.xml', 'madrigal.3.6.xml', 'madrigal.3.7.xml', 'madrigal.3.8.xml', 'madrigal.3.9.xml', 'madrigal.3.10.xml', 'madrigal.3.11.xml', 'madrigal.3.12.xml', 'madrigal.3.13.xml', 'madrigal.3.14.xml', 'madrigal.3.15.xml', 'madrigal.3.16.xml', 'madrigal.3.17.xml', 'madrigal.3.18.xml', 'madrigal.3.19.xml', 'madrigal.3.20.xml', 
+    names = ['madrigal.3.1.mxl', 'madrigal.3.2.mxl', 'madrigal.3.3.mxl', 'madrigal.3.4.mxl', 'madrigal.3.5.mxl', 'madrigal.3.6.mxl', 'madrigal.3.7.mxl', 'madrigal.3.8.mxl', 'madrigal.3.9.mxl', 'madrigal.3.10.mxl', 'madrigal.3.11.mxl', 'madrigal.3.12.mxl', 'madrigal.3.13.mxl', 'madrigal.3.14.mxl', 'madrigal.3.15.mxl', 'madrigal.3.16.mxl', 'madrigal.3.17.mxl', 'madrigal.3.18.mxl', 'madrigal.3.19.mxl', 'madrigal.3.20.mxl', 
 
-    'madrigal.4.1.xml', 'madrigal.4.2.xml', 'madrigal.4.3.xml', 'madrigal.4.4.xml', 'madrigal.4.5.xml', 'madrigal.4.6.xml', 'madrigal.4.7.xml', 'madrigal.4.8.xml', 'madrigal.4.9.xml', 'madrigal.4.10.xml', 'madrigal.4.11.xml', 'madrigal.4.12.xml', 'madrigal.4.13.xml', 'madrigal.4.14.xml', 'madrigal.4.15.xml', 'madrigal.4.16.xml', 'madrigal.4.17.xml', 'madrigal.4.18.xml', 'madrigal.4.19.xml', 'madrigal.4.20.xml',
+    'madrigal.4.1.mxl', 'madrigal.4.2.mxl', 'madrigal.4.3.mxl', 'madrigal.4.4.mxl', 'madrigal.4.5.mxl', 'madrigal.4.6.mxl', 'madrigal.4.7.mxl', 'madrigal.4.8.mxl', 'madrigal.4.9.mxl', 'madrigal.4.10.mxl', 'madrigal.4.11.mxl', 'madrigal.4.12.mxl', 'madrigal.4.13.mxl', 'madrigal.4.14.mxl', 'madrigal.4.15.mxl', 'madrigal.4.16.mxl', 'madrigal.4.17.mxl', 'madrigal.4.18.mxl', 'madrigal.4.19.mxl', 'madrigal.4.20.mxl',
 
-    'madrigal.5.1.xml', 'madrigal.5.2.xml', 'madrigal.5.3.xml', 'madrigal.5.5.xml', 'madrigal.5.5.xml', 'madrigal.5.6.xml', 'madrigal.5.7.xml', 'madrigal.5.8.xml', 
+    'madrigal.5.1.mxl', 'madrigal.5.2.mxl', 'madrigal.5.3.mxl', 'madrigal.5.5.mxl', 'madrigal.5.5.mxl', 'madrigal.5.6.mxl', 'madrigal.5.7.mxl', 'madrigal.5.8.mxl', 
     ]
 
     baseDir = getComposerDir('monteverdi')
@@ -1634,11 +1441,11 @@ class Test(unittest.TestCase):
         pass
 
     def testGetPaths(self):
-        for known in ['haydn/opus74no2/movement4.xml',         
-            'beethoven/opus18no3.xml',
-            'beethoven/opus59no1/movement2.xml',
-            'mozart/k80/movement4.xml',
-            'schumann/opus41no1/movement5.xml',
+        for known in ['haydn/opus74no2/movement4.mxl',         
+            'beethoven/opus18no3.mxl',
+            'beethoven/opus59no1/movement2.mxl',
+            'mozart/k80/movement4.mxl',
+            'schumann/opus41no1/movement5.mxl',
             ]:
             a = getWork(known)
             # make sure it is not an empty list
@@ -1707,7 +1514,7 @@ class Test(unittest.TestCase):
         post = corpus.search('Taiwan', 'locale')
         self.assertEqual(len(post), 27)
         self.assertEqual(post[0][0][-8:], 'han2.abc') # file
-        self.assertEqual(post[0][1], '209') # work number
+        self.assertEqual(post[0][1], 209) # work number
         
         post = corpus.search('Sichuan|Taiwan', 'locale')
         self.assertEqual(len(post), 74)
@@ -1791,13 +1598,13 @@ class Test(unittest.TestCase):
         #s.show()
 
 
-    def testWorkReferences(self):
-        from music21 import corpus
-        s = corpus.getWorkReferences()
-        
-        # presenly 19 top level lists
-        self.assertEqual(len(s)>=19, True)
-        self.assertEqual(len(s[0].keys()), 4)
+#     def testWorkReferences(self):
+#         from music21 import corpus
+#         s = corpus.getWorkReferences()
+#         
+#         # presenly 19 top level lists
+#         self.assertEqual(len(s)>=19, True)
+#         self.assertEqual(len(s[0].keys()), 4)
 
 
 #-------------------------------------------------------------------------------

@@ -582,10 +582,17 @@ class KeyWeightKeyAnalysis(DiscreteAnalysis):
 
         # see which has a higher correlation coefficient, the first major or the
         # the first minor
-        sortList = [(coefficient, p, 'major') for 
-                    (p, coefficient) in likelyKeysMajor]
-        sortList += [(coefficient, p, 'minor') for 
-                    (p, coefficient) in likelyKeysMinor]
+        if likelyKeysMajor is not None:
+            sortList = [(coefficient, p, 'major') for 
+                        (p, coefficient) in likelyKeysMajor]
+        else:
+            sortList = []
+        if likelyKeysMinor is not None:
+            sortList += [(coefficient, p, 'minor') for 
+                         (p, coefficient) in likelyKeysMinor]
+        if len(sortList) == 0:
+            raise DiscreteAnalysisException('failed to get likely keys for Stream component')
+
         sortList.sort()
         sortList.reverse()
         #environLocal.printDebug(['sortList', sortList])

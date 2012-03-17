@@ -271,7 +271,7 @@ class TagLib(object):
 ('octave-shift', False, OctaveShift), 
 ('bracket', False, Bracket), 
 ('wavy-line', False, WavyLine), 
-('glissando', False, Glissando), 
+('glissando', True, Glissando), 
 ('dashes', False, Dashes), 
 
 ('ornaments', False, Ornaments), 
@@ -1522,8 +1522,7 @@ class Direction(MusicXMLElementList):
         found = self._getObjectsContainedInDirectionType(Metronome)
         if len(found) > 0:
             return found[0] # only return one fo rnow
-        else:
-            return None
+        return None
 
     def getWedge(self):
         '''Search this direction and determine if it contains a dynamic mark.
@@ -1540,15 +1539,6 @@ class Direction(MusicXMLElementList):
         found = self._getObjectsContainedInDirectionType(Wedge)
         if len(found) > 0:
             return found[0]
-        else:
-            return None
-
-#         for directionType in self.componentList:
-#             if isinstance(directionType, Sound):
-#                 continue 
-#             for obj in directionType:
-#                 if isinstance(obj, Wedge):
-#                     return obj
         return None
 
     def getWords(self):
@@ -1568,20 +1558,7 @@ class Direction(MusicXMLElementList):
         found = self._getObjectsContainedInDirectionType(Words)
         if len(found) > 0:
             return found # return the lost
-        else:
-            return None
-
-#         post = [] # return a lost
-#         for directionType in self.componentList:
-#             if isinstance(directionType, Sound):
-#                 continue 
-#             for obj in directionType:
-#                 if isinstance(obj, Words):
-#                     post.append(obj)
-#         if len(post) > 0:
-#             return post
-#         else:
-#             return None
+        return None
 
     def getCoda(self):
         '''Search this direction and determine if it contains a coda mark.
@@ -1598,16 +1575,7 @@ class Direction(MusicXMLElementList):
         found = self._getObjectsContainedInDirectionType(Coda)
         if len(found) > 0:
             return found[0] 
-        else:
-            return None
-
-#         for directionType in self.componentList:
-#             if isinstance(directionType, Sound):
-#                 continue 
-#             for obj in directionType:
-#                 if isinstance(obj, Coda):
-#                     return obj
-#         return None
+        return None
 
     def getSegno(self):
         '''Search this direction and determine if it contains a segno mark.
@@ -1624,16 +1592,41 @@ class Direction(MusicXMLElementList):
         found = self._getObjectsContainedInDirectionType(Segno)
         if len(found) > 0:
             return found[0] 
-        else:
-            return None
+        return None
 
-#         for directionType in self.componentList:
-#             if isinstance(directionType, Sound):
-#                 continue 
-#             for obj in directionType:
-#                 if isinstance(obj, Segno):
-#                     return obj
-#         return None
+    def getBracket(self):
+        '''Search this direction and determine if it contains a segno mark.
+
+        >>> from music21 import *
+        >>> a = musicxml.Direction()
+        >>> b = musicxml.DirectionType()
+        >>> c = musicxml.Bracket()
+        >>> b.append(c)
+        >>> a.append(b)
+        >>> a.getBracket() != None
+        True
+        '''
+        found = self._getObjectsContainedInDirectionType(Bracket)
+        if len(found) > 0:
+            return found[0] 
+        return None
+
+    def getDashes(self):
+        '''Search this direction and determine if it contains a segno mark.
+
+        >>> from music21 import *
+        >>> a = musicxml.Direction()
+        >>> b = musicxml.DirectionType()
+        >>> c = musicxml.Dashes()
+        >>> b.append(c)
+        >>> a.append(b)
+        >>> a.getDashes() != None
+        True
+        '''
+        found = self._getObjectsContainedInDirectionType(Dashes)
+        if len(found) > 0:
+            return found[0] 
+        return None
 
 
 class DirectionType(MusicXMLElementList):
@@ -2104,7 +2097,7 @@ class Notations(MusicXMLElementList):
         return post
 
     def getOrnaments(self):
-        '''Get a the ornaments object stored on a components. There can be more than one.
+        '''Get all ornament objects stored on a components. There can be more than one.
         '''
         post = []        
         for part in self.componentList:
@@ -2112,6 +2105,41 @@ class Notations(MusicXMLElementList):
                 post.append(part)
         return post
 
+    def getGlissandi(self):
+        '''Get all glissandi objects stored on components. There can be more than one.
+
+        >>> from music21 import *
+        >>> g = musicxml.Glissando()
+        >>> n = musicxml.Notations()
+        >>> n.append(g)
+        >>> n.getGlissandi()
+        [<glissando >]
+        '''
+        post = []        
+        for part in self.componentList:
+            if isinstance(part, Glissando):
+                post.append(part)
+        return post
+
+    def getWavyLines(self):
+        '''Get one or more wavy line objects Stored in Ornaments
+
+        >>> from music21 import *
+        >>> wl = musicxml.WavyLine()
+        >>> o = musicxml.Ornaments()
+        >>> n = musicxml.Notations()
+        >>> o.append(wl)
+        >>> n.append(o)
+        >>> n.getWavyLines()
+        [<wavy-line >]
+        '''
+        post = []        
+        for part in self.componentList:
+            if isinstance(part, Ornaments):
+                for sub in part:
+                    if isinstance(sub, WavyLine):
+                        post.append(sub)
+        return post
 
 
 
@@ -2283,7 +2311,6 @@ class WavyLine(MusicXMLElement):
     def __init__(self, type=None):
         MusicXMLElement.__init__(self)
         self._tag = 'wavy-line'
-
         # attributes
         self._attr['type'] = None # start/stop/continue
         self._attr['number'] = None # used for id
@@ -2303,11 +2330,13 @@ class Glissando(MusicXMLElement):
     def __init__(self, type=None):
         MusicXMLElement.__init__(self)
         self._tag = 'glissando'
-
         # attributes
         self._attr['type'] = None # start/stop
         self._attr['number'] = None # used for id
         self._attr['line-type'] = None # solid, dashed, dotted, wavy
+        # character data: this is the glissando label, if present
+        self.charData = None
+
 
 class Dashes(MusicXMLElement):
     '''
@@ -3797,6 +3826,7 @@ class Handler(xml.sax.ContentHandler):
 
         elif name == 'glissando': 
             # goes in notations
+            self._glissandoObj.charData = self._currentTag.charData            
             self._notationsObj.append(self._glissandoObj)
             self._glissandoObj = None
 
@@ -4149,8 +4179,7 @@ class Document(object):
 
         if not file:
             fileLikeOpen = StringIO.StringIO(fileLike)
-        else:   
-            # TODO: should this be codecs.open()?
+        else: # TODO: should this be codecs.open()?
             fileLikeOpen = open(fileLike)
 
         # the file always needs to be closed, otherwise
@@ -4163,7 +4192,6 @@ class Document(object):
 
         #t.stop()
         #environLocal.printDebug(['parsing time:', t])
-
         if audit:
             ok, msg = self.tagLib.audit() # audit tags
             if not ok:
@@ -4923,9 +4951,15 @@ class Test(unittest.TestCase):
         from music21 import corpus
         fp = corpus.getWork('opus18no1/movement3', extList=['.xml'])
         d = Document()
-        d.open(fp)
+        
+        # Compressed MXL file instead of regular XML file. Extract XML file.
+        import zipfile
+        mxl = zipfile.ZipFile(fp, 'r')
+        d.open(mxl.extract('movement3.xml'))
+        mxl.close()
+        
         self.assertEqual(d.score != None, True)
-
+        
         mxScore = d.score
         mxParts = mxScore.componentList
         p1 = mxParts[0]      
@@ -4939,7 +4973,7 @@ class Test(unittest.TestCase):
                         self.assertEqual(c.repeatObj.get('times'), None)
                         #print c.repeatObj.direction
         s = corpus.parse('opus18no1/movement3', extList=['.xml'])
-
+        os.remove('movement3.xml')
 
     def testHarmonyA(self):
         k = Kind()

@@ -1723,7 +1723,6 @@ class RichMetadata(Metadata):
     it is attached to. TimeSignature, KeySignature and related analytical is stored. 
     RichMetadata are generally only created in the process of creating stored JSON metadata. 
     '''
-
     def __init__(self, *args, **keywords):
         '''
         >>> from music21 import *
@@ -1747,8 +1746,11 @@ class RichMetadata(Metadata):
         self.pitchHighest = None
         self.pitchLowest = None
 
+        self.noteCount = None
+        self.quarterLength = None
+
         # append to existing search attributes from Metdata
-        self._searchAttributes += ['keySignatureFirst', 'timeSignatureFirst', 'pitchHighest', 'pitchLowest'] 
+        self._searchAttributes += ['keySignatureFirst', 'timeSignatureFirst', 'pitchHighest', 'pitchLowest', 'noteCount', 'quarterLength'] 
 
 
 
@@ -1759,7 +1761,7 @@ class RichMetadata(Metadata):
         '''Define all attributes of this object that should be JSON serialized for storage and re-instantiation. Attributes that name basic Python objects or :class:`~music21.base.JSONSerializer` subclasses, or dictionaries or lists that contain Python objects or :class:`~music21.base.JSONSerializer` subclasses, can be provided.
         '''
         # add new names to base-class names
-        return ['keySignatureFirst', 'timeSignatureFirst', 'pitchHighest', 'pitchLowest'] + Metadata.jsonAttributes(self)
+        return ['keySignatureFirst', 'timeSignatureFirst', 'pitchHighest', 'pitchLowest', 'noteCount', 'quarterLength'] + Metadata.jsonAttributes(self)
 
     def jsonComponentFactory(self, idStr):
         from music21 import meter
@@ -1827,13 +1829,16 @@ class RichMetadata(Metadata):
         self.tempoFirst = None
         #self.tempos = []
 
+        self.noteCount = None
+        self.quarterLength = None
+
         self.ambitus = None
         self.pitchHighest = None
         self.pitchLowest = None
 
-
         # get flat sorted stream
         flat = streamObj.flat.sorted
+
 
         tsStream = flat.getElementsByClass('TimeSignature')
         if len(tsStream) > 0:
@@ -1854,6 +1859,8 @@ class RichMetadata(Metadata):
 #             if ks not in self.keySignatures:
 #                 self.keySignatures.append(ts)
 
+        self.noteCount = len(flat.notesAndRests)
+        self.quarterLength = flat.highestTime
 
 # commenting out temporarily due to memory error     
 # with corpus/beethoven/opus132.xml
@@ -1942,21 +1949,32 @@ class MetadataBundle(music21.JSONSerializer):
     
 
     def addFromPaths(self, pathList):
-        '''Parse and store metadata from numerous files
+        '''Parse and store metadata from numerous files.
+
+        If any files cannot be loaded, they file paths will be collected in a list. 
 
         >>> from music21 import *
         >>> mb = metadata.MetadataBundle()
         >>> mb.addFromPaths(corpus.getWorkList('bwv66.6'))
+        []
         >>> len(mb._storage)
         1
         '''
         import gc # get a garbage collector
+        fpError = [] # store errors
+
         # converter imports modules that import metadata
         from music21 import converter
         for fp in pathList:
             environLocal.printDebug(['updateMetadataCache: examining:', fp])
             cp = self.corpusPathToKey(fp)
-            post = converter.parse(fp, forceSource=True)
+            try:
+                post = converter.parse(fp, forceSource=True)
+            except:
+                environLocal.warn('parse failed: %s' % fp)
+                fpError.append(fp)
+                continue
+
             if 'Opus' in post.classes:
                 # need to get scores from each opus?
                 # problem here is that each sub-work has metadata, but there
@@ -1989,14 +2007,26 @@ class MetadataBundle(music21.JSONSerializer):
             del post
             gc.collect()
 
-    def addFromVirtualWorks(self, pathList):
-        pass
+        return fpError
+
+    def _getFilePath(self):
+        if self._name in ['virtual', 'core']:
+            fp = os.path.join(common.getMetadataCacheFilePath(), 
+                self._name + '.json')
+        elif self._name == 'local':
+            # write in temporary dir
+            fp = os.path.join(environLocal.getRootTempDir(), 
+                self._name + '.json')
+        else:
+            raise MetadataException('unknown metadata name passed: %s' % 
+                self._name)
+        return fp
 
 
     def write(self):
         '''Write the JSON storage of all Metadata or RichMetadata contained in this object. 
         '''
-        fp = os.path.join(common.getMetadataCacheFilePath(), self._name + '.json')
+        fp = self._getFilePath()
         environLocal.printDebug(['MetadataBundle: writing:', fp])
         self.jsonWrite(fp)
 
@@ -2004,13 +2034,14 @@ class MetadataBundle(music21.JSONSerializer):
     def read(self, fp=None):
         '''Load self from the file path suggested by the _name of this MetadataBundle
         '''
-
         t = common.Timer()
         t.start()
-        if fp == None:
-            fp = os.path.join(common.getMetadataCacheFilePath(), self._name + '.json')
+        if fp is None:
+            fp = self._getFilePath()
+        if not os.path.exists(fp):
+            environLocal.warn('no metadata found for: %s; try building cache with corpus.cacheMetadata("%s")' % (self._name, self._name))
+            return
         self.jsonRead(fp)
-
         environLocal.printDebug(['MetadataBundle: loading time:', self._name, t, 'md items:', len(self._storage)])
 
 
@@ -2022,6 +2053,7 @@ class MetadataBundle(music21.JSONSerializer):
         >>> from music21 import *
         >>> mb = metadata.MetadataBundle()
         >>> mb.addFromPaths(corpus.getWorkList('bwv66.6'))
+        []
         >>> len(mb._accessPaths)
         0
         >>> mb.updateAccessPaths(corpus.getWorkList('bwv66.6'))
@@ -2067,6 +2099,7 @@ class MetadataBundle(music21.JSONSerializer):
         >>> from music21 import *
         >>> mb = metadata.MetadataBundle()
         >>> mb.addFromPaths(corpus.getWorkList('ciconia'))
+        []
         >>> mb.updateAccessPaths(corpus.getWorkList('ciconia'))
         >>> post = mb.search('cicon', 'composer')
         >>> len(post[0])
@@ -2075,7 +2108,7 @@ class MetadataBundle(music21.JSONSerializer):
         >>> len(post) # no files in this format
         0
         >>> post = mb.search('cicon', 'composer', extList=['.xml'])
-        >>> len(post) # no files in this format
+        >>> len(post)
         1
         '''
         post = []
@@ -2084,17 +2117,20 @@ class MetadataBundle(music21.JSONSerializer):
             match, fieldPost = md.search(query, field)
             if match:
                 # returns a pair of file path, work number
-                result = (self._accessPaths[key], md.number)
+                if md.number != "" and md.number is not None:
+                    number = int(md.number)
+                else:
+                    number = md.number
+                result = (self._accessPaths[key], number)
                 include = False
-
                 if extList != None:
                     for ext in extList:
-                        if result[0].endswith(ext):
+                        if result[0].endswith(ext) or\
+                            (ext.endswith('xml') and (result[0].endswith('mxl') or result[0].endswith('mx'))):
                             include = True
                             break
                 else:
                     include = True
-
                 if include and result not in post:
                     post.append(result)  
         return post
@@ -2368,26 +2404,28 @@ class Test(unittest.TestCase):
         self.assertEqual(s.metadata.search(re.compile('(.*)canon(.*)')), (True, 'title'))
 
 
+    def testRichMetadataA(self):
+        from music21 import corpus, metadata
+
+        s = corpus.parse('bwv66.6')
+        rmd = metadata.RichMetadata()
+        rmd.merge(s.metadata)
+        rmd.update(s)
+
+        self.assertEqual(rmd.noteCount, 165)
+        self.assertEqual(rmd.quarterLength, 36.0)
+
+        self.assertEqual(rmd.json, '{"__attr__": {"_urls": [], "quarterLength": 36.0, "noteCount": 165, "_contributors": [], "timeSignatureFirst": "4/4", "keySignatureFirst": "sharps 3, mode minor", "_workIds": {"movementName": {"__attr__": {"_data": "bwv66.6.mxl"}, "__class__": "<class \'music21.metadata.Text\'>"}}}, "__version__": [0, 6, 2], "__class__": "<class \'music21.metadata.RichMetadata\'>"}')
+
+
 #-------------------------------------------------------------------------------
 _DOC_ORDER = [Text, Date, 
             DateSingle, DateRelative, DateBetween, DateSelection, 
             Contributor, Metadata]
 
-
 if __name__ == "__main__":
-    import sys
-    import music21
-    
-    if len(sys.argv) == 1: # normal conditions
-        music21.mainTest(Test)
-    elif len(sys.argv) > 1:
-        t = Test()
-        #t.testAugmentOrDiminish()
-        #t.testJSONSerialization()
-        #t.testJSONSerializationMetadata()
+    music21.mainTest(Test)
 
-
-        t.testMetadataSearch()
 
 #------------------------------------------------------------------------------
 # eof

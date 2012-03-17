@@ -924,21 +924,10 @@ class Stream(music21.Music21Object):
         >>> s.remove(n3)
         
         '''
-#         iMatch = self.indexList(target, firstMatchOnly=firstMatchOnly)
-#         match = []
-#         baseElementCount = len(self._elements)
-#         for i in iMatch:
-#             # remove from stream with pop with index
-#             if i < baseElementCount:
-#                 match.append(self._elements.pop(i))
-#             else: # its in end elements
-#                 match.append(self._endElements.pop(i-baseElementCount))
-
         try:
             i = self.index(target)
         except StreamException:
             return # if not found, no error is raised
-
         match = None
         baseElementCount = len(self._elements)
         if i < baseElementCount:
@@ -946,20 +935,11 @@ class Stream(music21.Music21Object):
         else: # its in end elements
             match = self._endElements.pop(i-baseElementCount) 
 
-#         if len(iMatch) > 0:
-#             # removing an object will never change the sort status
-#             self._elementsChanged(clearIsSorted=False)
-
         if match is not None:
             # removing an object will never change the sort status
             self._elementsChanged(clearIsSorted=False)
             match.removeLocationBySite(self)
 
-        # after removing, need to remove self from locations reference 
-        # and from activeSite reference, if set; this is taken care of with the 
-        # Music21Object method
-#         for obj in match:
-#             obj.removeLocationBySite(self)
 
     def pop(self, index):
         '''Return and remove the object found at the user-specified index value. Index values are those found in `elements` and are not necessary offset order. 
@@ -1020,6 +1000,39 @@ class Stream(music21.Music21Object):
         #for i, e in enumerate(self._endElements):
         for e in self._endElements:
             if e.isClassOrSubclass(classFilterList):
+                indexList.append(count)
+            count += 1                        
+        for i in reversed(indexList):
+            post = self._endElements.pop(i)
+            post.removeLocationBySite(self)
+
+        # call elements changed once; sorted arrangement has not changed
+        self._elementsChanged(clearIsSorted=False)
+
+
+    def removeByNotOfClass(self, classFilterList):
+        '''Remove all elements not of the specified class or subclass in the Steam in place. 
+        '''
+        if not common.isListLike(classFilterList):
+            classFilterList = [classFilterList]
+        # process main elements
+        indexList = []
+        count = 0
+        #for i, e in enumerate(self._elements):
+        for e in self._elements:
+            if not e.isClassOrSubclass(classFilterList):
+                indexList.append(count)
+            count += 1                        
+        for i in reversed(indexList):
+            post = self._elements.pop(i)
+            post.removeLocationBySite(self)
+
+        # process end elements
+        indexList = []
+        count = 0
+        #for i, e in enumerate(self._endElements):
+        for e in self._endElements:
+            if not e.isClassOrSubclass(classFilterList):
                 indexList.append(count)
             count += 1                        
         for i in reversed(indexList):
@@ -1726,28 +1739,6 @@ class Stream(music21.Music21Object):
 
         
 
-#     def isClass(self, className):
-#         '''Returns true if the Stream or Stream Subclass is a particular class or subclasses that class.
-# 
-#         Used by getElementsByClass in Stream
-# 
-#         >>> from music21 import *
-#         >>> a = stream.Stream()
-#         >>> a.isClass(note.Note)
-#         False
-#         >>> a.isClass(stream.Stream)
-#         True
-#         >>> b = stream.Measure()
-#         >>> b.isClass(stream.Measure)
-#         True
-#         >>> b.isClass(stream.Stream)
-#         True
-#         '''
-#         ## same as Music21Object.isClass, not ElementWrapper.isClass
-#         if isinstance(self, className):
-#             return True
-#         else:
-#             return False
 
 
     #---------------------------------------------------------------------------
@@ -1797,6 +1788,73 @@ class Stream(music21.Music21Object):
                 site.replace(target, replacement, firstMatchOnly=firstMatchOnly)
 
 
+
+
+    def splitAtQuarterLength(self, quarterLength, retainOrigin=True, 
+        addTies=True, displayTiedAccidentals=False, searchContext=True, 
+        delta=1e-06):
+        '''This method overrides the method on Music21Object to provide similar functionality for Streams. Most arguments are passed to Music21Object.splitAtQuarterLength.
+        '''
+        if retainOrigin == True:
+            sLeft = self
+        else:
+            sLeft = copy.deepcopy(self)
+        # create empty container for right-hand side
+        sRight = self.__class__()
+
+        # if this is a Measure or Part, transfer clefs, ts, and key
+        if sLeft.isMeasure:
+            timeSignatures = sLeft.getTimeSignatures(
+                            searchContext=searchContext)
+            if len(timeSignatures) > 0:
+                sRight.keySignature = copy.deepcopy(timeSignatures[0])
+            keySignatures = sLeft.getKeySignatures(searchContext=searchContext)
+            if len(keySignatures) > 0:
+                sRight.keySignature = copy.deepcopy(keySignatures[0])
+            clefs = sLeft.getClefs(searchContext=searchContext)
+            if len(clefs) > 0:
+                sRight.clef = copy.deepcopy(clefs[0])
+
+        if (quarterLength > sLeft.highestTime): # nothing to do
+            return sLeft, sRight
+
+        # use quarterLength as start time
+        targets = sLeft.getElementsByOffset(quarterLength, sLeft.highestTime,     
+            includeEndBoundary=True, mustFinishInSpan=False, 
+            mustBeginInSpan=False)
+    
+        targetSplit = []
+        targetMove = []
+        # find all those that need to split v. those that need to be movewd
+        for t in targets:
+            # if target starts before the boundary, it needs to be split
+            if common.lessThan(t.getOffsetBySite(sLeft), quarterLength, 
+                grain=delta):
+                targetSplit.append(t)
+            else:
+                targetMove.append(t)
+
+        environLocal.pd(['split', targetSplit, 'move', targetMove])
+
+        for t in targetSplit:
+            # must retain origina, as a deepcopy, if necessary, has
+            # already been made
+            
+            # the split point needs to be relative to this element's start
+            qlSplit = quarterLength - t.getOffsetBySite(sLeft)
+            eLeft, eRight = t.splitAtQuarterLength(qlSplit,     
+                retainOrigin=True, addTies=addTies, 
+                displayTiedAccidentals=displayTiedAccidentals, delta=delta)
+            # do not need to insert eLeft, as already positioned and
+            # altered in-place above
+            # it is assumed that anything cut will start at zero
+            sRight.insert(0, eRight)
+
+        for t in targetMove:
+            sRight.insert(t.getOffsetBySite(sLeft) - quarterLength, t)
+            sLeft.remove(t)
+
+        return sLeft, sRight
 
     #---------------------------------------------------------------------------
     def _recurseRepr(self, thisStream, prefixSpaces=0, 
@@ -2483,7 +2541,7 @@ class Stream(music21.Music21Object):
 
     def getElementsByOffset(self, offsetStart, offsetEnd=None,
                     includeEndBoundary=True, mustFinishInSpan=False, 
-                    mustBeginInSpan=True):
+                    mustBeginInSpan=True, classList=None ):
         '''
         Returns a Stream containing all Music21Objects that 
         are found at a certain offset or within a certain 
@@ -2606,6 +2664,11 @@ class Stream(music21.Music21Object):
 
         # need both _elements and _endElements
         for e in self.elements:
+            
+            if classList is not None:
+                if not e.isClassOrSubclass(classList):
+                    continue
+            
             match = False
             offset = e.getOffsetBySite(self)
 
@@ -3275,9 +3338,11 @@ class Stream(music21.Music21Object):
         
         
         >>> choraleSemiFlat = chorale.semiFlat
-        >>> choraleMeasures = chorale.measureOffsetMap()
+        >>> choraleMeasures = choraleSemiFlat.measureOffsetMap()
         >>> choraleMeasures[4.0]
         [<music21.stream.Measure 2 offset=4.0>, <music21.stream.Measure 2 offset=4.0>, <music21.stream.Measure 2 offset=4.0>, <music21.stream.Measure 2 offset=4.0>]
+        
+        
 
 
 
@@ -8079,6 +8144,16 @@ class Stream(music21.Music21Object):
             self._cache['hasPartLikeStreams'] = multiPart
         return self._cache['hasPartLikeStreams']
 
+
+    def isTwelveTone(self):
+        '''Return true if this Stream only employs twelve-tone equal-tempered pitch values. 
+        '''
+        for p in self.pitches:
+            if not p.isTwelveTone():
+                return False
+        return True
+
+
     #---------------------------------------------------------------------------
     def _getLily(self):
         '''Returns the stream translated into Lilypond format.'''
@@ -8379,10 +8454,10 @@ class Stream(music21.Music21Object):
 
         >>> from music21 import corpus
         >>> a = corpus.parse('bach/bwv324.xml')
-        >>> voiceOnePitches = a.parts[0].pitches
-        >>> len(voiceOnePitches)
+        >>> partOnePitches = a.parts[0].pitches
+        >>> len(partOnePitches)
         25
-        >>> voiceOnePitches[0:10]
+        >>> partOnePitches[0:10]
         [B4, D5, B4, B4, B4, B4, C5, B4, A4, A4]
 
         
@@ -8390,7 +8465,7 @@ class Stream(music21.Music21Object):
         objects, not text:
 
         
-        >>> voiceOnePitches[0].octave
+        >>> partOnePitches[0].octave
         4
         
 
@@ -8426,8 +8501,6 @@ class Stream(music21.Music21Object):
         >>> m.append(c)
         >>> m.pitches
         [F#4, C4, E4, G4]
-        
-        
         
         ''')
 
@@ -17721,7 +17794,91 @@ class Test(unittest.TestCase):
         self.assertEqual(len(sFlatVoiced.voices), 4)
 
 
+    def testSplitAtQuarterLengthA(self):
+        from music21 import stream
+        s = stream.Measure()
+        s.append(note.Note('a', quarterLength=1))
+        s.append(note.Note('b', quarterLength=2))
+        s.append(note.Note('c', quarterLength=1))
 
+        l, r = s.splitAtQuarterLength(2, retainOrigin=True)
+        # if retain origin is true, l is the original
+        self.assertEqual(l, s)
+        self.assertEqual(l.highestTime, 2)
+        self.assertEqual(len(l.notes), 2)
+        self.assertEqual(r.highestTime, 2)
+        self.assertEqual(len(r.notes), 2)
+        
+        sPost = stream.Stream()
+        sPost.append(l)
+        sPost.append(r)
+
+
+    def testSplitAtQuarterLengthB(self):
+        '''Test if recursive calls work over voices in a Measure
+        '''
+        from music21 import stream, note
+        m1 = stream.Measure()
+        v1 = stream.Voice()
+        v1.repeatAppend(note.Note('g4', quarterLength=2), 3)
+        v2 = stream.Voice()
+        v2.repeatAppend(note.Note(quarterLength=6), 1)
+        m1.insert(0, v1)
+        m1.insert(0, v2)
+
+        #m1.show()
+        mLeft, mRight = m1.splitAtQuarterLength(3)
+        self.assertEqual(len(mLeft.flat.notes), 3)
+        self.assertEqual(len(mLeft.voices), 2)
+        self.assertEqual(len(mRight.flat.notes), 3)
+        self.assertEqual(len(mRight.voices), 2)
+
+        sPost = stream.Stream()
+        sPost.append(mLeft)
+        sPost.append(mRight)
+        #sPost.show()
+
+    def testSplitAtQuarterLengthC(self):
+
+        from music21 import corpus, stream
+        irl = corpus.parse('irl')[1]
+        #irl.show()
+        #irl[1].makeNotation(cautionaryNotRepeatAccidental=False)
+        p = irl.parts[0]
+        self.assertEqual(len(p.getElementsByClass('Measure')), 29)
+        pNew = stream.Part()
+        for m in p.getElementsByClass('Measure'):
+            if m.highestTime > 2:
+                mLeft, mRight = m.splitAtQuarterLength(2)
+                pNew.append(mLeft)
+                pNew.append(mRight)
+            else:
+                pNew.append(m)
+        self.assertEqual(len(pNew.getElementsByClass('Measure')), 32)
+        #pNew.show()
+
+    def testSplitAtQuarterLengthD(self):
+        '''Test splitting a Score
+        '''
+        from music21 import corpus
+        s = corpus.parse('bwv66.6')
+        sLeft, sRight = s.splitAtQuarterLength(6)
+        
+        self.assertEqual(len(sLeft.parts), 4)
+        self.assertEqual(len(sRight.parts), 4)
+        for i in range(4):
+            self.assertEqual(
+            str(sLeft.parts[i].getElementsByClass('Measure')[0].timeSignature), str(sRight.parts[i].getElementsByClass('Measure')[0].timeSignature))
+        for i in range(4):
+            self.assertEqual(
+            str(sLeft.parts[i].getElementsByClass('Measure')[0].clef), str(sRight.parts[i].getElementsByClass('Measure')[0].clef))
+        for i in range(4):
+            self.assertEqual(
+            str(sLeft.parts[i].getElementsByClass('Measure')[0].keySignature), str(sRight.parts[i].getElementsByClass('Measure')[0].keySignature))
+
+
+        #sLeft.show()
+        #sRight.show()
 
 
 #-------------------------------------------------------------------------------

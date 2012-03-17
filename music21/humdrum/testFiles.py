@@ -10,23 +10,23 @@ fakeTest = re.sub("\s\s\s\s+", "\t", \
 !!!OTL: OjibwaySchubertMazurka
 **kern    **lyrics      **kern     **kern     **dynam
 !         ! In Ojibway  !          !          !
-*staff3   *staff3       *staff2    *staff1    *staff1/2
-*clefF4   *             *clefF4    *clefG2    *
-*M3/4     *             *M3/4      *M3/4      *  
+*staff3      *staff3       *staff2    *staff1    *staff1/2
+*clefF4    *             *clefF4    *clefG2    *
+*M3/4     *             *M3/4      *M3/4      *
 *k[b-e-a-d-g-]    *     *k[b-e-a-d-g-]     *k[b-e-a-d-]     *
-8.d-      Ma-           4r         4r         .       
+8.d-      Ma-           4r         4r         .
 16d-      -gi-          .          .          .
 =1        =1            =1         =1         =1
 *         *             *^         *          *
 8d-       -ja-          8A#/       4GG#^\ 4D#^\    4g#^/    p
 16A-      -go          16B#/L      .               .        .
 16A-      ic-          16c#/J      .               .        .
-4d-       -kew-         2B#        2r             2d#     f    
+4d-       -kew-         2B#        2r             2d#     f
 4d-       -yan          .          .                .      .
 =2        =2            =2         =2              =2      =2
 2d-      .              4c#        4GG# 4D#        4g#    mp
 *        *              *v         *v              *      *
-.        .              4D#                        4r     pp  
+.        .              4E-                        4r     pp
 =3       =3             =3                         =3     =3
 *-        *-            *-                         *-     *-
 '''
@@ -54,6 +54,54 @@ ojibway =  re.sub("\s\s\s\s+", "\t", \
 *-        *-
 '''
 )
+
+splitSpines =  re.sub("\s\s\s\s+", "\t", \
+'''
+**kern
+*staff1
+*clefG2
+*M2/4
+=1
+4c
+4c
+=2
+*^
+4c    4a
+4c    4a
+==    ==
+*-    *-
+'''
+)
+
+splitSpines2 =  re.sub("\s\s\s\s+", "\t", \
+'''
+**kern
+*staff1
+*clefG2
+*M2/4
+=1
+4d
+4d
+=2
+2d
+=3
+*^
+4c    4a
+4c    4a
+=4    =4
+2c    2a
+=5    =5
+*v    *v
+4d
+4d
+=6
+2d
+==
+*-
+'''
+)
+
+
   
 schubert = re.sub("\s\s\s\s", "\t", \
 '''
@@ -1729,6 +1777,7 @@ sousaStars = re.sub("\s\s\s\s","\t",
 !!!END: 2006/06/17/
 '''
 )
+
 
 #------------------------------------------------------------------------------
 # eof
