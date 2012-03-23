@@ -4,6 +4,7 @@ import plot
 import matrix
 import auxiliary
 import diagonal
+import fuzzy
 import utils
 import itertools
 
@@ -659,6 +660,30 @@ class Contour(MutableSequence):
         """
 
         return [self.reduction_window_5().reduction_window_5().reduction_window_5(), 3]
+
+    def fuzzy_membership_matrix(self):
+        """Returns a Fuzzy membership matrix. Quinn (1997).
+
+        >>> Contour([0, 1, 3, 2]).fuzzy_membership_matrix()
+        0 1 1 1
+        0 0 1 1
+        0 0 0 0
+        0 0 1 0
+        """
+
+        return fuzzy.FuzzyMatrix([[fuzzy.membership([a, b]) for b in self] for a in self])
+
+    def fuzzy_comparison_matrix(self):
+        """Returns a Fuzzy comparison matrix. Quinn (1997).
+
+        >>> Contour([0, 1, 3, 2]).fuzzy_comparison_matrix()
+        0 1 1 1
+        -1 0 1 1
+        -1 -1 0 -1
+        -1 -1 1 0
+        """
+
+        return fuzzy.FuzzyMatrix([[fuzzy.comparison([a, b]) for b in self] for a in self])
 
     def show(self):
         print self
