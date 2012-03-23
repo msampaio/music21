@@ -4,7 +4,65 @@ import plot
 import matrix
 import auxiliary
 import diagonal
+import utils
 import itertools
+
+
+def max_min(list_of_tuples, fn):
+    """Returns a list with the position of maximum or minimum
+    cpitches of a cseg. Maximum or minimum function is defined in
+    fn argument.
+
+    'n' stores the number of elements that is evaluated.
+    'r' means result.
+    """
+
+    n = 3
+    list_range = range(len(list_of_tuples) - n + 1)
+    m_list = [list_of_tuples[0]]
+
+    [m_list.append(fn(list_of_tuples[i:i + n])) for i in list_range]
+    m_list.append(list_of_tuples[-1])
+
+    return [x for x in m_list if x]
+
+
+def maxima_pair(list_of_tuples):
+    """Returns maxima (Morris, 1993) positions in a cseg.
+
+    >>> maxima_pair([(0, 1), (1, 2), (2, 4), (4, 5), (3, 3)])
+    [(0, 1), (4, 5), (3, 3)]
+    """
+
+    def maximum(dur_list):
+        """Returns the maximum (Morris, 1993) position of a three
+        c-pitches set. The input data is a list of three tuples. Each
+        tuple has the c-pitch and its position.
+        """
+
+        (el1, p1), (el2, p2), (el3, p3) = dur_list
+        return (el2, p2) if el2 >= el1 and el2 >= el3 else ''
+
+    return max_min(list_of_tuples, maximum)
+
+
+def minima_pair(list_of_tuples):
+    """Returns minima (Morris, 1993) positions in a cseg.
+
+    >>> minima_pair([(0, 1), (1, 2), (2, 4), (4, 5), (3, 3)])
+    [(0, 1), (3, 3)]
+    """
+
+    def minimum(dur_list):
+        """Returns the minimum (Morris, 1993) position of a three
+        c-pitches set. The input data is a list of three tuples. Each
+        tuple has the c-pitch and its position.
+        """
+
+        (el1, p1), (el2, p2), (el3, p3) = dur_list
+        return (el2, p2) if el2 <= el1 and el2 <= el3 else ''
+
+    return max_min(list_of_tuples, minimum)
 
 
 class Contour(MutableSequence):
@@ -383,6 +441,101 @@ class Contour(MutableSequence):
                 dic[processed] = [x]
 
         return dic
+
+    def cps_position(self):
+        """Returns a tuple with c-pitch and its position for each
+        c-pitch of a cseg done.
+
+        >>> Contour([0, 1, 3, 2]).cps_position()
+        [(0, 0), (1, 1), (3, 2), (2, 3)]
+        """
+
+        return [(self[p], p) for p in range(len(self))]
+
+    def reduction_morris(self):
+        """Returns Morris (1993) contour reduction from a cseg, and
+        its depth.
+
+        >>> Contour([0, 4, 3, 2, 5, 5, 1]).reduction_morris()
+        [< 0 2 1 >, 2]
+        """
+
+        def cps_position_to_cseg(cps_position):
+            """Converts a list of cps_position tuples to cseg object."""
+
+            return Contour([x for (x, y) in cps_position])
+
+        def init_flag(tuples_list):
+            """Returns max_list, min_list, flagged and unflagged
+            cpitch tuples.
+
+            Accepts a tuples_list with the original contour.
+
+            It runs steps 1 and 2."""
+
+            max_list = maxima_pair(tuples_list)
+            min_list = minima_pair(tuples_list)
+
+            # flagged cpitches are all cpitches that are in max_list
+            # or min_list
+            flagged = list(set(utils.flatten([max_list, min_list])))
+
+            not_flagged = []
+            for el in tuples_list:
+                if el not in flagged:
+                    not_flagged.append(el)
+
+            return max_list, min_list, flagged, not_flagged
+
+        def flag(max_list, min_list):
+            """Returns max_list, min_list and unflagged cpitch tuples.
+
+            It runs steps 6, and 7."""
+
+            init_list = list(set(utils.flatten([max_list, min_list])))
+            new_max_list = utils.remove_duplicate_tuples(maxima_pair(max_list))
+            new_min_list = utils.remove_duplicate_tuples(minima_pair(min_list))
+
+            # flagged cpitches are all cpitches that are in max_list
+            # or min_list
+            flagged = list(set(utils.flatten([new_max_list, new_min_list])))
+            flagged = sorted(flagged, key=lambda(x, y): y)
+            not_flagged = []
+            # fills not_flagged:
+            for el in init_list:
+                if el not in flagged:
+                    not_flagged.append(el)
+
+            return new_max_list, new_min_list, flagged, not_flagged
+
+        # returns list of cpitch/position tuples
+        cseg_pos_tuples = self.cps_position()
+
+        # initial value (step 0)
+        depth = 0
+
+        # runs steps 1 and 2
+        max_list, min_list, flagged, not_flagged = init_flag(cseg_pos_tuples)
+
+        if not_flagged != []:
+
+            # step 5 (first time)
+            depth += 1
+
+            # loop to run unflagged until finish unflagged cpitches
+            # tests if there are unflagged cpitches (partial step 3)
+            while flag(max_list, min_list)[3] != []:
+                # back to steps 6 and 7
+                r = flag(max_list, min_list)
+                max_list, min_list, flagged, not_flagged = r
+
+                # increases depth (step 5)
+                depth += 1
+
+        sorted_flagged = sorted(flagged, key=lambda x: x[1])
+        reduced = Contour(cps_position_to_cseg(sorted_flagged).translation())
+
+        return [reduced, depth]
 
     def show(self):
         print self
