@@ -48,3 +48,16 @@ def replace_all(seq, replacement):
         if elem == 0:
             new_seq[i] = replacement
     return new_seq
+
+
+def greatest_first(list1, list2):
+    """Returns greatest list first.
+
+    >>> greatest_first([0, 1], [3, 2, 1])
+    [[3, 2, 1], [0, 1]]
+    """
+
+    if len(list1) > len(list2):
+        return [list1, list2]
+    else:
+        return [list2, list1]
