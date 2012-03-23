@@ -65,6 +65,45 @@ def minima_pair(list_of_tuples):
     return max_min(list_of_tuples, minimum)
 
 
+def reduction_retention_3(els):
+    """Returns medial cps value if it is maxima or minima of a given
+    three consecutive cps list. Returns medial cps value also if
+    medial cps is equal to last cps and different form first, returns
+    True. (Bor, 2009).
+    """
+
+    medial = els[1]
+
+    if els[0] == None or els[2] == None:
+        return medial
+    elif els[0] < medial > els[2] or els[0] > medial < els[2]:
+        return medial
+    elif medial == els[2] and medial != els[0]:
+        return medial
+
+
+def reduction_retention_5(els):
+    """Returns medial cps value if it is maxima or minima of a given
+    five consecutive cps list. (Bor, 2009).
+    """
+
+    medial = els[2]
+
+    els_max = max(els)
+    els_min = min([x for x in els if x != None])
+
+    ## retain if medial is the first or last el
+    if els[0] == els[1] == None or els[-1] == els[-2] == None:
+        return medial
+    ## repeatitions. Do not retain if medial is the second consecutive
+    ## repeated cps
+    elif medial == els[1]:
+        return None
+    ## retain if medial is max or min
+    elif medial == els_max or medial == els_min:
+        return medial
+
+
 class Contour(MutableSequence):
     def __init__(self, args):
         """args can be either a music21.stream or a list of numbers
@@ -536,6 +575,90 @@ class Contour(MutableSequence):
         reduced = Contour(cps_position_to_cseg(sorted_flagged).translation())
 
         return [reduced, depth]
+
+    def reduction_window_3(self):
+        """Returns a reduction in a single turn of 3-window reduction
+        algorithm. (Bor, 2009).
+
+        >>> Contour([7, 10, 9, 0, 2, 3, 1, 8, 6, 2, 4, 5]).reduction_window_3()
+        < 7 10 0 3 1 8 2 5>
+        """
+
+        def _red_3(cseg, pos):
+
+            return reduction_retention_3(cseg[pos - 1:pos + 2])
+
+        cseg = self[:]
+        size = len(cseg)
+
+        cseg.insert(0, None)
+        cseg.append(None)
+        prange = range(1, size + 1)
+        return Contour([_red_3(cseg, pos) for pos in prange if _red_3(cseg, pos) != None])
+
+    def reduction_window_5(self):
+        """Returns a reduction in a single turn of 3-window reduction
+        algorithm. (Bor, 2009).
+
+        >>> Contour([7, 10, 9, 0, 2, 3, 1, 8, 6, 2, 4, 5]).reduction_window_5()
+        < 7 10 0 3 1 8 2 5>
+        """
+
+        def _red_5(cseg, pos):
+
+            return reduction_retention_5(cseg[pos - 2:pos + 3])
+
+        cseg = self[:]
+        size = len(cseg)
+
+        cseg.insert(0, None)
+        cseg.insert(0, None)
+        cseg.append(None)
+        cseg.append(None)
+        prange = range(2, size + 2)
+
+        return Contour([_red_5(cseg, pos) for pos in prange if _red_5(cseg, pos) != None])
+
+    def reduction_bor_35(self):
+        """Returns reduction contour and its depth with a 3-window
+        followed by a 5-window reduction algorithm. R35 (Bor, 2009).
+
+        >>> Contour([7, 10, 9, 0, 2, 3, 1, 8, 6, 2, 4, 5]).reduction_bor_35()
+        [< 7 10 0 8 5>, 2]
+        """
+
+        return [self.reduction_window_3().reduction_window_5(), 2]
+
+    def reduction_bor_53(self):
+        """Returns reduction contour and its depth with a 5-window
+        followed by a 3-window reduction algorithm. R35 (Bor, 2009).
+
+        >>> Contour([7, 10, 9, 0, 2, 3, 1, 8, 6, 2, 4, 5]).reduction_bor_53()
+        [< 7 10 0 8 5>, 2]
+        """
+
+        return [self.reduction_window_5().reduction_window_3(), 2]
+
+    def reduction_bor_355(self):
+        """Returns reduction contour and its depth with a 3-window
+        followed by a 5-window reduction algorithm twice. R355 (Bor,
+        2009).
+
+        >>> Contour([7, 10, 9, 0, 2, 3, 1, 8, 6, 2, 4, 5]).reduction_bor_355()
+        [< 7 10 0 5>, 3]
+        """
+
+        return [self.reduction_window_3().reduction_window_5().reduction_window_5(), 3]
+
+    def reduction_bor_555(self):
+        """Returns reduction contour and its depth with a 5-window
+        reduction algorithm three times. R555 (Bor, 2009).
+
+        >>> Contour([7, 10, 9, 0, 2, 3, 1, 8, 6, 2, 4, 5]).reduction_bor_555()
+        [< 7 10 0 5>, 3]
+        """
+
+        return [self.reduction_window_5().reduction_window_5().reduction_window_5(), 3]
 
     def show(self):
         print self
