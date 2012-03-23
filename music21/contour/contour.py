@@ -343,6 +343,47 @@ class Contour(MutableSequence):
 
         return [p, i, r, ri]
 
+    def subsets(self, n):
+        """Returns adjacent and non-adjacent subsets of a given
+        contour.
+
+        >>> Contour([0, 2, 1, 3, 4]).subsets(4)
+        [< 0 1 3 4 >, < 0 2 1 3 >, < 0 2 1 4 >, < 0 2 3 4 >, < 2 1 3 4 >]
+        """
+
+        cseg = self
+        r = [Contour(list(x)) for x in itertools.combinations(cseg, n)]
+        return sorted(r)
+
+    def subsets_normal(self, n):
+        """Returns adjacent and non-adjacent subsets of a given
+        contour grouped by their normal forms.
+
+        Output is a dictionary where the key is the normal form, and
+        the attribute is csubsets list.
+
+        >>> Contour([0, 3, 1, 4, 2]).subsets_normal()
+        {(0, 1, 3, 2): [[0, 1, 4, 2]],
+        (0, 2, 1, 3): [[0, 3, 1, 4]],
+        (0, 2, 3, 1): [[0, 3, 4, 2]],
+        (0, 3, 1, 2): [[0, 3, 1, 2]],
+        (2, 0, 3, 1): [[3, 1, 4, 2]]}
+        """
+
+        subsets = self.subsets(n)
+        dic = {}
+
+        for x in subsets:
+            processed = tuple(x.translation())
+            if processed in dic:
+                z = dic[processed]
+                z.append(x)
+                dic[processed] = z
+            else:
+                dic[processed] = [x]
+
+        return dic
+
     def show(self):
         print self
 
