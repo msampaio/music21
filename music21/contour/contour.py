@@ -117,7 +117,7 @@ class Contour(MutableSequence):
         """
 
         if isinstance(args, Stream):
-            self.items = [n.pitchClass for n in args.notes]
+            self.items = Contour([n.midi for n in args.notes]).translation()
         else:
             self.items = args
 
