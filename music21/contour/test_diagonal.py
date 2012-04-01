@@ -6,8 +6,9 @@ class TestUtils(unittest.TestCase):
     def test_csegs(self):
         i1 = InternalDiagonal([-1, 1])
         i2 = InternalDiagonal([-1, 1, 1])
-        self.assertEqual(i1.csegs(), Contour([[1, 0, 2], [2, 0, 1]]))
-        self.assertEqual(i2.csegs(), Contour([[1, 0, 2, 3], [2, 0, 1, 3], [3, 0, 1, 2]]))
+        self.assertEqual(i1.csegs(), [Contour([1, 0, 2]), Contour([2, 0, 1])])
+        self.assertEqual(i2.csegs(), [Contour([1, 0, 2, 3]), Contour([2, 0, 1, 3]),
+                                      Contour([3, 0, 1, 2])])
 
     def test_inversion_Int(self):
         i1 = InternalDiagonal([-1, 1])
