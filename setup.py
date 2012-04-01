@@ -6,7 +6,7 @@
 # Authors:       Christopher Ariza
 #                Michael Scott Cuthbert
 #
-# Copyright:     (c) 2009-2011 The music21 Project
+# Copyright:     (c) 2009-2012 The music21 Project
 # License:       LGPL
 #-------------------------------------------------------------------------------
 
@@ -27,10 +27,6 @@ def _getPackagesList():
     #     pkg = (  'music21', 
     #              'music21.analysis', 
     #              'music21.composition', 
-    #              'music21.corpus', 
-    #              'music21.corpus.bach', 
-    #              'music21.corpus.beethoven', 
-    #              'music21.corpus.beethoven.opus18no1', 
 
     pkg = common.getPackageDir()
     for dir in pkg:
@@ -61,7 +57,7 @@ def _getPackageData():
 def _getClassifiers():
     # http://pypi.python.org/pypi?:action=list_classifiers
     classifiers = [
-            'Development Status :: 3 - Alpha',
+            'Development Status :: 4 - Beta',
             'Environment :: Console',
              'Intended Audience :: End Users/Desktop',
              'Intended Audience :: Developers',
@@ -76,6 +72,7 @@ def _getClassifiers():
              'Programming Language :: Python',
              'Topic :: Multimedia :: Sound/Audio',
              'Topic :: Artistic Software',
+             'Topic :: Software Development :: Libraries :: Python Modules',
              ]
     return classifiers
      
@@ -95,7 +92,6 @@ def writeManifestTemplate(fpPackageDir):
     msg.append('prune dist\n')
     msg.append('prune buildDoc\n')
     msg.append('prune obsolete\n')
-
 
     f = open(dst, 'w')
     f.writelines(msg)
