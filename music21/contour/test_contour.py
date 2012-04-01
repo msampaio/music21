@@ -60,7 +60,7 @@ class TestUtils(unittest.TestCase):
         cseg = contour.Contour([1, 4, 9, 9, 2, 1])
         self.assertEqual(cseg.translation(), [0, 2, 3, 3, 1, 0])
 
-    def test_prime_form_marvin_laprade_1(self):
+    def test_prime_form_marvin_laprade(self):
         cseg1 = contour.Contour([1, 4, 9, 2])
         cseg2 = contour.Contour([5, 7, 9, 1])
         cseg3 = contour.Contour([5, 7, 9, 1])
@@ -107,16 +107,16 @@ class TestUtils(unittest.TestCase):
         cseg = contour.Contour([0, 1, 3, 2])
         self.assertEqual(cseg.interval_array(), ([2, 2, 1], [1, 0, 0]))
 
-    def test_class_vector_i():
+    def test_class_vector_i(self):
         cseg = contour.Contour([0, 1, 3, 2])
         self.assertEqual(cseg.class_vector_i(), [9, 1])
 
-    def test_class_vector_ii():
+    def test_class_vector_ii(self):
         cseg = contour.Contour([0, 1, 3, 2])
         self.assertEqual(cseg.class_vector_ii(), [5, 1])
 
-    def test_class_representatives():
-        cseg = Contour([0, 1, 3, 2])
+    def test_class_representatives(self):
+        cseg = contour.Contour([0, 1, 3, 2])
         result = [[0, 1, 3, 2], [3, 2, 0, 1], [2, 3, 1, 0], [1, 0, 2, 3]]
         self.assertEqual(cseg.class_representatives(), result)
 
