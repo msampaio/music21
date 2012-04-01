@@ -4,8 +4,12 @@
 import contour
 import utils
 import auxiliary
-import numpy
 import itertools
+
+try:
+    import numpy
+except ImportError:
+    pass
 
 
 def membership(els):

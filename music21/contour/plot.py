@@ -8,9 +8,8 @@ from music21.graph import getColor
 try:
     import matplotlib
     import matplotlib.pyplot as plt
-
 except ImportError:
-    _missingImport.append('matplotlib')
+    pass
 
 
 class GraphPlot(Graph):
