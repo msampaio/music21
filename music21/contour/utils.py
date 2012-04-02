@@ -47,8 +47,12 @@ def greatest_first(list1, list2):
     [[3, 2, 1], [0, 1]]
     """
 
-    return sorted([list1, list2], reverse=True)
+    if len(list1) > len(list2):
+        return [list1, list2]
+    else:
+        return [list2, list1]
 
+    
 def remove_duplicate_tuples(list_of_tuples):
     """Removes tuples that the first item is repeated in adjacent
     tuples. The removed tuple is the second.
