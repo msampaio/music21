@@ -117,7 +117,9 @@ class Contour(MutableSequence):
         """
 
         if isinstance(args, Stream):
-            self.items = Contour([n.midi for n in args.notes]).translation()
+            cseg = Contour([n.midi for n in args.notes]).translation()
+            self.items = self.remove_adjacent(cseg)
+            self.expanded = cseg
         else:
             self.items = args
 
@@ -144,6 +146,17 @@ class Contour(MutableSequence):
 
     def insert(self, i, value):
         self.items.insert(i, value)
+
+    @staticmethod
+    def remove_adjacent(list):
+        """Removes duplicate adjacent elements from a list.
+
+        >>> remove_adjacent([0, 1, 1, 2, 3, 1, 4, 2, 2, 5])
+        [0, 1, 2, 3, 1, 4, 2, 5]
+        """
+
+        groups = itertools.izip(list, list[1:])
+        return [a for a, b in groups if a != b] + [list[-1]]
 
     def rotation(self, factor=1):
         """Rotates a cseg around a factor.
@@ -589,7 +602,7 @@ class Contour(MutableSequence):
 
             return reduction_retention_3(cseg[pos - 1:pos + 2])
 
-        cseg = self[:]
+        cseg = self.expanded[:]
         size = len(cseg)
 
         cseg.insert(0, None)
