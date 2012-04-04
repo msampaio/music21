@@ -118,7 +118,8 @@ class Contour(MutableSequence):
 
         if isinstance(args, Stream):
             #self.items = Contour([n.midi for n in args.notes]).translation()
-            midi_args = [n.midi for n in args.notes]
+            # midi_args = [n.midi for n in args.notes]
+            midi_args = Contour([n.midi for n in args.notes]).translation()
             self.items = self.remove_adjacent(midi_args)
             self.expanded = midi_args
         else:
