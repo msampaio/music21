@@ -117,9 +117,8 @@ class Contour(MutableSequence):
         """
 
         if isinstance(args, Stream):
-            #self.items = Contour([n.midi for n in args.notes]).translation()
-            # midi_args = [n.midi for n in args.notes]
-            midi_args = Contour([n.midi for n in args.notes]).translation()
+            midi_args = [n.midi for n in args.notes]
+            midi_args_translation = [sorted(set(midi_args)).index(x) for x in midi_args]
             self.items = self.remove_adjacent(midi_args)
             self.expanded = midi_args
         else:
@@ -142,7 +141,10 @@ class Contour(MutableSequence):
         return "< {0} >".format(" ".join([str(x) for x in self.items]))
 
     def __eq__(self, other):
-        return all(x == y for x, y in zip(self.items, other.items))
+        if len(self.items) == len(other.items):
+            return all(x == y for x, y in zip(self.items, other.items))
+        else:
+            return False
 
     def __add__(self, other):
         return Contour(self.items + other.items)
@@ -173,9 +175,9 @@ class Contour(MutableSequence):
         < 2 3 0 1 >
         """
 
-        n = factor % len(self)
-        subset = self[n:]
-        subset.extend(self[0:n])
+        n = factor % len(self.expanded)
+        subset = self.expanded[n:]
+        subset.extend(self.expanded[0:n])
         return Contour(subset)
 
     def retrograde(self):
@@ -625,7 +627,7 @@ class Contour(MutableSequence):
 
             return reduction_retention_5(cseg[pos - 2:pos + 3])
 
-        cseg = self[:]
+        cseg = self.expanded[:]
         size = len(cseg)
 
         cseg.insert(0, None)
