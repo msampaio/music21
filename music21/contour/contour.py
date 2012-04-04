@@ -175,9 +175,9 @@ class Contour(MutableSequence):
         < 2 3 0 1 >
         """
 
-        n = factor % len(self)
-        subset = self[n:]
-        subset.extend(self[0:n])
+        n = factor % len(self.expanded)
+        subset = self.expanded[n:]
+        subset.extend(self.expanded[0:n])
         return Contour(subset)
 
     def retrograde(self):
@@ -627,7 +627,7 @@ class Contour(MutableSequence):
 
             return reduction_retention_5(cseg[pos - 2:pos + 3])
 
-        cseg = self[:]
+        cseg = self.expanded[:]
         size = len(cseg)
 
         cseg.insert(0, None)
