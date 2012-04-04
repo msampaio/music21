@@ -141,7 +141,10 @@ class Contour(MutableSequence):
         return "< {0} >".format(" ".join([str(x) for x in self.items]))
 
     def __eq__(self, other):
-        return all(x == y for x, y in zip(self.items, other.items))
+        if len(self.items) == len(other.items):
+            return all(x == y for x, y in zip(self.items, other.items))
+        else:
+            return False
 
     def __add__(self, other):
         return Contour(self.items + other.items)
