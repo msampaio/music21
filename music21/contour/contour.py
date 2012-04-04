@@ -117,11 +117,13 @@ class Contour(MutableSequence):
         """
 
         if isinstance(args, Stream):
-            cseg = Contour([n.midi for n in args.notes]).translation()
-            self.items = self.remove_adjacent(cseg)
-            self.expanded = cseg
+            #self.items = Contour([n.midi for n in args.notes]).translation()
+            midi_args = [n.midi for n in args.notes]
+            self.items = self.remove_adjacent(midi_args)
+            self.expanded = midi_args
         else:
-            self.items = args
+            self.items = self.remove_adjacent(args)
+            self.expanded = args
 
     def __delitem__(self, i):
         del self.items[i]
