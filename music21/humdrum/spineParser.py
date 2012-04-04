@@ -1742,6 +1742,8 @@ def hdStringToNote(contents):
         thisObject.articulations.append(music21.articulations.Tenuto())
     if contents.count('^'):
         thisObject.articulations.append(music21.articulations.Accent())
+    if contents.count(';'):
+        thisObject.expressions.append(music21.expressions.Fermata())
     
     # 3.2.5 Up & Down Bows
     if contents.count('v'):
