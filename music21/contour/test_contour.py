@@ -7,6 +7,9 @@ from fuzzy import FuzzyMatrix
 
 
 class TestUtils(unittest.TestCase):
+    def test_logical(self):
+        self.assertNotEqual(Contour([0, 1, 2]), Contour([0, 1]))
+
     def test_maxima_pair(self):
         n = [(0, 0), (1, 1), (3, 2), (2, 3), (4, 4)]
         self.assertEqual(contour.maxima_pair(n), [(0, 0), (3, 2), (4, 4)])
