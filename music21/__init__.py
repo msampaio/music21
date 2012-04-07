@@ -55,7 +55,8 @@ __all__ = ['base',
            'romanText', 
            'scala', 
            'test', 'trecento',
-           'webapps', 
+           'webapps',
+           'contour',
            
            # individual modules 
            # KEEP ALPHABETICAL unless necessary for load reasons, if so
