@@ -28,6 +28,8 @@ import json
 
 
 availableDataFormats = ['xml',
+                        'musicxml',
+                        'abc',
                         'str',
                         'string',
                         'int',
@@ -35,7 +37,8 @@ availableDataFormats = ['xml',
 
 availableFunctions = ['stream.transpose',
                       'corpus.parse',
-                      'transpose']
+                      'transpose',
+                      'augmentOrDiminish',]
 
 availableAttribtues = ['highestOffset',
                        'flat']
@@ -159,7 +162,7 @@ class RequestObject():
                         
     def _parseData(self):
         '''
-        Parses data specified as stinrgs in self.dataDict into objects in self.parsedDataDict
+        Parses data specified as strings in self.dataDict into objects in self.parsedDataDict
         '''
         for (name,dataDictElement) in self.dataDict.iteritems():
             if 'fmt' not in dataDictElement.keys():
@@ -184,8 +187,11 @@ class RequestObject():
             elif fmt == 'int':
                 data = int(dataStr)
             else:
-                if dataStr.find("<?xml") == -1:
-                    dataStr = """<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 1.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">""" + dataStr
+                if fmt in ['xml','musicxml']:                
+                    if dataStr.find("<!DOCTYPE") == -1:
+                        dataStr = """<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 1.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">""" + dataStr
+                    if dataStr.find("<?xml") == -1:
+                        dataStr = """<?xml version="1.0" encoding="UTF-8"?>""" + dataStr
                 
                 data = converter.parseData(dataStr)
                 
