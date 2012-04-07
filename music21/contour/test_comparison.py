@@ -20,40 +20,40 @@ class TestUtils(unittest.TestCase):
         cseg2 = contour.Contour([3, 1, 0, 2])
         self.assertEqual(comparison.csegclass_similarity(cseg1, cseg2), 1)
 
-    def test_subsets_embed_total_number(self):
+    def test_subsets_embedded_total_number(self):
         cseg1 = contour.Contour([0, 1, 2, 3])
         cseg2 = contour.Contour([1, 0, 2])
         cseg3 = contour.Contour([0, 1, 3, 2])
         cseg4 = contour.Contour([1, 0, 2])
-        self.assertEqual(comparison.subsets_embed_total_number(cseg1, cseg2), 4)
-        self.assertEqual(comparison.subsets_embed_total_number(cseg3, cseg4), 4)
+        self.assertEqual(comparison.subsets_embedded_total_number(cseg1, cseg2), 4)
+        self.assertEqual(comparison.subsets_embedded_total_number(cseg3, cseg4), 4)
 
-    def test_subsets_embed_number(self):
+    def test_subsets_embedded_number(self):
         cseg1 = contour.Contour([0, 2, 1, 3])
         cseg2 = contour.Contour([0, 1, 2])
-        self.assertEqual(comparison.subsets_embed_number(cseg1, cseg2), 2)
+        self.assertEqual(comparison.subsets_embedded_number(cseg1, cseg2), 2)
 
-    def test_contour_embed(self):
+    def test_contour_embedded(self):
         cseg1 = contour.Contour([0, 2, 1, 3])
         cseg2 = contour.Contour([0, 1, 2])
         cseg3 = contour.Contour([0, 2, 1, 3, 4])
         cseg4 = contour.Contour([0, 1, 2])
-        self.assertEqual(comparison.contour_embed(cseg1, cseg2), 0.5)
-        self.assertEqual(comparison.contour_embed(cseg3, cseg4), 0.7)
+        self.assertEqual(comparison.contour_embedded(cseg1, cseg2), 0.5)
+        self.assertEqual(comparison.contour_embedded(cseg3, cseg4), 0.7)
 
-    def test_csubseg_mutually_embed(self):
+    def test_csubseg_mutually_embedded(self):
         cseg1 = contour.Contour([1, 0, 4, 3, 2])
         cseg2 = contour.Contour([2, 0, 1, 4, 3])
-        self.assertEqual(comparison.csubseg_mutually_embed(3, cseg1, cseg2), 0.8)
-        self.assertEqual(comparison.csubseg_mutually_embed(4, cseg1, cseg2), 0.5)
+        self.assertEqual(comparison.csubseg_mutually_embedded(3, cseg1, cseg2), 0.8)
+        self.assertEqual(comparison.csubseg_mutually_embedded(4, cseg1, cseg2), 0.5)
 
-    def test_all_contour_mutually_embed(self):
+    def test_all_contour_mutually_embedded(self):
         cseg1 = contour.Contour([0, 1, 2, 3])
         cseg2 = contour.Contour([0, 2, 1, 3])
         cseg3 = contour.Contour([0, 2, 1, 3, 4])
-        self.assertEqual(comparison.all_contour_mutually_embed(cseg1, cseg2), 17.0 / 22)
-        self.assertEqual(comparison.all_contour_mutually_embed(cseg1, cseg3), 29.0 / 37)
-        self.assertEqual(comparison.all_contour_mutually_embed(cseg2, cseg3), 33.0 / 37)
+        self.assertEqual(comparison.all_contour_mutually_embedded(cseg1, cseg2), 17.0 / 22)
+        self.assertEqual(comparison.all_contour_mutually_embedded(cseg1, cseg3), 29.0 / 37)
+        self.assertEqual(comparison.all_contour_mutually_embedded(cseg2, cseg3), 33.0 / 37)
 
 
 if __name__ == '__main__':

@@ -34,12 +34,12 @@ def csegclass_similarity(cseg1, cseg2, prime_algorithm="prime_form_marvin_laprad
     return sorted(csims, reverse=True)[0]
 
 
-def subsets_embed_total_number(cseg1, cseg2):
+def subsets_embedded_total_number(cseg1, cseg2):
     """Returns the number of subsets with csubseg_size in a set with
     cseg_size. Marvin and Laprade (1987, p. 237).
 
     >>> c1, c2 = Contour([0, 1, 2, 3]), Contour([1, 0, 2])
-    >>> subsets_embed_total_number(c1, c2)
+    >>> subsets_embedded_total_number(c1, c2)
     4
     """
 
@@ -53,12 +53,12 @@ def subsets_embed_total_number(cseg1, cseg2):
     return a / (b * c)
 
 
-def subsets_embed_number(cseg1, cseg2):
+def subsets_embedded_number(cseg1, cseg2):
     """Returns the number of time the normal form of a csubseg appears
     in cseg subsets. Marvin and Laprade (1987).
 
     >>> c1, c2 = Contour([0, 1, 2, 3]), Contour([1, 0, 2])
-    >>> subsets_embed_number(c1, c2)
+    >>> subsets_embedded_number(c1, c2)
     0
     """
 
@@ -71,12 +71,12 @@ def subsets_embed_number(cseg1, cseg2):
         return 0
 
 
-def contour_embed(cseg1, cseg2):
+def contour_embedded(cseg1, cseg2):
     """Returns similarity between contours with different
     cardinalities. 1 for greater similarity. Marvin and Laprade
     (1987).
 
-    >>> contour_embed(Contour([0, 1, 2, 3]), Contour([0, 1, 2]))
+    >>> contour_embedded(Contour([0, 1, 2, 3]), Contour([0, 1, 2]))
     1.0
     """
 
@@ -86,19 +86,19 @@ def contour_embed(cseg1, cseg2):
     cseg_size = len(cseg)
     csubseg_size = len(csubseg)
 
-    embed_times = subsets_embed_number(cseg, n_csubseg)
-    total_subsets = subsets_embed_total_number(cseg, csubseg)
-    return 1.0 * embed_times / total_subsets
+    embedded_times = subsets_embedded_number(cseg, n_csubseg)
+    total_subsets = subsets_embedded_total_number(cseg, csubseg)
+    return 1.0 * embedded_times / total_subsets
 
 
-def __csubseg_mutually_embed(cardinality, cseg1, cseg2):
+def __csubseg_mutually_embedded(cardinality, cseg1, cseg2):
     """Returns CMEMBn(X, A, B) (Marvin and Laprade, 1987) auxiliary
     values.
 
     Outputs a list with [incidence_number, total_numbers]
 
     All subsets of a given cardinality (n) are counted if they are
-    embed in both csegs A and B. This number is divided by the sum of
+    embedded in both csegs A and B. This number is divided by the sum of
     total contour subsets number of that cardinality in each segment,
     A, and B.
 
@@ -115,9 +115,9 @@ def __csubseg_mutually_embed(cardinality, cseg1, cseg2):
     cseg2.
 
     'incidence_number' stores the sum of subsets related by the same
-    normal form embed in cseg1 and cseg2.
+    normal form embedded in cseg1 and cseg2.
 
-    >>> __csubseg_mutually_embed(3, Contour([0, 1, 2, 3]), Contour([0, 1, 2]))
+    >>> __csubseg_mutually_embedded(3, Contour([0, 1, 2, 3]), Contour([0, 1, 2]))
     [5, 5]
     """
 
@@ -148,47 +148,47 @@ def __csubseg_mutually_embed(cardinality, cseg1, cseg2):
         print("Csegs length must be greater than cardinality.")
 
 
-def csubseg_mutually_embed(cardinality, cseg1, cseg2):
+def csubseg_mutually_embedded(cardinality, cseg1, cseg2):
     """Returns CMEMBn(X, A, B) (Marvin and Laprade, 1987).
 
-    >>> csubseg_mutually_embed(3, Contour([0, 1, 2, 3]), Contour([0, 1, 2]))
+    >>> csubseg_mutually_embedded(3, Contour([0, 1, 2, 3]), Contour([0, 1, 2]))
     1.0
     """
 
-    [a, b] = __csubseg_mutually_embed(cardinality, cseg1, cseg2)
+    [a, b] = __csubseg_mutually_embedded(cardinality, cseg1, cseg2)
     return 1.0 * a / b
 
 
-def __all_contour_mutually_embed(cseg1, cseg2):
+def __all_contour_mutually_embedded(cseg1, cseg2):
     """Returns ACMEMB(A,B) (Marvin and Laprade, 1987).
 
-    It's total number of significant mutually embeded csegs of
+    It's total number of significant mutually embeddeded csegs of
     cardinality 2 through the cardinality of the smaller cseg divided
-    by the total possible csegs embed in both cseg1 and cseg2.
+    by the total possible csegs embedded in both cseg1 and cseg2.
 
-    >>> __all_contour_mutually_embed(Contour([0, 1, 2, 3]), Contour([0, 1, 2]))
+    >>> __all_contour_mutually_embedded(Contour([0, 1, 2, 3]), Contour([0, 1, 2]))
     0.93333333333333335
     """
 
     incidence, total = (0, 0)
     for i in range(2, max(len(cseg1), len(cseg2)) + 1):
-        incidence += __csubseg_mutually_embed(i, cseg1, cseg2)[0]
-        total += __csubseg_mutually_embed(i, cseg1, cseg2)[1]
+        incidence += __csubseg_mutually_embedded(i, cseg1, cseg2)[0]
+        total += __csubseg_mutually_embedded(i, cseg1, cseg2)[1]
     return 1.0 * incidence / total
 
 
-def all_contour_mutually_embed(cseg1, cseg2):
+def all_contour_mutually_embedded(cseg1, cseg2):
     """Returns ACMEMB(A,B) (Marvin and Laprade, 1987).
 
-    It's total number of significant mutually embeded csegs of
+    It's total number of significant mutually embeddeded csegs of
     cardinality 2 through the cardinality of the smaller cseg divided
-    by the total possible csegs embed in both cseg1 and cseg2 and its
+    by the total possible csegs embedded in both cseg1 and cseg2 and its
     csegclasses representatives.
 
-    >>> all_contour_mutually_embed(Contour([0, 1, 2, 3]), Contour([0, 1, 2]))
+    >>> all_contour_mutually_embedded(Contour([0, 1, 2, 3]), Contour([0, 1, 2]))
     0.93333333333333335
     """
 
     representatives = cseg2.class_representatives()
-    acmembs = [__all_contour_mutually_embed(cseg1, c) for c in representatives]
+    acmembs = [__all_contour_mutually_embedded(cseg1, c) for c in representatives]
     return sorted(acmembs, reverse=True)[0]
