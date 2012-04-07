@@ -45,7 +45,7 @@ class TestUtils(unittest.TestCase):
         cseg1 = contour.Contour([1, 0, 4, 3, 2])
         cseg2 = contour.Contour([2, 0, 1, 4, 3])
         self.assertEqual(comparison.csubseg_mutually_embed(3, cseg1, cseg2), 0.8)
-        self.assertEqual(comparison.csubseg_mutually_embed(5, cseg1, cseg2), 0.5)
+        self.assertEqual(comparison.csubseg_mutually_embed(4, cseg1, cseg2), 0.5)
 
     def test_all_contour_mutually_embed(self):
         cseg1 = contour.Contour([0, 1, 2, 3])
