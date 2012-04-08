@@ -180,10 +180,10 @@ class Contour(MutableSequence):
         subset.extend(self.expanded[0:n])
         return Contour(subset)
 
-    def retrograde(self):
+    def retrogression(self):
         """Returns contour retrograde.
 
-        >>> Contour([0, 1, 2, 3]).retrograde()
+        >>> Contour([0, 1, 2, 3]).retrogression()
         < 3 2 1 0 >
         """
 
@@ -395,7 +395,7 @@ class Contour(MutableSequence):
         cseg = self
 
         if cseg[(position * -1) - 1] < cseg[position]:
-            cseg = cseg.retrograde()
+            cseg = cseg.retrogression()
 
         return cseg
 
@@ -454,8 +454,8 @@ class Contour(MutableSequence):
 
         p = auxiliary.apply_fn(Contour(self), prime_algorithm)
         i = Contour(self).inversion()
-        r = Contour(self).retrograde()
-        ri = Contour(i).retrograde()
+        r = Contour(self).retrogression()
+        ri = Contour(i).retrogression()
 
         return [p, i, r, ri]
 

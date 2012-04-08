@@ -15,10 +15,10 @@ class InternalDiagonal(list):
         data = [utils.double_replace(str(x)) for x in self[:]]
         return "< {0} >".format(" ".join(data))
 
-    def retrograde(self):
+    def retrogression(self):
         """Returns internal diagonal retrograde.
 
-        >>> InternalDiagonal([1, 1, -1]).retrograde()
+        >>> InternalDiagonal([1, 1, -1]).retrogression()
         < - + + >
         """
 

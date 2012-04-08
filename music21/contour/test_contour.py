@@ -55,9 +55,9 @@ class TestUtils(unittest.TestCase):
         self.assertEqual(cseg.rotation(2), Contour([9, 9, 2, 1, 1, 4]))
         self.assertEqual(cseg.rotation(20), Contour([9, 9, 2, 1, 1, 4]))
 
-    def test_retrograde(self):
+    def test_retrogression(self):
         cseg = Contour([1, 4, 9, 9, 2, 1])
-        self.assertEqual(cseg.retrograde(), Contour([1, 2, 9, 9, 4, 1]))
+        self.assertEqual(cseg.retrogression(), Contour([1, 2, 9, 9, 4, 1]))
 
     def test_inversion(self):
         cseg = Contour([1, 4, 9, 9, 2, 1])
