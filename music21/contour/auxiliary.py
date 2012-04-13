@@ -37,3 +37,14 @@ def position_comparison(list_1, list_2):
         if list_1[pos] == list_2[pos]:
             value += 1
     return value / float(size)
+
+
+def ternary_to_base_3_single(el):
+    """Returns a comparison in base-3 representation of a single
+    element (Polansky and Bassein 1992)
+
+    >>> ternary_to_base_3_single(-1)
+    0
+    """
+
+    return [-1, 0, 1].index(el)
