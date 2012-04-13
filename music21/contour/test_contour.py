@@ -220,6 +220,13 @@ class TestUtils(unittest.TestCase):
         self.assertEqual(cseg1.fuzzy_comparison_matrix(), result1)
         self.assertEqual(cseg2.fuzzy_comparison_matrix(), result2)
 
+    def test_ternary_symmetrical(self):
+        self.assertEqual(Contour([0, 1]).ternary_symmetrical(), [2])
+        self.assertEqual(Contour([1, 0]).ternary_symmetrical(), [0])
+        self.assertEqual(Contour([0, 1, 0]).ternary_symmetrical(), [[2, 1], 0])
+        self.assertEqual(Contour([0, 1, 2]).ternary_symmetrical(), [[2, 2], 2])
+        self.assertEqual(Contour([0, 2, 1]).ternary_symmetrical(), [[2, 2], 0])
+
 
 if __name__ == '__main__':
     unittest.main()
