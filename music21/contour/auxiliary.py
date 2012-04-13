@@ -37,3 +37,13 @@ def position_comparison(list_1, list_2):
         if list_1[pos] == list_2[pos]:
             value += 1
     return value / float(size)
+
+
+def base_3_comparison(a, b):
+    """Returns comparison in base three (0, 1, 2).
+
+    >>> base_3_comparison(4, 5)
+    2
+    """
+
+    return cmp(b, a) + 1

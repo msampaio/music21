@@ -105,6 +105,23 @@ def reduction_retention_5(els):
         return medial
 
 
+def possible_cseg(base_3):
+    """Returns a cseg from a base 3 sequence, if the cseg is possible
+    (Polansky and Bassein 1992).
+
+    >>> possible_cseg([2, 2, 2])
+    < 0 1 2 >
+    """
+
+    seq = utils.flatten(base_3)
+    size = len(seq)
+    for x in itertools.product(range(size), repeat=3):
+        cseg = Contour(x)
+        if utils.flatten(cseg.base_three_representation()) == seq:
+            return Contour(x)
+    return "Impossible cseg"
+
+
 class Contour(MutableSequence):
     def __init__(self, args):
         """args can be either a music21.stream or a list of numbers
@@ -703,47 +720,36 @@ class Contour(MutableSequence):
 
         return fuzzy.FuzzyMatrix([[fuzzy.comparison([a, b]) for b in self] for a in self])
 
-    def ternary_symmetrical(self):
-        """Returns Ternary Symmetrical Contour Description, by
-        Polansky and Bassein (1992). The comparison between c-points
-        returns 0, 1, or 2 if the second c-point is lower, equal or
-        higher than the first, respectively. Ternary symmetrical
-        returns a list with comparison of all combinations of c-points.
+    def base_three_representation(self):
+        """Returns Base three Contour Description, by Polansky and
+        Bassein (1992). The comparison between c-points returns 0, 1,
+        or 2 if the second c-point is lower, equal or higher than the
+        first, respectively. This method returns a list with
+        comparison of all combinations of c-points.
 
-        >>> Contour([0, 1, 3, 2]).ternary_symmetrical()
-        [[2, 2, 2], [2, 2], 0]
+        >>> Contour([0, 1, 3, 2]).base_three_representation()
+        [[2, 2, 2], [2, 2], [0]]
         """
 
         combinations = itertools.combinations(self, 2)
 
-        def ternary_comparison(a, b):
-            """Returns comparison in base three (0, 1, 2)."""
-            comparison = cmp(b, a)
-            if comparison == -1:
-                return 0
-            elif comparison == 0:
-                return 1
-            else:
-                return 2
-
-        def aux_list(ternary, self):
+        def aux_list(base_3, self):
             size = len(self)
             r_size = range(size - 1, 0, -1)
             result = []
             n = 0
             for i in r_size:
-                seq = ternary[n:n + i]
-                if seq != []:
-                    if len(seq) == 1:
-                        result.append(seq[0])
-                    else:
-                        result.append(seq)
+                seq = base_3[n:n + i]
+                result.append(seq)
                 n += i
             return result
 
-        ternary = [ternary_comparison(a, b) for a, b in combinations]
+        ternary = [auxiliary.base_3_comparison(a, b) for a, b in combinations]
 
         return aux_list(ternary, self)
+
+    def __repr__(self):
+        return "< {0} >".format(" ".join([str(x) for x in self[:]]))
 
     def show(self):
         print self
