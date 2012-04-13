@@ -39,12 +39,11 @@ def position_comparison(list_1, list_2):
     return value / float(size)
 
 
-def ternary_to_base_3_single(el):
-    """Returns a comparison in base-3 representation of a single
-    element (Polansky and Bassein 1992)
+def base_3_comparison(a, b):
+    """Returns comparison in base three (0, 1, 2).
 
-    >>> ternary_to_base_3_single(-1)
-    0
+    >>> base_3_comparison(4, 5)
+    2
     """
 
-    return [-1, 0, 1].index(el)
+    return cmp(b, a) + 1

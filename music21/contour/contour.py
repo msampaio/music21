@@ -733,10 +733,6 @@ class Contour(MutableSequence):
 
         combinations = itertools.combinations(self, 2)
 
-        def base_three_comparison(a, b):
-            """Returns comparison in base three (0, 1, 2)."""
-            return auxiliary.ternary_to_base_3_single(cmp(b, a))
-
         def aux_list(base_3, self):
             size = len(self)
             r_size = range(size - 1, 0, -1)
@@ -748,7 +744,7 @@ class Contour(MutableSequence):
                 n += i
             return result
 
-        ternary = [base_three_comparison(a, b) for a, b in combinations]
+        ternary = [auxiliary.base_3_comparison(a, b) for a, b in combinations]
 
         return aux_list(ternary, self)
 
