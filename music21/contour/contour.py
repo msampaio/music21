@@ -262,7 +262,7 @@ class Contour(MutableSequence):
         [1, 1, 2, -1, -4]
         """
 
-        return [(self[pos + 1] - self[pos]) for pos in range(len(self) - 1)]
+        return [b - a for a, b in zip(self, self[1:])]
 
     def adjacency_series_vector(self):
         """Returns Friedmann (1985) CASV, a two digit summation of ups
