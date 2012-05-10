@@ -100,8 +100,6 @@ class NoteEditorial(music21.JSONSerializer):
     
     .. image:: images/noteEditorialFictaSharp.*
         :width: 103
-
-    
     
     '''
 
@@ -120,6 +118,8 @@ class NoteEditorial(music21.JSONSerializer):
     }
     
     def __init__(self):
+        music21.JSONSerializer.__init__(self)
+
         self.ficta = None  # Accidental object -- N.B. for PRINTING only not for determining intervals
         self.color = None
         self.misc  = {}
@@ -151,7 +151,7 @@ class NoteEditorial(music21.JSONSerializer):
         >>> n.editorial.color = "blue"
         >>> n.editorial.hidden = True
         >>> n.editorial.lilyStart()
-        '\\ficta \\color "blue" \\hideNotes '
+        u'\\ficta \\color "blue" \\hideNotes '
         
         '''
         baseRet = ""
@@ -165,21 +165,24 @@ class NoteEditorial(music21.JSONSerializer):
         return baseRet
 
     def fictaLilyStart(self):
-        r''' returns \\ficta -- called out so it is more easily subclassed'''
+        r''' 
+        returns \\ficta -- called out so it is more easily subclassed'''
         return "\\ficta "
 
     def colorLilyStart(self):
-        r'''returns \\color "theColorName" -- called out so it is more easily subclassed'''
-        return "\\color \"" + self.color + "\" "
+        r'''
+        returns \\color "theColorName" -- called out so it is more easily subclassed
+        '''
+        return u"\\color \"" + self.color + "\" "
 
     def lilyAttached(self):
         r'''returns any information that should be attached under the note,
         currently just returns self.comment.lily or "" '''
         
         if self.comment and self.comment.text:
-            return self.comment.lily
+            return unicode(self.comment.lily)
         else:
-            return ""
+            return ''
     
     def lilyEnd(self):
         r'''
@@ -188,10 +191,10 @@ class NoteEditorial(music21.JSONSerializer):
         just info to turn off hidding of notes.
         '''
         
-        baseRet = ""
+        baseRet = u""
         
         if self.hidden is True:
-            baseRet += "\\unHideNotes "
+            baseRet += u"\\unHideNotes "
         
         return baseRet
 
@@ -223,7 +226,6 @@ class Comment(music21.JSONSerializer):
             raise CommentException("Cannot deal with position: " + self.position)
         
     lily = property(_getLily)
-
 
 
 #-------------------------------------------------------------------------------

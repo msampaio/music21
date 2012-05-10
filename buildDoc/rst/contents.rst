@@ -121,8 +121,11 @@ Module Reference
    moduleText
    moduleTinyNotation
    moduleTrecentoPolyphonicSnippet
+   moduleVexflowBase
    moduleVoiceLeading
    moduleVolume
+   moduleWebappsBase
+   moduleWebappsMusic21wsgiapp
    moduleXmlnode
 
 
