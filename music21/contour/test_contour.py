@@ -220,6 +220,17 @@ class TestUtils(unittest.TestCase):
         self.assertEqual(cseg1.fuzzy_comparison_matrix(), result1)
         self.assertEqual(cseg2.fuzzy_comparison_matrix(), result2)
 
+    def test_base_three_representation(self):
+        self.assertEqual(Contour([0, 1]).base_three_representation(), [[2]])
+        self.assertEqual(Contour([1, 0]).base_three_representation(), [[0]])
+        self.assertEqual(Contour([0, 1, 0]).base_three_representation(), [[2, 1], [0]])
+        self.assertEqual(Contour([0, 1, 2]).base_three_representation(), [[2, 2], [2]])
+        self.assertEqual(Contour([0, 2, 1]).base_three_representation(), [[2, 2], [0]])
+
+    def test_possible_cseg(self):
+        self.assertEqual(contour.possible_cseg([[2, 2], [2]]), Contour([0, 1, 2]))
+        self.assertEqual(contour.possible_cseg([[0, 2], [1]]), "Impossible cseg")
+
 
 if __name__ == '__main__':
     unittest.main()
