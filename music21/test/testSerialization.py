@@ -68,20 +68,44 @@ class Test(unittest.TestCase):
         self.assertEqual(str(c1.pitches), '[C2, A4, E5]')
         self.assertEqual(c1.quarterLength, 1.25)
 
-        
 
     def testBasicC(self):
-        from music21 import stream, note
+        from music21 import stream, note, converter
+        import copy
 
         s = stream.Stream()
-        s.append(note.Note('d2', quarterLength=2.0))
+        n1 = note.Note('d2', quarterLength=2.0)
+        s.append(n1)
         s.append(note.Note('g~6', quarterLength=.25))
 
-        # Derivation is not being identified has having a serialization method
-        #raw = s.json
+        temp = converter.freezeStr(s)
+        post = converter.unfreezeStr(temp)
 
-        #print raw
+        self.assertEqual(len(post.notes), 2)
+        self.assertEqual(str(post.notes[0].pitch), 'D2')
 
+
+    def testBasicD(self):
+        from music21 import stream, note, converter, spanner
+        import copy
+
+        s = stream.Stream()
+        n1 = note.Note('d2', quarterLength=2.0)
+        n2 = note.Note('e2', quarterLength=2.0)
+        sp = spanner.Slur(n1, n2)
+        s.append(n1)
+        s.append(n2)
+        s.append(sp)
+
+        # the deepcopy is what creates the bug in the preservation of a weakref
+        #s = copy.deepcopy(s)
+
+        temp = converter.freezeStr(s)
+
+        post = converter.unfreezeStr(temp)
+
+        self.assertEqual(len(post.notes), 2)
+        self.assertEqual(str(post.notes[0].pitch), 'D2')
 
 
 

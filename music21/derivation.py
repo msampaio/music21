@@ -17,6 +17,11 @@ import music21
 from music21 import common
 # imported by stream
 
+from music21 import environment
+_MOD = "derivation.py"
+environLocal = environment.Environment(_MOD)
+
+
 
 class Derivation(music21.JSONSerializer):
     '''
@@ -110,10 +115,10 @@ class Derivation(music21.JSONSerializer):
         >>> common.isWeakref(d1._container)
         False
         '''
+        #environLocal.pd(['derivation pre unwrap: self._container', self._container])
         post = common.unwrapWeakref(self._container)
         self._container = post
-#         post = common.unwrapWeakref(self._ancestor)
-#         self._ancestor = post
+        #environLocal.pd(['derivation post unwrap: self._container', self._container])
 
 
     def wrapWeakref(self):
@@ -124,11 +129,6 @@ class Derivation(music21.JSONSerializer):
             self._containerId = id(self._container) 
             post = common.wrapWeakref(self._container)
             self._container = post
-
-#         if not common.isWeakref(self._ancestor):
-#             self._ancestorId = id(self._ancestor)             
-#             post = common.wrapWeakref(self._ancestor)
-#             self._ancestor = post
 
 
 
