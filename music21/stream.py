@@ -1051,13 +1051,6 @@ class Stream(music21.Music21Object):
         # NOTE: this is a performance critical operation
 
         #environLocal.printDebug(['Stream calling __deepcopy__', self])
-#         spannerBundle = spanner.SpannerBundle()
-#         for sp in self.flat.spanners:
-#         #for sp in self.flat.getAllContextsByClass('Spanner'):
-#             # passing memo here might meant that lower-level Stream
-#             # do not pass on spanners 
-#             spannerBundle.append(copy.deepcopy(sp, memo))
-
         new = self.__class__()
         old = self
         for name in self.__dict__.keys():
@@ -1073,6 +1066,7 @@ class Stream(music21.Music21Object):
                 setattr(new, name, self._activeSite)
             # attributes that require special handling
             elif name == '_definedContexts':
+                # this calls __deepcopy__ in DefinedContexts
                 newValue = copy.deepcopy(part, memo)
                 newValue.containedById = id(new)
                 setattr(new, name, newValue)
@@ -1108,11 +1102,6 @@ class Stream(music21.Music21Object):
                     # get the old offset from the activeSite Stream     
                     # user here to provide new offset
                     new._storeAtEndCore(copy.deepcopy(e, memo))
-#             elif isinstance(part, Stream):
-#                 environLocal.printDebug(['found stream in dict keys', self,
-#                     part, name])
-#                 raise StreamException('streams as attributes requires special handling')
-            # use copy.deepcopy on all other elements, including contexts    
             else:
                 try: 
                     deeplyCopiedObject = copy.deepcopy(part, memo)
@@ -1120,8 +1109,18 @@ class Stream(music21.Music21Object):
                 except TypeError:
                     raise StreamException('Cannot deepcopy %s probably because it requires a default value in instantiation.' % name)
 
+        # after performing deepcopying, defind context may contain sites
+        # that the copied obj does not belong to
+
         # do after all other copying
         new._idLastDeepCopyOf = id(self)
+        # TODO: instead of purging, have old sites become new contexts
+        # have a seperate option to purge contexts
+
+        # purging these orphans works in nearly all cases, but there are a few
+        # cases where we rely on a Stream having access to Stream it was 
+        # part of after deepcopying
+        #new.purgeOrphans()
 
         # after copying all elements
         # get all spanners at all levels from new: 
@@ -1812,7 +1811,7 @@ class Stream(music21.Music21Object):
             else:
                 targetMove.append(t)
 
-        environLocal.pd(['split', targetSplit, 'move', targetMove])
+        #environLocal.pd(['split', targetSplit, 'move', targetMove])
 
         for t in targetSplit:
             # must retain origina, as a deepcopy, if necessary, has
@@ -1889,8 +1888,31 @@ class Stream(music21.Music21Object):
 
     #---------------------------------------------------------------------------
     # temporary storage
+    def unwrapWeakref(self):
+        '''Overridden method for unwrapping all Weakrefs.
+        '''
+        # call base method: this gets defined contexts and active site
+        music21.Music21Object.unwrapWeakref(self)
+        # for contained objects that have weak refs
+        self._derivation.unwrapWeakref()
+        # this presently is not a weakref but in case of future changes
+#         if common.isWeakref(self.flattenedRepresentationOf):
+#             post = common.unwrapWeakref(objRef)
+#             self.flattenedRepresentationOf = post
 
-    def setupPickleScaffold(self):
+
+    def wrapWeakref(self):
+        '''Overridden method for unwrapping all Weakrefs.
+        '''
+        # call base method: this gets defined contexts and active site
+        music21.Music21Object.wrapWeakref(self)
+        self._derivation.wrapWeakref()
+#         if not common.isWeakref(self.flattenedRepresentationOf):
+#             post = common.wrapWeakref(objRef)
+#             self.flattenedRepresentationOf = post
+
+
+    def setupSerializationScaffold(self):
         '''Prepare this stream and all of its contents for pickling, that
         is, serializing and storing an object representation on disk.
 
@@ -1900,26 +1922,27 @@ class Stream(music21.Music21Object):
         >>> n = note.Note()
         >>> n.duration.type = "whole"
         >>> a.repeatAppend(n, 10)
-        >>> a.setupPickleScaffold()
+        >>> a.setupSerializationScaffold()
         '''
-    # not sure if this is the problem
-#         if hasattr(self, '__weakref__'):
-#             del self.__weakref__
 
-        #environLocal.printDebug(['calling setupPickleScaffold()', self])
+        # remove all caches
+        self._elementsChanged()
+
+        environLocal.printDebug(['calling setupSerializationScaffold()', self])
         for element in self.elements:
             #if hasattr(element, "elements"): # recurse time:
             if element.isStream:
-                element.setupPickleScaffold() # recurse
+                element.setupSerializationScaffold() # recurse
             else:
+                # this is done here for all elements
                 element.freezeIds()
                 element.unwrapWeakref()
+        # this must be done for all Streams
         self.freezeIds()
+        # this calls overridden method
         self.unwrapWeakref()
-        # for contained objects that have weak refs
-        self._derivation.unwrapWeakref()
 
-    def teardownPickleScaffold(self):
+    def teardownSerializationScaffold(self):
         '''After rebuilding this stream from pickled storage, prepare this as a normal Stream.
 
         >>> from music21 import *
@@ -1928,16 +1951,16 @@ class Stream(music21.Music21Object):
         >>> n = note.Note()
         >>> n.duration.type = "whole"
         >>> a.repeatAppend(n, 10)
-        >>> a.setupPickleScaffold()
-        >>> a.teardownPickleScaffold()
+        >>> a.setupSerializationScaffold()
+        >>> a.teardownSerializationScaffold()
         '''
-        #environLocal.printDebug(['calling teardownPickleScaffold'])
+        #environLocal.printDebug(['calling teardownSerializationScaffold'])
         self._derivation.wrapWeakref()
         self.wrapWeakref()
         self.unfreezeIds()
         for element in self.elements:
             if element.isStream:
-                element.teardownPickleScaffold()
+                element.teardownSerializationScaffold()
             else:
                 #environLocal.printDebug(['processing music21 obj', element])
                 element.wrapWeakref()
@@ -4534,6 +4557,22 @@ class Stream(music21.Music21Object):
 
 
         >>> s = stream.Stream()
+        >>> p1 = stream.Part()
+        >>> p1.insert(0, harmony.ChordSymbol('Cm', quarterLength = 4.0))
+        >>> p1.insert(2, note.Note('C'))
+        >>> p1.insert(4, harmony.ChordSymbol('D', quarterLength = 4.0))
+        >>> p1.insert(7, note.Note('A'))
+        >>> s.insert(0,p1)
+        >>> s.chordify().show('text')
+        {0.0} <music21.chord.Chord C3 E-3 G3>
+        {2.0} <music21.chord.Chord C C3 E-3 G3>
+        {3.0} <music21.chord.Chord C3 E-3 G3>
+        {4.0} <music21.chord.Chord D3 F#3 A3>
+        {7.0} <music21.chord.Chord A D3 F#3 A3>
+        
+        OMIT_FROM_DOCS
+        
+        >>> s = stream.Stream()
         >>> p2 = stream.Part()
         >>> p1 = stream.Part()
         >>> p2.insert(0, harmony.ChordSymbol('Cm', quarterLength = 4.0))
@@ -4548,8 +4587,7 @@ class Stream(music21.Music21Object):
         {3.0} <music21.chord.Chord C3 E-3 G3>
         {4.0} <music21.chord.Chord D3 F#3 A3>
         {7.0} <music21.chord.Chord A D3 F#3 A3>
-        
-        OMIT_FROM_DOCS
+
         
         Test that chordifying 
     
@@ -6984,7 +7022,6 @@ class Stream(music21.Music21Object):
             # NOTE: calling this method was having the side effect of removing
             # sites from locations when a Note was both in a Stream and in 
             # an Interval
-            #e.removeNonContainedLocations()
             if e.isStream:
                 e.sort() # sort before making immutable
                 e._mutable = False
@@ -9688,7 +9725,6 @@ class Stream(music21.Music21Object):
     def activateVariants(self, group=None, matchBySpan=True, inPlace=False):
         '''For any :class:`~music21.variant.Variant` objects defined in this Stream, replace corresponding class with those found in the Variant.
 
-        
         '''
         from music21 import variant
 
@@ -9706,7 +9742,6 @@ class Stream(music21.Music21Object):
             # create a replacement variant for each used variant; it 
             # my not be added to the Stream if there are no matches
             removed = variant.Variant() # what group should this have?
-
             vStart = v.getOffsetBySite(returnObj)
 
             # this method matches and removes on an individual basis        
@@ -11139,9 +11174,13 @@ class SpannerStorage(Stream):
         # must provide a keyword argument with a reference to the spanner parent
         # could name spannerContainer or other?
         #environLocal.printDebug('keywords', keywords)
+        # TODO: this might be better stored as weak ref
         self.spannerParent = None
         if 'spannerParent' in keywords.keys():
             self.spannerParent = keywords['spannerParent']
+
+    # NOTE: for serialization, this will need to properly tage
+    # the spanner parent by updating the scaffolding code. 
 
 
 #-------------------------------------------------------------------------------
