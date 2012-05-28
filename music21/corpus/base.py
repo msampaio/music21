@@ -83,9 +83,12 @@ class CorpusException(Exception):
 
 #-------------------------------------------------------------------------------
 def _findPaths(fpRoot, extList):
-    '''Given a root fp file path, recursively search all contained paths for 
+    '''Given a root fp file path, recursively search all contained paths for files
+    in fpRoot matching any of the extensions in extList
     
     The `extList` is a list of file extensions. 
+    
+    NB: we've tried optimizing with fnmatch but it does not save any time.
     '''
     # can replace extension matching with a regex    
     #escape extension dots (if there) for regex
@@ -241,6 +244,14 @@ def addPath(fp):
 
     >>> from music21 import *
     >>> #_DOCS_SHOW coprus.addPath('~/Documents')
+
+    alternatively, add a directory permanently (see link above for more details):
+    
+    >>> from music21 import *
+    >>> #_DOCS_SHOW us = environment.UserSettings()
+    >>> #_DOCS_SHOW us['localCorpusPath'] = 'd:/desktop/'
+    
+    (then best is to restart music21)
 
     '''
     if fp is None or not os.path.exists(fp):
@@ -753,6 +764,9 @@ def parse(workName, movementNumber=None, number=None,
     4
     
     '''
+    if workName in [None, '']:
+        raise CorpusException('a work name must be provided as an argument')
+
     if not common.isListLike(extList):
         extList = [extList]
 
@@ -841,13 +855,13 @@ paths = getPaths()
 # libraries
 
 
-beethoven = getComposer('beethoven')
-josquin = getComposer('josquin')
-mozart = getComposer('mozart')
-monteverdi = getComposer('monteverdi')
-haydn = getComposer('haydn')
-handel = getComposer('handel')
-bach = getComposer('bach')
+#beethoven = getComposer('beethoven')
+#josquin = getComposer('josquin')
+#mozart = getComposer('mozart')
+#monteverdi = getComposer('monteverdi')
+#haydn = getComposer('haydn')
+#handel = getComposer('handel')
+#bach = getComposer('bach')
 
 # additional libraries to define
 
@@ -886,7 +900,7 @@ def getBachChorales(extList='xml'):
             post.append(candidate)
     return post
 
-bachChorales = getBachChorales('xml')
+bachChorales = property(getBachChorales)
 
 
 
@@ -897,6 +911,10 @@ class BachChoraleList(object):
     
     Note that multiple chorales share the same title, so it's best to
     iterate over one of the other lists to get them all.
+    
+    The list of chorales comes from http://en.wikipedia.org/wiki/List_of_chorale_harmonisations_by_Johann_Sebastian_Bach
+    which does not have all chorales in the Bärenreitter-Kirnbergger or Riemenschneider
+    numberings since it only includes BWV 250-438.
 
 
     >>> from music21 import *
@@ -913,6 +931,13 @@ class BachChoraleList(object):
     kalmus 358
     >>> #_DOCS_SHOW c = corpus.parse('bach/bwv' + str(info358['bwv']))
     >>> #_DOCS_SHOW c.show() # shows Bach BWV431    
+
+    More fully:
+    
+    >>> b = corpus.parse('bwv' + str(corpus.BachChoraleList().byRiemenschneider[2]['bwv']))
+    >>> b
+    <music21.stream.Score ...>
+    
     '''
     def __init__(self):
         self.prepareList()
@@ -1383,7 +1408,7 @@ def getHandelMessiah(extList='md'):
             post.append(candidate)
     return post
 
-handelMessiah = getHandelMessiah()
+#handelMessiah = getHandelMessiah()
 
 
 
@@ -1417,7 +1442,7 @@ def getMonteverdiMadrigals(extList='xml'):
             post.append(candidate)
     return post
 
-monteverdiMadrigals = getMonteverdiMadrigals('xml')
+#monteverdiMadrigals = getMonteverdiMadrigals('xml')
 
 def getBeethovenStringQuartets(extList=None):
     '''Return all Beethoven String Quartets.
@@ -1455,7 +1480,7 @@ def getBeethovenStringQuartets(extList=None):
             post.append(candidate)
     return candidates
 
-beethovenStringQuartets = getBeethovenStringQuartets('xml')
+#beethovenStringQuartets = getBeethovenStringQuartets('xml')
 
 
 

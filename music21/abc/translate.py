@@ -19,20 +19,26 @@ module's :func:`~music21.converter.parse` function.
 
 '''
 
-
+import copy
 import music21
 import unittest
 
 from music21.abc import base as abcModule
 
 from music21 import environment
+from music21 import stream
+from music21 import meter
+
 _MOD = 'abc.translate.py'
 environLocal = environment.Environment(_MOD)
 
 
 
 def abcToStreamPart(abcHandler, inputM21=None, spannerBundle=None):
-    '''Handler conversion of a single Part of a multi-part score. Results, as a Part, are built into the provided inputM21 object (a Score or similar Stream) or a newly created Stream.
+    '''
+    Handler conversion of a single Part of a multi-part score. 
+    Results, as a Part, are built into the provided inputM21 object 
+    (a Score or similar Stream) or a newly created Stream.
     '''
     from music21 import metadata
     from music21 import spanner
@@ -216,6 +222,7 @@ def abcToStreamPart(abcHandler, inputM21=None, spannerBundle=None):
             # check for incomplete bars
             # must have a time signature in this bar, or defined recently
             # could use getTimeSignatures() on Stream
+            
             if barCount == 1 and dst.timeSignature != None: # easy case
                 # can only do this b/c ts is defined
                 if dst.barDurationProportion() < 1.0:
@@ -223,17 +230,15 @@ def abcToStreamPart(abcHandler, inputM21=None, spannerBundle=None):
                     dst.number = 0
                     #environLocal.printDebug(['incompletely filled Measure found on abc import; interpreting as a anacrusis:', 'padingLeft:', dst.paddingLeft])
             else:
-                # TODO USE "SPLITATQUARTERLENGTH" WHEN IT WORKS ON STREAMS
-                '''
-                bdp = dst.barDurationProportion()
-                if bdp > 1.0 and int(bdp) == bdp:
-                    pass
-                '''
                 dst.number = measureNumber
                 measureNumber += 1
             p._appendCore(dst)
 
-
+    try:
+        reBar(p, inPlace=True)
+    except (ABCTranslateException, meter.MeterException, ZeroDivisionError):
+        pass
+    
     # clefs are not typically defined, but if so, are set to the first measure
     # following the meta data, or in the open stream
     if not clefSet:
@@ -321,10 +326,13 @@ def abcToStreamScore(abcHandler, inputM21=None):
     if len(tokenCollections) == 1:
         partHandlers.append(tokenCollections[0])
     else:
-        # add meta data to each Part
+        # add metadata -- stored in tokenCollections[0] -- to each Part (stored in tokenCollections[i]) 
         for i in range(1, len(tokenCollections)):
             # concatenate abc handler instances
-            partHandlers.append(tokenCollections[0] + tokenCollections[i])
+            newABCHandler = tokenCollections[0] + tokenCollections[i]        
+            #dummy = [t.src for t in newABCHandler.tokens]    
+            #print dummy 
+            partHandlers.append(newABCHandler)
 
     # find if this token list defines measures
     # this should probably operate at the level of tunes, not the entire
@@ -366,6 +374,98 @@ def abcToStreamOpus(abcHandler, inputM21=None, number=None):
     else: # just return single entry in opus object
         s.append(abcToStreamScore(abcHandler))
     return s
+
+def reBar(music21Part, inPlace=True):
+    """
+    Re-bar overflow measures using the last known time signature.
+    
+    >>> from music21.abc import translate
+    >>> from music21 import corpus
+    >>> irl = corpus.parse("irl")
+    >>> music21Part = irl[1][1]
+
+    
+    The whole part is in 2/4 time, but there are some measures expressed in 4/4 time
+    without an explicit time signature change, an error in abc parsing due to the
+    omission of barlines. The method will split those measures such that they conform 
+    to the last time signature, in this case 2/4. The default is to reBar in place. 
+    The measure numbers are updated accordingly. (NOTE: reBar is called automatically
+    in abcToStreamPart)
+    
+    
+    The key signature and clef are assumed to be the same in the second measure after the
+    split, so both are omitted. If the time signature is not the same in the second measure,
+    the new time signature is indicated, and the measure following returns to the last time
+    signature, except in the case that a new time signature is indicated.
+    
+    
+    >>> music21Part.measure(15).show("text")
+    {0.0} <music21.note.Note A>
+    {1.0} <music21.note.Note A>
+    >>> music21Part.measure(16).show("text")
+    {0.0} <music21.note.Note A>
+    {0.5} <music21.note.Note B->
+    {1.0} <music21.note.Note A>
+    {1.5} <music21.note.Note G>
+    
+    
+    An example where the time signature wouldn't be the same. This score is probably
+    mistakenly unmarked as 4/4, or is given that time signature by default.
+    
+    
+    >>> music21Part2 = irl[14][1] # 4/4 time signature
+    >>> music21Part2.measure(1).show("text")
+    {0.0} <music21.note.Note C>
+    {1.0} <music21.note.Note A>
+    {1.5} <music21.note.Note G>
+    {2.0} <music21.note.Note E>
+    {2.5} <music21.note.Note G>
+    >>> music21Part2.measure(2).show("text")
+    {0.0} <music21.meter.TimeSignature 1/8>
+    {0.0} <music21.note.Note E>
+    """
+    if not inPlace:
+        music21Part = copy.deepcopy(music21Part)
+    lastTimeSignature = None
+    mnOffset = 0
+    allMeasures = music21Part.getElementsByClass(stream.Measure)
+    for measureIndex in range(len(allMeasures)):
+        music21Measure = allMeasures[measureIndex]
+        if music21Measure.timeSignature is not None:
+            lastTimeSignature = music21Measure.timeSignature
+        
+        if lastTimeSignature is None:
+            raise ABCTranslateException("No time signature found in this Part")
+        
+        tsEnd = lastTimeSignature.barDuration.quarterLength
+        mEnd = music21Measure.highestTime
+        music21Measure.number += mnOffset
+        if mEnd > tsEnd:
+            m1, m2 = music21Measure.splitAtQuarterLength(tsEnd)
+            m2.timeSignature = None
+            if lastTimeSignature.barDuration.quarterLength != m2.highestTime:
+                m2.timeSignature = m2.bestTimeSignature()
+                if measureIndex != len(allMeasures) - 1:
+                    if allMeasures[measureIndex+1].timeSignature is None:
+                        allMeasures[measureIndex+1].timeSignature = lastTimeSignature
+            m2.keySignature = None # suppress the key signature
+            m2.clef = None # suppress the clef
+            m2.number = m1.number + 1
+            mnOffset += 1
+            music21Part.insert(m1.offset + m1.highestTime, m2)
+        """
+        elif (mEnd + music21Measure.paddingLeft) < tsEnd and measureIndex != len(allMeasures) - 1:
+            # The first and last measures are allowed to be incomplete
+            music21Measure.timeSignature = music21Measure.bestTimeSignature()
+            if allMeasures[measureIndex+1].timeSignature is None:
+                allMeasures[measureIndex+1].timeSignature = lastTimeSignature
+        """
+        
+    if not inPlace:
+        return music21Part
+
+class ABCTranslateException(music21.Music21Exception):
+    pass
 
 
 #-------------------------------------------------------------------------------

@@ -1810,20 +1810,6 @@ class DurationUnit(DurationCommon):
         self._tuplets = self._tuplets + (newTuplet,)
         self._quarterLengthNeedsUpdating = True
 
-    def _getLily(self):
-        '''Simple lily duration: does not include tuplets; 
-        these appear in the Stream object, because of 
-        how lily represents triplets
-        '''
-        if self._typeNeedsUpdating:
-            self.updateType()
-        number_type = convertTypeToNumber(self.type)
-        dots = "." * int(self.dots)
-        if number_type < 1:
-           number_type = int(number_type * 16)
-        return str(number_type) + dots
-
-    lily = property(_getLily)
 
 
 
@@ -2007,8 +1993,9 @@ class Duration(DurationCommon):
     >>> d3.quarterLength
     3.5
     
-    
     '''
+
+    isGrace = False
 
     def __init__(self, *arguments, **keywords):
         '''
@@ -2023,9 +2010,7 @@ class Duration(DurationCommon):
         self._componentsNeedUpdating = False
         # defer updating until necessary
         self._quarterLengthNeedsUpdating = False
-
         self._cachedIsLinked = None # store for access w/o looking at components
-
         if len(arguments) > 0:
             if common.isNum(arguments[0]):
                 self.quarterLength = arguments[0]
@@ -2132,11 +2117,11 @@ class Duration(DurationCommon):
         normal representation in quarterLength units.
         '''
         if len(self._components) >= 1:
-            for c in self._components:
+            for c in self._components: # these are Duration objects
                 c.unlink()
             self._cachedIsLinked = False
-        else: # there may be components and still a zero type
-            raise DurationException("zero DurationUnits in components: cannot link or unlink")
+#         else: # there may be components and still a zero type
+#             raise DurationException("zero DurationUnits in components: cannot link or unlink")
 
     def _isLinked(self):
         # reset _cachedIsLinked to None when components have changed
@@ -2269,7 +2254,6 @@ class Duration(DurationCommon):
         '''
         sets the QuarterLength
         '''
-        
         if self._qtrLength != value:
             if isinstance(value, int):
                 value = float(value)
@@ -2394,7 +2378,9 @@ class Duration(DurationCommon):
             self.addDurationUnit(DurationUnit(value)) # updates
             self._quarterLengthNeedsUpdating = True
 
-    type = property(_getType, _setType)
+    type = property(_getType, _setType, doc='''
+        Get or set the type of the Duration. 
+        ''')
 
 
     def setTypeUnlinked(self, value):
@@ -2579,7 +2565,7 @@ class Duration(DurationCommon):
         When there are more than one component, each component may have its 
         own tuplet. 
         '''
-        if self._componentsNeedUpdating == True:
+        if self._componentsNeedUpdating:
             self._updateComponents()
         if len(self.components) > 1:
             return None
@@ -2615,7 +2601,7 @@ class Duration(DurationCommon):
         5
         
         '''
-        if self._componentsNeedUpdating == True:
+        if self._componentsNeedUpdating:
             self._updateComponents()
             
         if len(self.components) > 1:
@@ -2637,8 +2623,10 @@ class Duration(DurationCommon):
             msg = ' tied to '.join(msg)
             msg += ' (%s total QL)' % (round(self._getQuarterLength(), 2))
             return msg
-        else:
+        if len(self.components) == 1:
             return self.components[0]._getFullName()
+        else: # zero components
+            return 'Zero Duration (0 total QL)'
 
     fullName = property(_getFullName, 
         doc = '''Return the most complete representation of this Duration, providing dots, type, tuplet, and quarter length representation. 
@@ -2672,25 +2660,14 @@ class Duration(DurationCommon):
         >>> d.fullName
         'Quarter Tuplet of 7/4ths (0.57QL)'
 
+        >>> d = duration.Duration(quarterLength=0)
+        >>> d.fullName
+        'Zero Duration (0 total QL)'
         ''')
 
 
     #---------------------------------------------------------------------------
     # output formats
-
-    def _getLily(self):
-        '''
-        Simple lily duration: does not include tuplets
-        These are taken care of in the lily processing in stream.Stream
-        since lilypond requires tuplets to be in groups
-
-        '''
-        msg = []
-        for dur in self.components:
-            msg.append(dur.lily)
-        return ''.join(msg)
-
-    lily = property(_getLily)
 
 
     def _getMidi(self):
@@ -3199,27 +3176,102 @@ class Duration(DurationCommon):
             self.addDurationUnit(Duration(x))
 
 
-# TODO: remove when graces are implemented
+    def getGraceDuration(self, appogiatura=False):
+        '''Return a deep copy of this Duration as a GraceDuration instance with the same types.
+
+        >>> from music21 import *
+        >>> d = duration.Duration(1.25)
+        >>> gd = d.getGraceDuration()
+        >>> gd.quarterLength
+        0.0
+        >>> [(x.quarterLength, x.type) for x in gd.components]
+        [(0.0, 'quarter'), (0.0, '16th')]
+        >>> d.quarterLength
+        1.25
+        '''
+        if self._componentsNeedUpdating:
+            self._updateComponents()
+        # manually copy all components
+        components = []
+        for c in self.components:
+            components.append(copy.deepcopy(c))
+        # create grace duration
+        if appogiatura:
+            gd = AppogiaturaDuration()
+        else:
+            gd = GraceDuration()
+        gd.components = components # set new components
+        gd.unlink()
+        gd.quarterLength = 0.0
+        return gd
+
+
 class GraceDuration(Duration):
-    def __init__(self):
-        Duration.__init__(self)
+    '''A Duration that, no matter how it is created, always has a quarter length of zero. 
 
-        # TODO: these cannot be unlinked presently like this because
-        # this objec is a subclass of Duration, not DurationUnit
+    GraceDuration can be created with an implied quarter length and type; these values are used to configure the duration, but then may not be relevant after instantiation. 
+
+    >>> from music21 import *
+    >>> gd = duration.GraceDuration(type='half')
+    >>> gd.quarterLength
+    0.0
+    >>> gd.type
+    'half'
+
+    >>> gd = duration.GraceDuration(.25)
+    >>> gd.type
+    '16th'
+    >>> gd.quarterLength
+    0.0
+    >>> gd.isLinked
+    False
+
+    >>> gd = duration.GraceDuration(1.25)
+    >>> gd.type
+    'complex'
+    >>> gd.quarterLength
+    0.0
+    >>> [(x.quarterLength, x.type) for x in gd.components]
+    [(0.0, 'quarter'), (0.0, '16th')]
+    '''
+
+    # TODO: there are many properties/methods of Duration that must
+    # be overridden to provide consisten behavior
+    isGrace = True
+
+    def __init__(self, *arguments, **keywords):
+        Duration.__init__(self, *arguments, **keywords)
+
+        # update components to derive types; this sets ql, but this 
+        # will later be removed
+        if self._componentsNeedUpdating:
+            self._updateComponents()
+        self.unlink()
+        self.quarterLength = 0.0
+
+
+        # TODO: make these properties
+        self.slash = True # can be True, False, or None; make None go to True?
+        # values are unit interval percentages
+        self.stealTimePrevious = None
+        self.stealTimeFollowing = None
+        # make time is encoded in musicxml as divisions; here it can 
+        # by a duration; but should it be the duration suggested by the grace?
+        self.makeTime = False
+
+
+class AppogiaturaDuration(GraceDuration):
+    def __init__(self, *arguments, **keywords):
+        GraceDuration.__init__(self, *arguments, **keywords)
         #self.unlink()
-        self.quarterLength = 0
+        self.slash = False # can be True, False, or None; make None go to True?
+        self.makeTime = True
 
-class LongGraceDuration(Duration):
-    def __init__(self):
-        Duration.__init__(self)
-        #self.unlink()
-        self.quarterLength = 0        
-
-class AppogiaturaStartDuration(Duration):
-    pass
-
-class AppogiaturaStopDuration(Duration):
-    pass
+# class AppogiaturaStartDuration(Duration):
+#     pass
+# 
+# class AppogiaturaStopDuration(Duration):
+#     pass
 
 
 #-------------------------------------------------------------------------------
