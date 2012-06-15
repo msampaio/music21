@@ -660,6 +660,28 @@ class Contour(MutableSequence):
             reduced = reduced.translation()
         return reduced
 
+    def reduction_bor(self, windows=3, translation=True):
+        """Returns reduction contour and its depth with given windows
+        sequence (Bor, 2009).
+
+        >>> Contour([0, 6, 1, 4, 3, 5, 2]).reduction_bor(53)
+        [< 0 2 1 >, 2]
+        """
+
+        def window_fn(cseg, window):
+            if window == '3':
+                return cseg.reduction_window_3(translation)
+            elif window == '5':
+                return cseg.reduction_window_5(translation)
+            else:
+                print "Windows Error"
+
+        cseg = self
+        win_vals = list(str(windows))
+        for window in win_vals:
+            cseg = window_fn(cseg, window)
+        return [cseg, len(win_vals)]
+
     def reduction_bor_35(self, translation=True):
         """Returns reduction contour and its depth with a 3-window
         followed by a 5-window reduction algorithm. R35 (Bor, 2009).
