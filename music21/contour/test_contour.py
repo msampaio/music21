@@ -159,7 +159,8 @@ class TestUtils(unittest.TestCase):
 
     def test_reduction_window_3(self):
         cseg = Contour([7, 10, 9, 0, 2, 3, 1, 8, 6, 2, 4, 5])
-        self.assertEqual(cseg.reduction_window_3(), Contour([7, 10, 0, 3, 1, 8, 2, 5]))
+        self.assertEqual(cseg.reduction_window_3(False), Contour([7, 10, 0, 3, 1, 8, 2, 5]))
+        self.assertEqual(cseg.reduction_window_3(True), Contour([5, 7, 0, 3, 1, 6, 2, 4]))
 
     def test_reduction_window_5(self):
         cseg1 = Contour([7, 10, 9, 0, 2, 3, 1, 8, 6, 2, 4, 5])
@@ -168,28 +169,28 @@ class TestUtils(unittest.TestCase):
         cseg4 = Contour([0, 3, 3, 1, 2, 4])
         cseg5 = Contour([0, 3, 3, 1, 2])
         cseg6 = Contour([12, 10, 13, 11, 7, 9, 8, 6, 3, 5, 4, 1, 0, 2])
-        self.assertEqual(cseg1.reduction_window_5(), Contour([7, 10, 0, 1, 8, 2, 5]))
-        self.assertEqual(cseg2.reduction_window_5(), Contour([7, 10, 0, 8, 5]))
-        self.assertEqual(cseg3.reduction_window_5(), Contour([7, 10, 0, 5]))
-        self.assertEqual(cseg4.reduction_window_5(), Contour([0, 3, 1, 4]))
-        self.assertEqual(cseg5.reduction_window_5(), Contour([0, 3, 1, 2]))
-        self.assertEqual(cseg6.reduction_window_5(), Contour([12, 10, 13, 7, 3, 0, 2]))
+        self.assertEqual(cseg1.reduction_window_5(False), Contour([7, 10, 0, 1, 8, 2, 5]))
+        self.assertEqual(cseg2.reduction_window_5(False), Contour([7, 10, 0, 8, 5]))
+        self.assertEqual(cseg3.reduction_window_5(False), Contour([7, 10, 0, 5]))
+        self.assertEqual(cseg4.reduction_window_5(False), Contour([0, 3, 1, 4]))
+        self.assertEqual(cseg5.reduction_window_5(False), Contour([0, 3, 1, 2]))
+        self.assertEqual(cseg6.reduction_window_5(False), Contour([12, 10, 13, 7, 3, 0, 2]))
 
     def test_reduction_bor_35(self):
         cseg = Contour([7, 10, 9, 0, 2, 3, 1, 8, 6, 2, 4, 5])
-        self.assertEqual(cseg.reduction_bor_35(), [Contour([7, 10, 0, 8, 5]), 2])
+        self.assertEqual(cseg.reduction_bor_35(False), [Contour([7, 10, 0, 8, 5]), 2])
 
     def test_reduction_bor_53(self):
         cseg = Contour([12, 10, 13, 11, 7, 9, 8, 6, 3, 5, 4, 1, 0, 2])
-        self.assertEqual(cseg.reduction_bor_53(), [Contour([12, 10, 13, 0, 2]), 2])
+        self.assertEqual(cseg.reduction_bor_53(False), [Contour([12, 10, 13, 0, 2]), 2])
 
     def test_reduction_bor_355(self):
         cseg = Contour([7, 10, 9, 0, 2, 3, 1, 8, 6, 2, 4, 5])
-        self.assertEqual(cseg.reduction_bor_355(), [Contour([7, 10, 0, 5]), 3])
+        self.assertEqual(cseg.reduction_bor_355(False), [Contour([7, 10, 0, 5]), 3])
 
     def test_reduction_bor_555(self):
         cseg = Contour([7, 10, 9, 0, 2, 3, 1, 8, 6, 2, 4, 5])
-        self.assertEqual(cseg.reduction_bor_555(), [Contour([7, 10, 0, 5]), 3])
+        self.assertEqual(cseg.reduction_bor_555(False), [Contour([7, 10, 0, 5]), 3])
 
     def test_fuzzy_membership_matrix(self):
         cseg1 = Contour([0, 2, 3, 1])

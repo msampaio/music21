@@ -612,7 +612,7 @@ class Contour(MutableSequence):
 
         return [reduced, depth]
 
-    def reduction_window_3(self):
+    def reduction_window_3(self, translation=True):
         """Returns a reduction in a single turn of 3-window reduction
         algorithm. (Bor, 2009).
 
@@ -630,9 +630,12 @@ class Contour(MutableSequence):
         cseg.insert(0, None)
         cseg.append(None)
         prange = range(1, size + 1)
-        return Contour([_red_3(cseg, pos) for pos in prange if _red_3(cseg, pos) != None])
+        reduced = Contour([_red_3(cseg, pos) for pos in prange if _red_3(cseg, pos) != None])
+        if translation == True:
+            reduced = reduced.translation()
+        return reduced
 
-    def reduction_window_5(self):
+    def reduction_window_5(self, translation=True):
         """Returns a reduction in a single turn of 3-window reduction
         algorithm. (Bor, 2009).
 
@@ -652,10 +655,12 @@ class Contour(MutableSequence):
         cseg.append(None)
         cseg.append(None)
         prange = range(2, size + 2)
+        reduced = Contour([_red_5(cseg, pos) for pos in prange if _red_5(cseg, pos) != None])
+        if translation == True:
+            reduced = reduced.translation()
+        return reduced
 
-        return Contour([_red_5(cseg, pos) for pos in prange if _red_5(cseg, pos) != None])
-
-    def reduction_bor_35(self):
+    def reduction_bor_35(self, translation=True):
         """Returns reduction contour and its depth with a 3-window
         followed by a 5-window reduction algorithm. R35 (Bor, 2009).
 
@@ -663,9 +668,9 @@ class Contour(MutableSequence):
         [< 7 10 0 8 5>, 2]
         """
 
-        return [self.reduction_window_3().reduction_window_5(), 2]
+        return [self.reduction_window_3(translation).reduction_window_5(translation), 2]
 
-    def reduction_bor_53(self):
+    def reduction_bor_53(self, translation=True):
         """Returns reduction contour and its depth with a 5-window
         followed by a 3-window reduction algorithm. R35 (Bor, 2009).
 
@@ -673,9 +678,9 @@ class Contour(MutableSequence):
         [< 7 10 0 8 5>, 2]
         """
 
-        return [self.reduction_window_5().reduction_window_3(), 2]
+        return [self.reduction_window_5(translation).reduction_window_3(translation), 2]
 
-    def reduction_bor_355(self):
+    def reduction_bor_355(self, translation=True):
         """Returns reduction contour and its depth with a 3-window
         followed by a 5-window reduction algorithm twice. R355 (Bor,
         2009).
@@ -684,9 +689,9 @@ class Contour(MutableSequence):
         [< 7 10 0 5>, 3]
         """
 
-        return [self.reduction_window_3().reduction_window_5().reduction_window_5(), 3]
+        return [self.reduction_window_3(translation).reduction_window_5(translation).reduction_window_5(translation), 3]
 
-    def reduction_bor_555(self):
+    def reduction_bor_555(self, translation=True):
         """Returns reduction contour and its depth with a 5-window
         reduction algorithm three times. R555 (Bor, 2009).
 
@@ -694,7 +699,7 @@ class Contour(MutableSequence):
         [< 7 10 0 5>, 3]
         """
 
-        return [self.reduction_window_5().reduction_window_5().reduction_window_5(), 3]
+        return [self.reduction_window_5(translation).reduction_window_5(translation).reduction_window_5(translation), 3]
 
     def fuzzy_membership_matrix(self):
         """Returns a Fuzzy membership matrix. Quinn (1997).
