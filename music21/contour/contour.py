@@ -618,7 +618,7 @@ class Contour(MutableSequence):
         def _red(cseg, pos, n):
             return reduction_retention(cseg[pos - n:pos + 1 + n])
 
-        cseg = self[:]
+        cseg = self.expanded[:]
         size = len(cseg)
         n = window_size / 2
 
