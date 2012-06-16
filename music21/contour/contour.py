@@ -66,43 +66,38 @@ def minima_pair(list_of_tuples):
     return max_min(list_of_tuples, minimum)
 
 
-def reduction_retention_3(els):
+def reduction_retention(els):
     """Returns medial cps value if it is maxima or minima of a given
-    three consecutive cps list. Returns medial cps value also if
-    medial cps is equal to last cps and different form first, returns
-    True. (Bor, 2009).
+    list with an even number of consecutive cps. (Bor, 2009)
+
+    >>> reduction_retention([None, 0, 2, 1, 2])
+    2
     """
 
-    medial = els[1]
+    size = len(els)
+    if size % 2 == 0:
+        print "Error. 'els' must be a sequence with an even number of elements."
+    else:
+        els_max = max(els)
+        els_min = min([x for x in els if x != None])
 
-    if els[0] == None or els[2] == None:
-        return medial
-    elif els[0] < medial > els[2] or els[0] > medial < els[2]:
-        return medial
-    elif medial == els[2] and medial != els[0]:
-        return medial
+        medial_pos = size / 2
+        medial = els[medial_pos]
+        left_seq = els[:medial_pos]
+        right_seq = els[medial_pos + 1:]
 
-
-def reduction_retention_5(els):
-    """Returns medial cps value if it is maxima or minima of a given
-    five consecutive cps list. (Bor, 2009).
-    """
-
-    medial = els[2]
-
-    els_max = max(els)
-    els_min = min([x for x in els if x != None])
-
-    ## retain if medial is the first or last el
-    if els[0] == els[1] == None or els[-1] == els[-2] == None:
-        return medial
-    ## repeatitions. Do not retain if medial is the second consecutive
-    ## repeated cps
-    elif medial == els[1]:
-        return None
-    ## retain if medial is max or min
-    elif medial == els_max or medial == els_min:
-        return medial
+        ## retain if medial is the first or last el
+        if list(set(left_seq)) == [None] or list(set(right_seq)) == [None]:
+            return medial
+        ## repeations. Do not retain if medial is the second consecutive
+        ## repeated cps
+        elif medial == els[medial_pos - 1]:
+            return None
+        ## retain if medial is max or min
+        elif medial == els_max or medial == els_min:
+            return medial
+        else:
+            return None
 
 
 def possible_cseg(base_3):
@@ -612,50 +607,27 @@ class Contour(MutableSequence):
 
         return [reduced, depth]
 
-    def reduction_window_3(self, translation=True):
-        """Returns a reduction in a single turn of 3-window reduction
+    def reduction_window(self, window_size=3, translation=True):
+        """Returns a reduction in a single turn of n-window reduction
         algorithm. (Bor, 2009).
 
-        >>> Contour([7, 10, 9, 0, 2, 3, 1, 8, 6, 2, 4, 5]).reduction_window_3()
+        >>> Contour([7, 10, 9, 0, 2, 3, 1, 8, 6, 2, 4, 5]).reduction_window(3, False)
         < 7 10 0 3 1 8 2 5>
         """
 
-        def _red_3(cseg, pos):
+        def _red(cseg, pos, n):
+            return reduction_retention(cseg[pos - n:pos + 1 + n])
 
-            return reduction_retention_3(cseg[pos - 1:pos + 2])
-
-        cseg = self.expanded[:]
+        cseg = self[:]
         size = len(cseg)
+        n = window_size / 2
 
-        cseg.insert(0, None)
-        cseg.append(None)
-        prange = range(1, size + 1)
-        reduced = Contour([_red_3(cseg, pos) for pos in prange if _red_3(cseg, pos) != None])
-        if translation == True:
-            reduced = reduced.translation()
-        return reduced
+        for i in range(n):
+            cseg.insert(0, None)
+            cseg.append(None)
+        prange = range(n, size + n)
 
-    def reduction_window_5(self, translation=True):
-        """Returns a reduction in a single turn of 3-window reduction
-        algorithm. (Bor, 2009).
-
-        >>> Contour([7, 10, 9, 0, 2, 3, 1, 8, 6, 2, 4, 5]).reduction_window_5()
-        < 7 10 0 3 1 8 2 5>
-        """
-
-        def _red_5(cseg, pos):
-
-            return reduction_retention_5(cseg[pos - 2:pos + 3])
-
-        cseg = self.expanded[:]
-        size = len(cseg)
-
-        cseg.insert(0, None)
-        cseg.insert(0, None)
-        cseg.append(None)
-        cseg.append(None)
-        prange = range(2, size + 2)
-        reduced = Contour([_red_5(cseg, pos) for pos in prange if _red_5(cseg, pos) != None])
+        reduced = Contour([_red(cseg, pos, n) for pos in prange if _red(cseg, pos, n) != None])
         if translation == True:
             reduced = reduced.translation()
         return reduced
@@ -668,60 +640,11 @@ class Contour(MutableSequence):
         [< 0 2 1 >, 2]
         """
 
-        def window_fn(cseg, window):
-            if window == '3':
-                return cseg.reduction_window_3(translation)
-            elif window == '5':
-                return cseg.reduction_window_5(translation)
-            else:
-                print "Windows Error"
-
         cseg = self
-        win_vals = list(str(windows))
+        win_vals = [int(x) for x in str(windows)]
         for window in win_vals:
-            cseg = window_fn(cseg, window)
+            cseg = cseg.reduction_window(window, translation)
         return [cseg, len(win_vals)]
-
-    def reduction_bor_35(self, translation=True):
-        """Returns reduction contour and its depth with a 3-window
-        followed by a 5-window reduction algorithm. R35 (Bor, 2009).
-
-        >>> Contour([7, 10, 9, 0, 2, 3, 1, 8, 6, 2, 4, 5]).reduction_bor_35()
-        [< 7 10 0 8 5>, 2]
-        """
-
-        return [self.reduction_window_3(translation).reduction_window_5(translation), 2]
-
-    def reduction_bor_53(self, translation=True):
-        """Returns reduction contour and its depth with a 5-window
-        followed by a 3-window reduction algorithm. R35 (Bor, 2009).
-
-        >>> Contour([7, 10, 9, 0, 2, 3, 1, 8, 6, 2, 4, 5]).reduction_bor_53()
-        [< 7 10 0 8 5>, 2]
-        """
-
-        return [self.reduction_window_5(translation).reduction_window_3(translation), 2]
-
-    def reduction_bor_355(self, translation=True):
-        """Returns reduction contour and its depth with a 3-window
-        followed by a 5-window reduction algorithm twice. R355 (Bor,
-        2009).
-
-        >>> Contour([7, 10, 9, 0, 2, 3, 1, 8, 6, 2, 4, 5]).reduction_bor_355()
-        [< 7 10 0 5>, 3]
-        """
-
-        return [self.reduction_window_3(translation).reduction_window_5(translation).reduction_window_5(translation), 3]
-
-    def reduction_bor_555(self, translation=True):
-        """Returns reduction contour and its depth with a 5-window
-        reduction algorithm three times. R555 (Bor, 2009).
-
-        >>> Contour([7, 10, 9, 0, 2, 3, 1, 8, 6, 2, 4, 5]).reduction_bor_555()
-        [< 7 10 0 5>, 3]
-        """
-
-        return [self.reduction_window_5(translation).reduction_window_5(translation).reduction_window_5(translation), 3]
 
     def fuzzy_membership_matrix(self):
         """Returns a Fuzzy membership matrix. Quinn (1997).
