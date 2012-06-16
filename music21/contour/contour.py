@@ -618,19 +618,23 @@ class Contour(MutableSequence):
         def _red(cseg, pos, n):
             return reduction_retention(cseg[pos - n:pos + 1 + n])
 
-        cseg = self.expanded[:]
-        size = len(cseg)
-        n = window_size / 2
+        if window_size % 2 == 0:
+            print "Window size must be an even number."
+        else:
+            cseg = self.expanded[:]
+            size = len(cseg)
+            n = window_size / 2
 
-        for i in range(n):
-            cseg.insert(0, None)
-            cseg.append(None)
-        prange = range(n, size + n)
+            for i in range(n):
+                cseg.insert(0, None)
+                cseg.append(None)
 
-        reduced = Contour([_red(cseg, pos, n) for pos in prange if _red(cseg, pos, n) != None])
-        if translation == True:
-            reduced = reduced.translation()
-        return reduced
+            prange = range(n, size + n)
+
+            reduced = Contour([_red(cseg, pos, n) for pos in prange if _red(cseg, pos, n) != None])
+            if translation == True:
+                reduced = reduced.translation()
+            return reduced
 
     def reduction_bor(self, windows=3, translation=True):
         """Returns reduction contour and its depth with given windows
