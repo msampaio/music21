@@ -23,7 +23,6 @@ import music21
 
 from music21 import common
 from music21 import duration
-from music21 import lily
 from music21 import beam
 from music21 import musicxml
 from music21.musicxml import translate as musicxmlTranslate
@@ -2179,7 +2178,6 @@ class TimeSignature(music21.Music21Object):
 
         # whether the TimeSignature object is inherited from 
         self.inherited = False 
-        self._lilyOut = None    
         self.symbol = "" # common, cut, single-number, normal
 
         # a parameter to determine if the denominator is represented
@@ -2812,7 +2810,7 @@ class TimeSignature(music21.Music21Object):
     #---------------------------------------------------------------------------
     # access data for other processing
 
-    def getBeams(self, srcList):
+    def getBeams(self, srcList, measureStartOffset=0.0):
         '''Given a qLen position and a list of Duration objects, return a list of Beams object.
 
         Can alternatively provide a flat stream, from which Durations are extracted.
@@ -2850,6 +2848,16 @@ class TimeSignature(music21.Music21Object):
         >>> beamList = fourFour.getBeams(dList)
         >>> print(beamList)
         [None, None, None, None, None, None]
+        
+        
+        Pickup measure support included by taking in an additional measureStartOffset argument.
+        
+        
+        >>> threeFour = meter.TimeSignature("3/4")
+        >>> dList = [d('eighth'), d('eighth'), d('eighth')]
+        >>> beamList = threeFour.getBeams(dList, measureStartOffset=1.5)
+        >>> print(beamList)
+        [<music21.beam.Beams <music21.beam.Beam 1/start>>, <music21.beam.Beams <music21.beam.Beam 1/continue>>, <music21.beam.Beams <music21.beam.Beam 1/stop>>]
         '''
 
         if isinstance(srcList, music21.Music21Object):
@@ -2864,7 +2872,6 @@ class TimeSignature(music21.Music21Object):
         if len(durList) <= 1:
             raise MeterException('length of durList must be 2 or greater, not %s' % len(durList))
 
-        pos = 0 # assume we are always starting at zero w/n this meter
         beamsList = [] # hold completed Beams objects
         for i in range(len(durList)):
             # if a dur cannot be beamable under any circumstance, replace 
@@ -2887,7 +2894,7 @@ class TimeSignature(music21.Music21Object):
         # iter over each beams line, from top to bottom (1 thourgh 5)
         for depth in range(len(self._beamableDurationTypes)):
             beamNumber = depth + 1 # increment to count from 1 not 0
-            pos = 0
+            pos = measureStartOffset # assume we are always starting at offset w/n this meter (Jose)
             for i in range(len(durList)):
 
                 dur = durList[i]
@@ -3465,28 +3472,6 @@ class TimeSignature(music21.Music21Object):
         return self.getBeat(currentQtrPosition)
     
 
-
-    #---------------------------------------------------------------------------
-    def _getLily(self):
-        '''
-        returns the lilypond representation of the timeSignature
-        
-        >>> from music21 import *
-        >>> a = TimeSignature('3/16')
-        >>> a.lily
-        \\time 3/16
-        '''
-        
-        # TODO: values need to be taken from self.displaySequence
-
-        if self._lilyOut is not None:
-            return self._lilyOut
-        return lily.LilyString("\\time " + str(self) + " ")
-    
-    def _setLily(self, newLily):
-        self._lilyOut = newLily
-    
-    lily = property(_getLily, _setLily)
 
 
 

@@ -25,7 +25,6 @@ from music21 import duration
 from music21 import instrument
 from music21 import interval
 from music21 import editorial
-from music21.lily import LilyString
 from music21 import musicxml as musicxmlMod
 from music21.musicxml import translate as musicxmlTranslate
 #from music21 import midi as midiModule
@@ -52,7 +51,7 @@ class LyricException(Exception):
     pass
 
 
-class Lyric(object):
+class Lyric(music21.JSONSerializer):
     '''
     An object representing a single Lyric as part of a note's .lyrics property.
     
@@ -94,6 +93,8 @@ class Lyric(object):
     '''
 
     def __init__(self, text=None, number=1, syllabic=None, applyRaw = False):
+        music21.JSONSerializer.__init__(self)
+
         # these are set by _setTextAndSyllabic
         self.text = None
         # given as begin, middle, end, or single
@@ -104,6 +105,21 @@ class Lyric(object):
         if not common.isNum(number):
             raise LyricException('Number best be number')
         self.number = number
+
+    def jsonAttributes(self):
+        '''Define all attributes of this object that should be JSON serialized for storage and re-instantiation. Attributes that name basic Python objects or :class:`~music21.base.JSONSerializer` subclasses, or dictionaries or lists that contain Python objects or :class:`~music21.base.JSONSerializer` subclasses, can be provided.
+
+        >>> from music21 import *
+        >>> l = note.Lyric()
+        >>> l.jsonAttributes()
+        ['text', 'syllabic', 'number']
+
+        '''
+        # do not need self._autoGatherAttributes()
+        # as this uses public attributes (not underscore leading)
+        # must explicitly define
+        return ['text', 'syllabic', 'number']
+
 
     def __repr__(self):
         if self.text is not None:
@@ -140,34 +156,34 @@ class Lyric(object):
         #environLocal.printDebug(['Lyric:', 'self.text', self.text, 'self.syllabic', self.syllabic])
 
     #---------------------------------------------------------------------------
-    def _getMX(self):
-        '''
-        Returns an mxLyric
-
-        >>> from music21 import *
-        >>> a = note.Lyric()
-        >>> a.text = 'hello'
-        >>> mxLyric = a.mx
-        >>> mxLyric.get('text')
-        'hello'
-        '''
-        return musicxmlTranslate.lyricToMx(self)
-
-    def _setMX(self, mxLyric):
-        '''Given an mxLyric, fill the necessary parameters
-        
-        >>> from music21 import *
-        >>> mxLyric = musicxml.Lyric()
-        >>> mxLyric.set('text', 'hello')
-        >>> a = Lyric()
-        >>> a.mx = mxLyric
-        >>> a.text
-        'hello'
-        '''
-        musicxmlTranslate.mxToLyric(mxLyric, inputM21=self)
-
-    mx = property(_getMX, _setMX)    
-
+#     def _getMX(self):
+#         '''
+#         Returns an mxLyric
+# 
+#         >>> from music21 import *
+#         >>> a = note.Lyric()
+#         >>> a.text = 'hello'
+#         >>> mxLyric = a.mx
+#         >>> mxLyric.get('text')
+#         'hello'
+#         '''
+#         return musicxmlTranslate.lyricToMx(self)
+# 
+#     def _setMX(self, mxLyric):
+#         '''Given an mxLyric, fill the necessary parameters
+#         
+#         >>> from music21 import *
+#         >>> mxLyric = musicxml.Lyric()
+#         >>> mxLyric.set('text', 'hello')
+#         >>> a = Lyric()
+#         >>> a.mx = mxLyric
+#         >>> a.text
+#         'hello'
+#         '''
+#         musicxmlTranslate.mxToLyric(mxLyric, inputM21=self)
+# 
+#     mx = property(_getMX, _setMX)    
+# 
 
 
 
@@ -209,6 +225,7 @@ class GeneralNote(music21.Music21Object):
     # documentation for all attributes (not properties or methods)
     _DOC_ATTR = {
     'editorial': 'a :class:`~music21.editorial.NoteEditorial` object that stores editorial information (comments, harmonic information, ficta) and certain display information (color, hidden-state).',
+    #'expressions': 'a list of :class:`music21.expressions.TextExpression` objects to store note-attached expressions',
     'isChord': 'Boolean read-only value describing if this object is a Chord.',
     'lyrics': 'A list of :class:`~music21.note.Lyric` objects.',
     'tie': 'either None or a :class:`~music21.note.Tie` object.'
@@ -217,6 +234,7 @@ class GeneralNote(music21.Music21Object):
 
         tempDuration = duration.Duration(**keywords)
         music21.Music21Object.__init__(self, duration = tempDuration)
+        # this sets the stored duration defined in Music21Object
         self._duration = tempDuration
 
         # only apply default if components are empty
@@ -241,6 +259,12 @@ class GeneralNote(music21.Music21Object):
 
     def jsonAttributes(self):
         '''Define all attributes of this object that should be JSON serialized for storage and re-instantiation. Attributes that name basic Python objects or :class:`~music21.base.JSONSerializer` subclasses, or dictionaries or lists that contain Python objects or :class:`~music21.base.JSONSerializer` subclasses, can be provided.
+
+        >>> from music21 import *
+        >>> gn = note.GeneralNote()
+        >>> gn.jsonAttributes()
+        ['_activeSite', '_activeSiteId', '_definedContexts', '_duration', '_idLastDeepCopyOf', '_overriddenLily', '_priority', 'lyrics', 'expressions', 'articulations', 'editorial', 'tie']
+
         '''
         # will already get _duration
         return self._autoGatherAttributes() + ['lyrics', 'expressions', 'articulations', 'editorial', 'tie']
@@ -512,6 +536,32 @@ class GeneralNote(music21.Music21Object):
         else:
             return None
 
+    #---------------------------------------------------------------------------
+    def getGrace(self, appogiatura=False):
+        '''Return a grace version of this NotRest
+
+        >>> from music21 import *
+        >>> n = note.Note('G4', quarterLength=2)
+        >>> n.duration.quarterLength        
+        2.0
+        >>> n.isGrace
+        False
+        >>> ng = n.getGrace()
+        >>> ng.duration.quarterLength
+        0.0
+        >>> ng.isGrace
+        True
+
+        >>> ng = n.getGrace(appogiatura=True)
+        >>> ng.duration.slash
+        False
+        '''
+        # NOTE: this means that we can not have grace rests
+        # move this to GeneralNote to permit grace rests
+        e = copy.deepcopy(self)
+        e.duration = e.duration.getGraceDuration(appogiatura=appogiatura)
+        return e
+
 
     #---------------------------------------------------------------------------
     def _getMusicXML(self):
@@ -526,106 +576,6 @@ class GeneralNote(music21.Music21Object):
     musicxml = property(_getMusicXML, 
         doc = '''Return a complete musicxml representation.
         ''')    
-
-
-
-    #---------------------------------------------------------------------------
-    def _preDurationLily(self):
-        '''
-        Method to return all the lilypond information that appears before the 
-        duration number.
-        Is the same for simple and complex notes.
-        '''
-        baseName = ""
-        baseName += self.editorial.lilyStart()
-        if self.pitch is not None:
-            baseName += self.pitch.lilyNoOctave()
-        elif (self.editorial.ficta is not None):
-            baseName += self.editorial.ficta.lily
-        octaveModChars = ""
-        spio = self.pitch.implicitOctave
-        if (spio < 3):
-            correctedOctave = 3 - spio
-            octaveModChars = ',' * correctedOctave #  C2 = c,  C1 = c,,
-        else:
-            correctedOctave = spio - 3
-            octaveModChars  = '\'' * correctedOctave # C4 = c', C5 = c''  etc.
-        baseName += octaveModChars
-        if (self.editorial.ficta is not None):
-            baseName += "!"  # always display ficta
-        elif self.pitch is not None and self.pitch.accidental is not None:
-            baseName += self.pitch.accidental.lilyDisplayType()
-        return baseName
-
-    _lilyInternalTieCharacter = '~' # will be blank for rests
-
-    def _getLily(self):
-        '''
-        The name of the note as it would appear in Lilypond format.
-        '''
-        allNames = ""
-        baseName = self._preDurationLily()
-        if hasattr(self.duration, "components") and len(
-            self.duration.components) > 0:
-            for i in range(0, len(self.duration.components)):
-                thisDuration = self.duration.components[i]            
-                allNames += baseName
-                allNames += thisDuration.lily
-                allNames += self.editorial.lilyAttached()
-                if (i != len(self.duration.components) - 1):
-                    allNames += self._lilyInternalTieCharacter
-                    allNames += " "
-                if (i == 0): # first component
-                    if self.lyric is not None: # hack that uses markup...
-                        allNames += "_\markup { \"" + self.lyric + "\" } "
-        else:
-            allNames += baseName
-            allNames += self.duration.lily
-            allNames += self.editorial.lilyAttached()
-            if self.lyric is not None: # hack that uses markup...
-                allNames += "_\markup { \"" + self.lyric + "\" }\n "
-                #allNames += "_\markup { \"" + self.lyric + "\" } "
-            
-        if (self.tie is not None):
-            if (self.tie.type != "stop"):
-                allNames += "~"
-        if (self.expressions):
-            for thisExpression in self.expressions:
-                if dir(thisExpression).count('lily') > 0:
-                    allNames += " " + thisExpression.lily
-
-        allNames += self.editorial.lilyEnd()
-        
-        return LilyString(allNames)
-
-    lily = property(_getLily, doc='''
-        read-only property that returns a LilyString of the lilypond representation of
-        a note (or via subclassing, rest or chord)
-        
-        >>> from music21 import *
-        >>> n1 = note.Note("C#5")
-        >>> n1.tie = tie.Tie('start')
-        >>> n1.articulations = [articulations.Accent()]  ## DOES NOTHING RIGHT NOW
-        >>> n1.quarterLength = 1.25
-        >>> n1.lily
-        cis''4~ cis''16~
-
-        >>> r1 = note.Rest()
-        >>> r1.duration.type = "half"
-        >>> r1.lily
-        r2
-        
-        >>> r2 = note.Rest()
-        >>> r2.quarterLength = 1.25
-        >>> r2.lily
-        r4 r16
-        
-        >>> c1 = chord.Chord(["C#2", "E4", "D#5"])
-        >>> c1.quarterLength = 2.5   # BUG: 2.333333333 doesnt work yet
-        >>> c1.lily
-        <cis, e' dis''>2~ <cis, e' dis''>8
-        
-    ''')
 
 
 
@@ -764,52 +714,6 @@ class NotRest(GeneralNote):
         Get or set the note head fill status fo this NotRest.
         ''')
     
-
-
-#     def _isGrace(self):
-#         # duration must not be linked and quarterLength must be zero
-#         if self.duration.quarterLength == 0 and not self.duration.isLinked:
-#             return True
-#         return False
-# 
-#     isGrace = property(_isGrace, doc='''
-#         Return a boolean if this NotRest is a grace Note or Chord.
-#         ''')
-
-#     def makeGrace(self, inPlace=True):
-#         '''Make this Note or Chord a grace note. This unlinks the Duration object and sets the unlinked quarterLength to zero.
-# 
-#         >>> from music21 import *
-#         >>> n = note.Note('g#', type='16th')
-#         >>> n.duration.type, n.quarterLength
-#         ('16th', 0.25)
-#         >>> n.isGrace
-#         False
-#         >>> n.makeGrace()
-#         >>> n.isGrace
-#         True
-#         >>> n.duration.isLinked
-#         False
-#         >>> n.duration.type, n.quarterLength
-#         ('16th', 0.0)
-# 
-#         '''
-#         if inPlace:
-#             returnObj = self
-#         else:
-#             returnObj = copy.deepcopy(self)
-# 
-#         returnObj.duration.setQuarterLengthUnlinked(0.0)
-#         # if no priority yet set, set to -100
-#         # this is the default for new grace notes
-#         # this assumes that there will not be more than 100 grace notes
-#         # at the same offset position
-#         if returnObj.priority == 0:
-#             returnObj.priority = -100
-#         if not inPlace:
-#             return returnObj
-#         # else return None
-
     #---------------------------------------------------------------------------
     def _getVolume(self, forceParent=None):
         # lazy volume creation
@@ -1450,7 +1354,24 @@ class Unpitched(GeneralNote):
 
 #-------------------------------------------------------------------------------
 class Rest(GeneralNote):
-    '''General rest class'''
+    '''
+    Rests are represented in music21 as GeneralNote objects that do not have
+    a pitch object attached to them.  By default they have length 1.0 (Quarter Rest)
+    
+    Calling stream.notes does not get rests.  However, the property
+    stream.notesAndRests gets rests as well.
+    
+    
+    >>> from music21 import *
+    >>> r = note.Rest()
+    >>> r.isRest
+    True
+    >>> r.isNote
+    False
+    >>> r.duration.quarterLength = 2.0
+    >>> r.duration.type
+    'half'
+    '''
     isNote = False
     isUnpitched = False
     isRest = True
@@ -1483,12 +1404,6 @@ class Rest(GeneralNote):
         >>> note.Rest(type='whole').fullName
         'Whole Rest'
         ''')
-
-
-    def _preDurationLily(self):
-        return "r"
-    
-    _lilyInternalTieCharacter = ' ' # when separating components, dont tie them
 
 
     def _getMX(self):
@@ -1635,12 +1550,16 @@ class Test(unittest.TestCase):
         self.assertEqual(note1.duration.componentIndexAtQtrPosition(4.5), 1)
         note1.duration.sliceComponentAtPosition(1.0)
         
-        matchStr = "c'4~ c'2.~ c'4"
-        self.assertEqual(str(note1.lily), matchStr)
+        matchStr = u"c'4~ c'2.~ c'4"
+        from music21.lily.translate import LilypondConverter
+        conv = LilypondConverter()
+        outStr = conv.fromObject(note1)
+        
+        self.assertEqual(outStr, matchStr)
         i = 0
         for thisNote in (note1.splitAtDurations()):
             matchSub = matchStr.split(' ')[i]
-            self.assertEqual(str(thisNote.lily), matchSub)
+            self.assertEqual(conv.fromObject(thisNote), matchSub)
             i += 1
        
 

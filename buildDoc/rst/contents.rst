@@ -62,6 +62,7 @@ Module Reference
    moduleBrailleBasic
    moduleBrailleExamples
    moduleBrailleTranslate
+   moduleBrailleSegment
    moduleClef
    moduleCommon
    moduleCompositionPhasing
@@ -121,8 +122,10 @@ Module Reference
    moduleText
    moduleTinyNotation
    moduleTrecentoPolyphonicSnippet
+   moduleVexflowBase
    moduleVoiceLeading
    moduleVolume
+   moduleWebappsBase
    moduleXmlnode
 
 

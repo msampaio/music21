@@ -61,7 +61,7 @@ from music21.figuredBass import notation
 from music21.figuredBass import realizerScale
 from music21.figuredBass import rules
 from music21.figuredBass import segment
-from music21 import harmony, roman
+#from music21 import harmony, roman
 
 _MOD = 'realizer.py'
 
@@ -75,8 +75,6 @@ def figuredBassFromStream(streamPart):
     a realized version of the same line.
     
     
-    .. note:: This example corresponds to example 1b in "fbREALIZER: AUTOMATIC FIGURED BASS REALIZATION FOR MUSIC INFORMATION RETRIEVAL IN music21," which was submitted for consideration for the 12th International Society for Music Information Retrieval Conference (`ISMIR 2011 <http://ismir2011.ismir.net/>`_).
-        
     >>> from music21 import tinyNotation
     >>> from music21.figuredBass import realizer
     >>> s = tinyNotation.TinyNotationStream('C4 D8_6 E8_6 F4 G4_7 c1', '4/4')
@@ -201,7 +199,7 @@ class FiguredBassLine(object):
         Use this method to add (bassNote, notationString) pairs to the bass line. Elements
         are realized in the order they are added.
         
-        
+        >>> from music21 import *
         >>> from music21.figuredBass import realizer
         >>> from music21 import key
         >>> from music21 import meter
@@ -229,9 +227,9 @@ class FiguredBassLine(object):
             self._fbList.append((bassObject, notationString)) #a bass note, and a notationString
             addLyricsToBassNote(bassObject, notationString) 
         #!---------- Added to accommodate harmony.ChordSymbol and roman.RomanNumeral objects --------!     
-        elif isinstance(bassObject, harmony.ChordSymbol):
+        elif isinstance(bassObject, music21.harmony.ChordSymbol):
             self._fbList.append(bassObject) #a harmony object
-        elif isinstance(bassObject, roman.RomanNumeral):
+        elif isinstance(bassObject, music21.roman.RomanNumeral):
             self._fbList.append(bassObject) #a roman Numeral object
         else:
             raise FiguredBassLineException("Not a valid bassObject (only note.Note, harmony.ChordSymbol, and roman.RomanNumeral supported)")
@@ -321,6 +319,7 @@ class FiguredBassLine(object):
         contain :meth:`~music21.figuredBass.segment.Segment.allCorrectConsecutivePossibilities`
         for the one note.
         
+        >>> from music21 import *
         >>> from music21.figuredBass import realizer
         >>> from music21.figuredBass import rules
         >>> from music21 import key
@@ -366,7 +365,7 @@ class FiguredBassLine(object):
         for item in self._fbList:
             if isinstance(item, note.Note):
                 break
-            if isinstance(item, roman.RomanNumeral) or isinstance(item, harmony.ChordSymbol): #and item.isClassOrSubclass(harmony.Harmony):
+            if isinstance(item, music21.roman.RomanNumeral) or isinstance(item, music21.harmony.ChordSymbol): #and item.isClassOrSubclass(harmony.Harmony):
                 listOfHarmonyObjects = True
                 break
             
@@ -500,13 +499,11 @@ class Realization(object):
     generation of realizations as a :class:`~music21.stream.Score`.
     
     
-    See the :mod:`~music21.figuredBass.examples` module for examples on the generation
-    of realizations.
-    
-    
-    .. note:: A possibility progression is a valid progression through a string of 
-        :class:`~music21.figuredBass.segment.Segment` instances.
-        See :mod:`~music21.figuredBass.possibility` for more details on possibilities.
+    * See the :mod:`~music21.figuredBass.examples` module for examples on the generation
+      of realizations.
+    * A possibility progression is a valid progression through a string of 
+      :class:`~music21.figuredBass.segment.Segment` instances.
+      See :mod:`~music21.figuredBass.possibility` for more details on possibilities.
     '''
     _DOC_ORDER = ['getNumSolutions', 'generateRandomRealization', 'generateRandomRealizations', 'generateAllRealizations',
                   'getAllPossibilityProgressions', 'getRandomPossibilityProgression', 'generateRealizationFromPossibilityProgression']

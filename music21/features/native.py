@@ -15,7 +15,6 @@
 
 
 import unittest
-import webbrowser
 import urllib
 import re
 import math
@@ -657,7 +656,7 @@ class IncorrectlySpelledTriadPrevalence(featuresModule.FeatureExtractor):
     >>> s = corpus.parse('mozart/k155', 2)
     >>> fe = features.native.IncorrectlySpelledTriadPrevalence(s)
     >>> fe.extract().vector 
-    [0.00746...]
+    [0.007...]
     '''
     id = 'CS11'
     def __init__(self, dataOrStream=None, *arguments, **keywords):

@@ -7,7 +7,7 @@
 # Authors:      Michael Scott Cuthbert
 #               Christopher Ariza
 #
-# Copyright:    (c) 2009-2011 The music21 Project
+# Copyright:    (c) 2009-2012 The music21 Project
 # License:      LGPL
 #-------------------------------------------------------------------------------
 '''
@@ -56,6 +56,8 @@ import zipfile
 #     import pickle as pickleMod
 
 import pickle as pickleMod
+import StringIO # this module is not supported in python3
+# use io.StringIO  in python 3, avail in 2.6, not 2.5
 
 
 import music21
@@ -262,16 +264,16 @@ class PickleFilter(object):
 class StreamFreezer(object):
     '''This class is used to freeze a Stream, preparing it for pickling. 
     '''
-
     def __init__(self, streamObj=None):
         # must make a deepcopy, as we will be altering DefinedContexts
-        self.stream = copy.deepcopy(streamObj)
-        # call _elementsChanged to clear cache
-        #self.stream._elementsChanged()
-        #self.stream = streamObj
 
-#         for x in dir(self.stream):
-#             test = getattr(
+        self.stream = None
+        if streamObj is not None:
+            #self.stream = copy.deepcopy(streamObj)
+            self.stream = streamObj
+            # call _elementsChanged to clear cache
+            self.stream._elementsChanged()
+            #self.stream = streamObj
 
     def _getPickleFp(self, dir):
         if dir == None:
@@ -280,11 +282,29 @@ class StreamFreezer(object):
         streamStr = str(time.time())
         return os.path.join(dir, 'm21-' + common.getMd5(streamStr) + '.p')
 
+
+    def _packStream(self, streamObj):
+        '''Prepare the passed in Stream in place, return storage dictionary format
+        '''        
+        streamObj.setupSerializationScaffold()
+        storage = {'stream': self.stream, 'm21Version': music21.VERSION}
+        return storage
+    
+    def _unpackStream(self, storage):
+        '''Convert from storage dictionary to Stream.
+        '''
+        version = storage['m21Version']
+        if version != music21.VERSION:
+            environLocal.warn('this pickled file is out of data and my not function properly.')
+        streamObj = storage['stream']
+        streamObj.teardownSerializationScaffold()
+        return streamObj
+
     #---------------------------------------------------------------------------
     def writePickle(self, fp=None):
         '''For a supplied Stream, write a pickled version.
         '''
-        if fp == None:
+        if fp is None:
             dir = environLocal.getRootTempDir()
             fp = self._getPickleFp(dir)
         elif os.sep in fp: # assume its a complete path
@@ -292,18 +312,35 @@ class StreamFreezer(object):
         else:
             dir = environLocal.getRootTempDir()
             fp = os.path.join(dir, fp)
-
-        self.stream.setupPickleScaffold()
+    
+        storage = self._packStream(self.stream)
 
         environLocal.printDebug(['writing fp', fp])
         f = open(fp, 'wb') # binary
         # a negative protocal value will get the highest protocal; 
         # this is generally desirable 
-
-        storage = {'stream': self.stream, 'm21Version': music21.VERSION}
+        # packStream() returns a storage dictionary
         pickleMod.dump(storage, f, protocol=-1)
         f.close()
         return fp
+
+    def writePickleInMemory(self):
+        '''Return a pickled file-like object. 
+        '''
+        f = StringIO.StringIO()
+        storage = self._packStream(self.stream)
+        pickleMod.dump(storage, f, protocol=-1)
+        #f.close()
+        # perhaps try to append a '\n'
+        # f.write()
+        return f
+
+    def writePickleStr(self):
+        '''Return a pickled as String
+        '''
+        storage = self._packStream(self.stream)
+        return pickleMod.dumps(storage, protocol=-1)
+
 
     def openPickle(self, fp):
         '''For a supplied file path to a pickled stream, unpickle
@@ -318,17 +355,21 @@ class StreamFreezer(object):
         f = open(fp, 'rb')
         storage = pickleMod.load(f)
         f.close()
-        #self.stream._printDefinedContexts()
+        self.stream = self._unpackStream(storage)
 
-        version = storage['m21Version']
-        if version != music21.VERSION:
-            environLocal.warn('this pickled file is out of data and my not function properly.')
+    def openPickleInMemory(self, fileLike):
+        '''Pass in a file-like object and have it be unpickled
+        '''
+        # TODO: this does not yet work
+        storage = pickleMod.load(fileLike)
+        self.stream = self._unpackStream(storage)
 
-        self.stream = storage['stream']
-        self.stream.teardownPickleScaffold()
-        #self.stream._printDefinedContexts()
-
-
+    def openPickleStr(self, fileLike):
+        '''Open a String as a pickle
+        '''
+        # TODO: this does not yet work
+        storage = pickleMod.loads(fileLike)
+        self.stream = self._unpackStream(storage)
 
 
 #-------------------------------------------------------------------------------
@@ -908,13 +949,10 @@ class Converter(object):
         
         
         >>> from music21 import *
-        >>> jeanieLightBrownURL = 'http://www.wikifonia.org/node/4391'
+        >>> #_DOCS_SHOW jeanieLightBrownURL = 'http://www.wikifonia.org/node/4391'
         >>> c = converter.Converter()
-        >>> c.parseURL(jeanieLightBrownURL)
-        >>> jeanieStream = c.stream
-        >>> jeanieStream.parts[0].measure(2).notes.show('text')
-        {0.0} <music21.note.Note C>
-        {3.0} <music21.note.Note A>
+        >>> #_DOCS_SHOW c.parseURL(jeanieLightBrownURL)
+        >>> #_DOCS_SHOW jeanieStream = c.stream
         '''
         autoDownload = environLocal['autoDownload']
         if autoDownload == 'allow':
@@ -927,7 +965,6 @@ class Converter(object):
         matchedWikifonia = re.search("wikifonia.org/node/(\d+)", url)
         if matchedWikifonia:
             url = 'http://static.wikifonia.org/' + matchedWikifonia.group(1) + '/musicxml.xml'
-
 
         # this format check is here first to see if we can find the format
         # in the url; if forcing a format we do not need this
@@ -1008,11 +1045,7 @@ def parse(value, *args, **keywords):
     in a file of multipiece file.
     
     
-    `format` specifies the format to parse the line of text or the file as.
-    
-    
-    
-    
+    `format` specifies the format to parse the line of text or the file as.    
     
     A string of text is first checked to see if it is a 
     filename that exists on disk.  If not it is searched
@@ -1103,6 +1136,36 @@ def unfreeze(fp):
     '''
     v = StreamFreezer()
     v.openPickle(fp)
+    return v.stream
+
+def freezeInMemory(streamObj):
+    '''Given a StreamObject and a file path, pickle and return a file-like object.
+
+    The object is returned.
+    '''
+    v = StreamFreezer(streamObj)
+    return v.writePickleInMemory() # returns fp
+
+def unfreezeInMemory(fileLike):
+    '''Given a file path of a pickled Stream, attempt to parse the file into a Stream.
+    '''
+    v = StreamFreezer()
+    v.openPickleInMemory(fileLike)
+    return v.stream
+
+def freezeStr(streamObj):
+    '''Given a StreamObject and a file path, pickle and return a file-like object.
+
+    A string is returned.
+    '''
+    v = StreamFreezer(streamObj)
+    return v.writePickleStr() # returns a string
+
+def unfreezeStr(strData):
+    '''Given a file path of a pickled Stream, attempt to parse the file into a Stream.
+    '''
+    v = StreamFreezer()
+    v.openPickleStr(strData)
     return v.stream
 
 

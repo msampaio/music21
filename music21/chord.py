@@ -115,7 +115,7 @@ class Chord(note.NotRest):
         # keep it here in case we have no notes
         #self.duration = None  # inefficient, since note.Note.__init__ set it
         #del(self.pitch)
-
+        
         for n in notes:
             if isinstance(n, music21.pitch.Pitch):
                 # assign pitch to a new Note
@@ -167,36 +167,6 @@ class Chord(note.NotRest):
             self.beams = beam.Beams()
 
         
-    def _preDurationLily(self):
-        '''
-        Method to return all the lilypond information that appears before the 
-        duration number.  This is called from GeneralNote .lily, but we are
-        overriding the previously defined call. 
-        
-        '''
-        baseName = "<"
-        baseName += self.editorial.lilyStart()
-        for thisPitch in self.pitches:
-            baseName += thisPitch.step.lower()
-            if (thisPitch.accidental):
-                baseName += thisPitch.accidental.lily
-            elif (self.editorial.ficta is not None):
-                baseName += self.editorial.ficta.lily
-            octaveModChars = ""
-            
-            if (thisPitch.implicitOctave < 3):
-                correctedOctave = 3 - thisPitch.implicitOctave 
-                octaveModChars = ',' * correctedOctave #  C3 = c ; C2 = c, ; C1 = c,,
-            else:
-                correctedOctave = thisPitch.implicitOctave - 3
-                octaveModChars  = '\'' * correctedOctave # C4 = c' ; C5 = c''  etc.
-            baseName += octaveModChars
-            if (self.editorial.ficta is not None):
-                baseName += "!"  # always display ficta
-            baseName += " "
-        baseName = baseName.rstrip()
-        baseName += ">"
-        return baseName
 
 
     def __deepcopy__(self, memo=None):
@@ -1347,7 +1317,7 @@ class Chord(note.NotRest):
         
         
         As mentioned above, the property can also get its scale from context if
-        the chord is embedded in a Stream.  Let's great the same V in f#-minor
+        the chord is embedded in a Stream.  Let's create the same V in f#-minor
         again, but give it a context of c-sharp minor, and then c-minor instead:
         
         
@@ -1377,7 +1347,7 @@ class Chord(note.NotRest):
         '''
         from music21 import scale
         # roman numerals have this built in as the key attribute
-        if hasattr(self, 'key') and self.key is not None: 
+        if hasattr(self, 'key') and self.key is not None:
             # Key is a subclass of scale.DiatonicScale
             sc = self.key
         else:
@@ -2424,6 +2394,24 @@ class Chord(note.NotRest):
         >>> c12.isConsonant()
         False
         
+        
+        OMIT_FROM_DOCS
+        
+        weird things if some notes have octaves and some dont...
+        
+        
+        >>> c13 = chord.Chord(['A4','B4','A'])
+        >>> c14 = c13.removeRedundantPitchNames(inPlace = False)
+        >>> c14
+        <music21.chord.Chord A4 B4>
+        >>> i14 = interval.notesToInterval(c14.pitches[0], c14.pitches[1])
+        >>> i14
+        <music21.interval.Interval M2>
+        >>> i14.isConsonant()
+        False
+        >>> c13.isConsonant()
+        False
+        
         '''
         c2 = self.removeRedundantPitchNames(inPlace = False)
         if len(c2.pitches) == 1:  
@@ -2661,9 +2649,9 @@ class Chord(note.NotRest):
         >>> from music21 import *
         >>> chord1 = chord.Chord(["C#4", "G5", "E6"])
         >>> chord2 = chord1.closedPosition()
-        >>> print(chord2.lily.value)
-        <cis' e' g'>4
-
+        >>> chord2
+        <music21.chord.Chord C#4 E4 G4>
+        
         >>> c2 = chord.Chord(["C#4", "G5", "E6"])
         >>> str(c2.closedPosition(2).pitches)
         '[C#2, E2, G2]'
@@ -2672,10 +2660,23 @@ class Chord(note.NotRest):
         >>> str(c3.closedPosition(6).pitches)
         '[C#6, E6, G6]'
 
-        >>> c4 = chord.Chord(["C#4", "C5", "F7"])
+        TODO: FIX: should not have two Fs
+
+        >>> c4 = chord.Chord(["C#4", "C5", "F7", "F8"])
         >>> c4.closedPosition(4, inPlace = True)
         >>> str(c4.pitches)
-        '[C#4, F4, C5]'
+        '[C#4, F4, F4, C5]'
+
+
+        Implicit octaves work fine...
+        
+        TODO: FIX: should not have two As
+        
+        >>> c4 = chord.Chord(["A4", "B4", "A"])
+        >>> c4.closedPosition(4, inPlace = True)
+        >>> str(c4.pitches)
+        '[A4, A4, B4]'
+
         '''
         #environLocal.printDebug(['calling closedPosition()', inPlace])
         if inPlace:
@@ -2696,12 +2697,16 @@ class Chord(note.NotRest):
                 while pBass.octave != forceOctave:
                     # shift octave of all pitches
                     for p in returnObj.pitches:
+                        if p.octave is None:
+                            p.octave = p.implicitOctave
                         p.octave += dif
 
         # can change these pitches in place
         for p in returnObj.pitches:
             # bring each pitch down octaves until pitch space is 
             # within an octave
+            if p.octave is None:
+                p.octave = p.implicitOctave
             while p.ps > pBass.ps + 12:
                 p.octave -= 1      
 
@@ -3991,14 +3996,10 @@ class Test(unittest.TestCase):
         # duration shold store a Duration object
         #assert chord1.duration is None
 
-    def testLily(self):
-        chord1 = Chord(["C#4","E4","G5"])
-        self.assertEqual("<cis' e' g''>4", chord1.lily.value)
-
     def testClosedPosition(self):
         chord1 = Chord(["C#4", "G5", "E6"])
         chord2 = chord1.closedPosition()
-        self.assertEqual("<cis' e' g'>4", chord2.lily.value)
+        self.assertEqual(repr(chord2), "<music21.chord.Chord C#4 E4 G4>")
 
     def testPostTonalChordsA(self):
         c1 = Chord([0,1,3,6,8,9,12])

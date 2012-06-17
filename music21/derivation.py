@@ -5,7 +5,7 @@
 #
 # Authors:      Christopher Ariza
 #
-# Copyright:    (c) 2011 The music21 Project
+# Copyright:    (c) 2011-2012 The music21 Project
 # License:      LGPL
 #-------------------------------------------------------------------------------
 '''This module defines objects for tracking the derivation of one :class:`~music21.stream.Stream` from another.
@@ -17,8 +17,13 @@ import music21
 from music21 import common
 # imported by stream
 
+from music21 import environment
+_MOD = "derivation.py"
+environLocal = environment.Environment(_MOD)
 
-class Derivation(object):
+
+
+class Derivation(music21.JSONSerializer):
     '''
     >>> import copy
     >>> from music21 import *  
@@ -38,6 +43,8 @@ class Derivation(object):
     'measure'
     '''
     def __init__(self, container=None):
+        music21.JSONSerializer.__init__(self)
+
         # store a reference to the Stream that contains this derivation
         self._container = None
         self._containerId = None # store id to optimize w/o unwrapping
@@ -108,10 +115,10 @@ class Derivation(object):
         >>> common.isWeakref(d1._container)
         False
         '''
+        #environLocal.pd(['derivation pre unwrap: self._container', self._container])
         post = common.unwrapWeakref(self._container)
         self._container = post
-#         post = common.unwrapWeakref(self._ancestor)
-#         self._ancestor = post
+        #environLocal.pd(['derivation post unwrap: self._container', self._container])
 
 
     def wrapWeakref(self):
@@ -123,11 +130,6 @@ class Derivation(object):
             post = common.wrapWeakref(self._container)
             self._container = post
 
-#         if not common.isWeakref(self._ancestor):
-#             self._ancestorId = id(self._ancestor)             
-#             post = common.wrapWeakref(self._ancestor)
-#             self._ancestor = post
-
 
 
 #-------------------------------------------------------------------------------
@@ -136,6 +138,13 @@ class Test(unittest.TestCase):
     def runTest(self):
         pass
 
+    def testSerializationA(self):
+        from music21 import derivation
+
+        d = derivation.Derivation()
+        self.assertEqual(d.jsonAttributes(), ['_ancestor', '_ancestorId', '_container', '_containerId', '_method'])
+
+        self.assertEqual(hasattr(d, 'json'), True)
 
 
 #-------------------------------------------------------------------------------
@@ -151,6 +160,7 @@ if __name__ == "__main__":
 
 #------------------------------------------------------------------------------
 # eof
+
 
 
 

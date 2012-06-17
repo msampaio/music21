@@ -160,7 +160,7 @@ class ReductiveNote(object):
         if 'noteheadFill' in self._parameters.keys():
             if self._parameters['noteheadFill'] is not None:
                 n.noteheadFill = self._parameters['noteheadFill']
-                #environLocal.pd(['set nothead fill:', n.noteheadFill])
+                #environLocal.printDebug(['set nothead fill:', n.noteheadFill])
         if 'textBelow' in self._parameters.keys():
             n.addLyric(self._parameters['textBelow'])
         if 'textAbove' in self._parameters.keys():
@@ -966,9 +966,9 @@ class Test(unittest.TestCase):
                 # span
                 self.assertTrue(common.almostEquals(dataMatch[1], dataTarget[1]))
                 # weight
-                self.assertTrue(common.almostEquals(dataMatch[2], dataTarget[2]))
+                self.assertTrue(common.almostEquals(dataMatch[2], dataTarget[2]), "for partId %s, entry %d: should be %s <-> was %s" % (partId, i, dataMatch[2], dataTarget[2]))
 
-    def testPartReductionB(self):
+    def testPartReductionB(self, show=False):
         '''Artificially create test cases.
         '''
         from music21 import stream, note, dynamics, graph, analysis
@@ -988,16 +988,29 @@ class Test(unittest.TestCase):
             #p.makeMeasures(inPlace=True)
             s.insert(0, p)
             pCount += 1
-        #s.show()
+
+        if show is True:
+            s.show()
 
         pr = analysis.reduction.PartReduction(s, normalize=False)
         pr.process()
         match = pr.getGraphHorizontalBarWeightedData()
-        target = [(0, [[0.0, 1.0, 0.07857142857142858, '#666666'], [1.0, 3.0, 0.09999999999999999, '#666666'], [4.0, 2.0, 0.04285714285714286, '#666666'], [6.0, 4.0, 0.12142857142857143, '#666666'], [10.0, 2.0, 0.07857142857142858, '#666666']]), (1, [[0.0, 1.0, 0.07857142857142858, '#666666'], [1.0, 3.0, 0.09999999999999999, '#666666'], [4.0, 2.0, 0.04285714285714286, '#666666'], [6.0, 4.0, 0.12142857142857143, '#666666'], [10.0, 2.0, 0.07857142857142858, '#666666']])]
+        target = [(0, [[0.0, 1.0, 0.07857142857142858, '#666666'], 
+                       [1.0, 3.0, 0.09999999999999999, '#666666'], 
+                       [4.0, 2.0, 0.05, '#666666'], 
+                       [6.0, 4.0, 0.12142857142857143, '#666666'], 
+                       [10.0, 2.0, 0.07857142857142858, '#666666']]), 
+                  (1, [[0.0, 1.0, 0.07857142857142858, '#666666'], 
+                       [1.0, 3.0, 0.09999999999999999, '#666666'], 
+                       [4.0, 2.0, 0.05, '#666666'], 
+                       [6.0, 4.0, 0.12142857142857143, '#666666'], 
+                       [10.0, 2.0, 0.07857142857142858, '#666666']])]
 
         self._matchWeightedData(match, target)
-        #p = graph.PlotDolan(s, title='Dynamics')
-        #p.process()
+
+        if show is True:
+            p = graph.PlotDolan(s, title='Dynamics')
+            p.process()
 
 
     def testPartReductionC(self):
@@ -1024,7 +1037,12 @@ class Test(unittest.TestCase):
         pr.process()
         match = pr.getGraphHorizontalBarWeightedData()
 
-        target = [(0, [[0.0, 2.0, 0.04285714285714286, '#666666'], [2.0, 4.0, 0.1285714285714286, '#666666'], [6.0, 2.0, 0.014285714285714287, '#666666']]), (1, [[0.0, 1.0, 0.04285714285714286, '#666666'], [1.0, 1.0, 0.1285714285714286, '#666666'], [2.0, 6.0, 0.014285714285714287, '#666666']])]
+        target = [(0, [[0.0, 2.0, 0.05, '#666666'], 
+                       [2.0, 4.0, 0.1285714285714286, '#666666'], 
+                       [6.0, 2.0, 0.0214285714286, '#666666']]), 
+                  (1, [[0.0, 1.0, 0.05, '#666666'], 
+                       [1.0, 1.0, 0.1285714285714286, '#666666'], 
+                       [2.0, 6.0, 0.0214285714286, '#666666']])]
 
         self._matchWeightedData(match, target)
 
@@ -1058,7 +1076,12 @@ class Test(unittest.TestCase):
         pr.process()
         match = pr.getGraphHorizontalBarWeightedData()
         #print match
-        target = [(0, [[2.0, 2.0, 1.0, '#666666'], [6.0, 2.0, 0.1111111111111111, '#666666'], [10.0, 2.0, 0.1111111111111111, '#666666']]), (1, [[2.0, 2.0, 0.7777777777777776, '#666666'], [6.0, 2.0, 0.6111111111111112, '#666666'], [10.0, 2.0, 0.6111111111111112, '#666666']])]
+        target = [(0, [[2.0, 2.0, 1.0, '#666666'], 
+                       [6.0, 2.0, 0.166666666666666, '#666666'], 
+                       [10.0, 2.0, 0.166666666666, '#666666']]), 
+                  (1, [[2.0, 2.0, 0.7777777777777776, '#666666'], 
+                       [6.0, 2.0, 0.6111111111111112, '#666666'], 
+                       [10.0, 2.0, 0.6111111111111112, '#666666']])]
         self._matchWeightedData(match, target)
 
 
@@ -1096,7 +1119,7 @@ class Test(unittest.TestCase):
                     segmentByTarget=False, normalize=False)
         pr.process()
         target = pr.getGraphHorizontalBarWeightedData()
-        match = [(0, [[0.0, 4.0, 0.17142857142857143, '#666666'], [4.0, 4.0, 0.014285714285714287, '#666666'], [8.0, 4.0, 0.014285714285714287, '#666666']]), (1, [[0.0, 4.0, 0.17857142857142858, '#666666'], [4.0, 4.0, 0.07857142857142858, '#666666'], [8.0, 4.0, 0.07857142857142858, '#666666']])]
+        match = [(0, [[0.0, 4.0, 0.178571428571, '#666666'], [4.0, 4.0, 0.0214285714286, '#666666'], [8.0, 4.0, 0.0214285714286, '#666666']]), (1, [[0.0, 4.0, 0.178571428571, '#666666'], [4.0, 4.0, 0.07857142857142858, '#666666'], [8.0, 4.0, 0.07857142857142858, '#666666']])]
 
         self._matchWeightedData(match, target)
 
@@ -1105,7 +1128,14 @@ class Test(unittest.TestCase):
         pr.process()
         target = pr.getGraphHorizontalBarWeightedData()
         #print target
-        match = [(0, [[0.0, 2.0, 0.04285714285714286, '#666666'], [2.0, 2.0, 0.1285714285714286, '#666666'], [6.0, 2.0, 0.014285714285714287, '#666666'], [10.0, 2.0, 0.014285714285714287, '#666666']]), (1, [[0.0, 2.0, 0.07857142857142858, '#666666'], [2.0, 2.0, 0.09999999999999999, '#666666'], [6.0, 2.0, 0.07857142857142858, '#666666'], [10.0, 2.0, 0.07857142857142858, '#666666']])]
+        match = [(0, [[0.0, 2.0, 0.05, '#666666'], 
+                      [2.0, 2.0, 0.1285714285714286, '#666666'], 
+                      [6.0, 2.0, 0.0214285714286, '#666666'], 
+                      [10.0, 2.0, 0.0214285714286, '#666666']]), 
+                 (1, [[0.0, 2.0, 0.07857142857142858, '#666666'], 
+                      [2.0, 2.0, 0.1, '#666666'], 
+                      [6.0, 2.0, 0.07857142857142858, '#666666'], 
+                      [10.0, 2.0, 0.07857142857142858, '#666666']])]
         self._matchWeightedData(match, target)
 
 
@@ -1114,7 +1144,12 @@ class Test(unittest.TestCase):
         pr.process()
         target = pr.getGraphHorizontalBarWeightedData()
         #print target
-        match = [(0, [[0.0, 4.0, 0.96, '#666666'], [6.0, 2.0, 0.08, '#666666'], [10.0, 2.0, 0.08, '#666666']]), (1, [[0.0, 4.0, 1.0, '#666666'], [6.0, 2.0, 0.44000000000000006, '#666666'], [10.0, 2.0, 0.44000000000000006, '#666666']])]
+        match = [(0, [[0.0, 4.0, 1.0, '#666666'], 
+                      [6.0, 2.0, 0.12, '#666666'], 
+                      [10.0, 2.0, 0.12, '#666666']]), 
+                 (1, [[0.0, 4.0, 1.0, '#666666'], 
+                      [6.0, 2.0, 0.44, '#666666'], 
+                      [10.0, 2.0, 0.44, '#666666']])]
         self._matchWeightedData(match, target)
 
 
@@ -1122,7 +1157,14 @@ class Test(unittest.TestCase):
                     segmentByTarget=True)
         pr.process()
         target = pr.getGraphHorizontalBarWeightedData()
-        match = [(0, [[0.0, 2.0, 0.3333333333333333, '#666666'], [2.0, 2.0, 1.0, '#666666'], [6.0, 2.0, 0.1111111111111111, '#666666'], [8.0, 4.0, 0.1111111111111111, '#666666']]), (1, [[0.0, 2.0, 0.6111111111111112, '#666666'], [2.0, 2.0, 0.7777777777777776, '#666666'], [6.0, 2.0, 0.6111111111111112, '#666666'], [8.0, 4.0, 0.6111111111111112, '#666666']])]
+        match = [(0, [[0.0, 2.0, 0.3888888888888, '#666666'], 
+                      [2.0, 2.0, 1.0, '#666666'], 
+                      [6.0, 2.0, 0.166666666667, '#666666'], 
+                      [8.0, 4.0, 0.166666666667, '#666666']]), 
+                 (1, [[0.0, 2.0, 0.6111111111111112, '#666666'], 
+                      [2.0, 2.0, 0.7777777777777776, '#666666'], 
+                      [6.0, 2.0, 0.611111111111111, '#666666'], 
+                      [8.0, 4.0, 0.611111111111111, '#666666']])]
         self._matchWeightedData(match, target)
 
 
@@ -1130,7 +1172,11 @@ class Test(unittest.TestCase):
 #                             segmentByTarget=True, normalizeByPart=False)
 #         p.process()
 
-
+class TestExternal(unittest.TestCase):
+    
+    def testPartReductionB(self):
+        t = Test()
+        t.testPartReductionB(show=True)
 #-------------------------------------------------------------------------------
 # define presented order in documentation
 _DOC_ORDER = []

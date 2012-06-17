@@ -134,6 +134,305 @@ WEAKREF_ACTIVE = True
 
 
 #-------------------------------------------------------------------------------
+class JSONSerializerException(Exception):
+    pass
+
+class JSONSerializer(object):
+    '''Class that provides JSON output and input routines. Objects can inherit this class directly, or gain its functional through inheriting Music21Object. 
+    '''
+    # note that, since this inherits form object, other classes that inherit
+    # this class need to give object last
+    # e.g. class Text(music21.JSONSerializer, object):
+
+    def __init__(self):
+        pass
+
+    #---------------------------------------------------------------------------
+    # override these methods for json functionality
+
+    def _autoGatherAttributes(self):
+        '''Gather just the instance data members that are proceeded by an underscore. 
+        '''
+        post = []
+        # names that we always do not need
+        exclude = ['_classes']
+        # get class names that exclude instance names
+        # these names will be rejected in final accumulation
+        classNames = []
+        for bundle in inspect.classify_class_attrs(self.__class__):
+            if (bundle.name.startswith('_') and not 
+                bundle.name.startswith('__')):
+                classNames.append(bundle.name)
+        #environLocal.pd(['classNames', classNames])
+        for name in dir(self):
+            if name.startswith('_') and not name.startswith('__'):
+                attr = getattr(self, name)
+                #environLocal.pd(['inspect.isroutine()', attr, inspect.isroutine(attr)])
+                if (not inspect.ismethod(attr) and not 
+                    inspect.isfunction(attr) and not inspect.isroutine(attr)): 
+                    # class names stored are class attrs, not needed for 
+                    # reinstantiation
+                    if name not in classNames and name not in exclude:
+                        # store the name, not the attr
+                        post.append(name)
+        #environLocal.pd(['auto-derived jsonAttributes', post])
+        return post
+
+    def jsonAttributes(self):
+        '''Define all attributes of this object that should be JSON serialized for storage and re-instantiation. Attributes that name basic Python objects or :class:`~music21.base.JSONSerializer` subclasses, or dictionaries or lists that contain Python objects or :class:`~music21.base.JSONSerializer` subclasses, can be provided.
+        '''
+        #return []
+        return self._autoGatherAttributes()
+
+
+    def jsonComponentFactory(self, idStr):
+        '''Given a stored string during JSON serialization, return an object. This method effectively converts a string class specification into a vanilla instance ready for specialization via stored data attributes. 
+
+        A subclass that overrides this method will have access to all modules necessary to create whatever objects necessary. 
+
+        '''
+        # keep in alpha
+        from music21 import base
+        from music21 import beam
+        from music21 import derivation
+        from music21 import duration
+        from music21 import editorial
+        from music21 import note
+        from music21 import pitch
+
+        # base:
+        if '.DefinedContexts' in idStr:
+            return base.DefinedContexts()
+
+        # derivation
+        if '.Derivation' in idStr:
+            return derivation.Derivation()
+
+        # pitch module
+        elif '.Microtone' in idStr:
+            return pitch.Microtone()
+        elif '.Accidental' in idStr:
+            return pitch.Accidental()
+        elif '.Pitch' in idStr:
+            return pitch.Pitch()
+
+        # duration module
+        elif '.DurationUnit' in idStr:
+            return duration.DurationUnit()
+        elif '.Duration' in idStr:
+            return duration.Duration()
+
+        # editorial module
+        elif '.NoteEditorial' in idStr:
+            return editorial.NoteEditorial()
+        elif '.Comment' in idStr:
+            return editorial.Comment()
+
+        # note module
+        elif '.Lyric' in idStr:
+            return note.Lyric()
+        elif '.GeneralNote' in idStr:
+            return note.GeneralNote()
+        elif '.NotRest' in idStr:
+            return note.NotRest()
+        elif '.Note' in idStr:
+            return note.Note()
+        elif '.Rest' in idStr:
+            return note.Rest()
+
+
+        # beam module
+        elif '.Beam' in idStr:
+            return beam.Beam()
+        elif '.Beams' in idStr:
+            return beam.Beams()
+
+        else:
+            raise JSONSerializerException('cannot instantiate an object from id string: %s' % idStr)
+
+
+    #---------------------------------------------------------------------------
+    # core methods for getting and setting
+
+    def _getJSONDict(self, includeVersion=False):
+        '''Return a dictionary representation for JSON processing. All component objects are similarly encoded as dictionaries. This method is recursively called as needed to store dictionaries of component objects that are :class:`~music21.base.JSONSerializer` subclasses.
+
+        >>> from music21 import *
+        >>> t = metadata.Text('my text')
+        >>> t.language = 'en'
+        >>> post = t.json # cannot show string as self changes in context
+        '''
+        src = {'__class__': str(self.__class__)}
+        # always store the version used to create this data
+        if includeVersion:
+            src['__version__'] = VERSION
+
+        # flat data attributes
+        flatData = {}
+        for attr in self.jsonAttributes():
+            attrValue = getattr(self, attr)
+
+            #environLocal.printDebug(['_getJSON', attr, "hasattr(attrValue, 'json')", hasattr(attrValue, 'json')])
+
+            # do not store None values; assume initial/unset state
+            if attrValue is None:
+                continue
+
+            # if, stored on this object, is an object w/ a json method
+            if hasattr(attrValue, 'json'):
+                #environLocal.pd(['attrValue', attrValue])
+                flatData[attr] = attrValue._getJSONDict()
+
+            # handle lists; look for objects that have json attributes
+            elif isinstance(attrValue, (list, tuple)):
+                flatData[attr] = []
+                for attrValueSub in attrValue:
+                    if hasattr(attrValueSub, 'json'):
+                        flatData[attr].append(attrValueSub._getJSONDict())
+                    else: # just store normal data
+                        flatData[attr].append(attrValueSub)
+
+            # handle dictionaries; look for objects that have json attributes
+            elif isinstance(attrValue, dict):
+                flatData[attr] = {}
+                for key in attrValue.keys():
+                    attrValueSub = attrValue[key]
+                    # skip None values for efficiency
+                    if attrValueSub is None:
+                        continue
+                    # see if this object stores a json object or otherwise
+                    if hasattr(attrValueSub, 'json'):
+                        flatData[attr][key] = attrValueSub._getJSONDict()
+                    else: # just store normal data
+                        flatData[attr][key] = attrValueSub
+            else:
+                flatData[attr] = attrValue
+        src['__attr__'] = flatData
+        return src
+
+    def _getJSON(self):
+        '''Return the dictionary returned by _getJSONDict() as a JSON string.
+        '''
+        # when called from json property, include version number;
+        # this should mean that only the outermost object has a version number
+        return json.dumps(self._getJSONDict(includeVersion=True))
+
+
+    def _isComponent(self, target):
+        '''Return a boolean if the provided object is a dictionary that defines a __class__ key, the necessary conditions to try to instantiate a component object with the jsonComponentFactory method.
+        '''
+        # on export, check for attribute
+        if isinstance(target, dict) and '__class__' in target.keys():
+            return True
+        return False
+
+    def _buildComponent(self, src):
+        # get instance from subclass overridden method
+        obj = self.jsonComponentFactory(src['__class__'])
+        # assign dictionary (property takes dictionary or string)
+        obj.json = src
+        return obj
+
+    def _setJSON(self, jsonStr):
+        '''Set this object based on a JSON string or instantiated dictionary representation.
+
+        >>> from music21 import *
+        >>> t = metadata.Text('my text')
+        >>> t.language = 'en'
+        >>> tNew = metadata.Text()
+        >>> tNew.json = t.json
+        >>> str(t)
+        'my text'
+        >>> t.language
+        'en'
+        '''
+        #environLocal.printDebug(['_setJSON: srcStr', jsonStr])
+        if isinstance(jsonStr, dict):
+            d = jsonStr # do not loads  
+        else:
+            d = json.loads(jsonStr)
+
+        for attr in d.keys():
+            #environLocal.printDebug(['_setJSON: attr', attr, d[attr]])
+            if attr == '__class__':
+                pass
+            elif attr == '__version__':
+                pass
+            elif attr == '__attr__':
+                for key in d[attr].keys():
+                    attrValue = d[attr][key]
+                    if attrValue == None or isinstance(attrValue, 
+                        (int, float)):
+                        setattr(self, key, attrValue)
+                    # handle a list or tuple, looking for dicts that define objs
+                    elif isinstance(attrValue, (list, tuple)):
+                        subList = []
+                        for attrValueSub in attrValue:
+                            if self._isComponent(attrValueSub):
+                                subList.append(
+                                    self._buildComponent(attrValueSub))
+                            else:
+                                subList.append(attrValueSub)
+                        setattr(self, key, subList)
+                    # handle a dictionary, looking for dicts that define objs
+                    elif isinstance(attrValue, dict):
+                        # could be a data dict or a dict of objects; 
+                        # if an object, will have a __class__ key
+                        if self._isComponent(attrValue):
+                            setattr(self, key, self._buildComponent(attrValue))
+                        # its a data dictionary; could contain objects as
+                        # dictionaries, or flat data                           
+                        else:
+                            subDict = {}
+                            for subKey in attrValue.keys():
+                                # this could be flat data or a obj definition
+                                # in a dictionary
+                                attrValueSub = attrValue[subKey]
+                                # if a dictionary, and defines a __class__, 
+                                # create an object
+                                if self._isComponent(attrValueSub):
+                                    subDict[subKey] = self._buildComponent(
+                                        attrValueSub)
+                                else:
+                                    subDict[subKey] = attrValueSub
+                            #setattr(self, key, subDict)
+                            dst = getattr(self, key)
+                            # updating the dictionary preserves default 
+                            # values created at init
+                            dst.update(subDict) 
+                    else: # assume a string
+                        setattr(self, key, attrValue)
+            else:
+                raise JSONSerializerException('cannot handle json attr: %s'% attr)
+
+    json = property(_getJSON, _setJSON, 
+        doc = '''Get or set string JSON data for this object. This method is only available if a JSONSerializer subclass object has been customized and configured by overriding the following methods: :meth:`~music21.base.JSONSerializer.jsonAttributes`, :meth:`~music21.base.JSONSerializer.jsonComponentFactory`.
+        ''')    
+
+    def jsonPrint(self):
+        print(json.dumps(self._getJSONDict(includeVersion=True), 
+            sort_keys=True, indent=2))
+
+    def jsonWrite(self, fp, format=True):
+        '''Given a file path, write JSON to a file for this object. Default file extension should be .json. File is opened and closed within this method call. 
+        '''
+        f = codecs.open(fp, mode='w', encoding='utf-8')
+        if not format:
+            f.write(json.dumps(self._getJSONDict(includeVersion=True)))
+        else:
+            f.write(json.dumps(self._getJSONDict(includeVersion=True), 
+            sort_keys=True, indent=2))
+        f.close()
+
+    def jsonRead(self, fp):
+        '''Given a file path, read JSON from a file to this object. Default file extension should be .json. File is opened and closed within this method call. 
+        '''
+        f = open(fp)
+        self.json = f.read()
+        f.close()
+
+
+#-------------------------------------------------------------------------------
 # make subclass of set once that is defined properly
 class Groups(list):   
     '''A list of strings used to identify associations that an element might 
@@ -202,10 +501,10 @@ class Groups(list):
 
 
 #-------------------------------------------------------------------------------
-class DefinedContexts(object):
+class DefinedContexts(JSONSerializer):
     '''An object, stored within a Music21Object, that stores (weak) references to a collection of objects that may be contextually relevant to this object.
 
-    Some of these objects are locations, or Streams that contain this object. In this case the DefinedContexts object stores an offset value, used for determining position within a Stream. 
+    Some of these objects are locations (also called sites), or Streams that contain this object. In this case the DefinedContexts object stores an offset value, used for determining position within a Stream. 
 
     All defined contexts are stored as dictionaries in a dictionary. The outermost dictionary stores objects.
     '''
@@ -218,10 +517,8 @@ class DefinedContexts(object):
         # store an index of numbers for tagging the time of defined contexts; 
         # this is used to be able to descern the order of context as added
         self._timeIndex = 0
-
         # pass a reference to the object that contains this
         self.containedById = containedById
-
         # cache for performance
         self._lastID = -1 # cannot be None
         self._lastOffset = None
@@ -243,7 +540,7 @@ class DefinedContexts(object):
         '''This produces a new, independent DefinedContexts object.
         This does not, however, deepcopy site references stored therein.
 
-        All sites, however, are passed on to the new deepcopy, which means that in a deepcopy of a Stream that contains Notes, the copied Note will have the former site as a location.
+        All sites, however, are passed on to the new deepcopy, which means that in a deepcopy of a Stream that contains Notes, the copied Note will have the former site as a location, even though the new Note instance is not actually found in the old Stream.
 
         >>> import copy
         >>> class Mock(Music21Object): 
@@ -259,9 +556,6 @@ class DefinedContexts(object):
         >>> aContexts.get() == bContexts.get()
         True
 
-        OMIT_FROM_DOCS
-        the not copying object references here may be a problem
-        seems to be a problem in copying Streams before pickling
         '''
         #TODO: it may be a problem that sites are being transferred to deep
         #copies; this functionality is used at times in context searches, but
@@ -275,6 +569,9 @@ class DefinedContexts(object):
                 continue # do not copy dead references
             post = {}
             post['obj'] = dict['obj'] # already a weak ref
+            # not copying the offset in deepcopying means that 
+            # the old site becomes a context, not a site
+
             post['offset'] = dict['offset']
             if post['offset'] is not None:
                 locations.append(idKey) # if offset not None, a location
@@ -315,9 +612,18 @@ class DefinedContexts(object):
         for idKey in self._definedContexts.keys():
             if WEAKREF_ACTIVE:
             #if common.isWeakref(self._definedContexts[idKey]['obj']):
-                #environLocal.printDebug(['unwrapping:', self._definedContexts[idKey]['obj']])
-                post = common.unwrapWeakref(self._definedContexts[idKey]['obj'])
-                self._definedContexts[idKey]['obj'] = post
+                target = self._definedContexts[idKey]['obj']
+                environLocal.pd(['   target start', target])            
+                if target is not None:
+                    if common.isWeakref(target):
+                        environLocal.printDebug(['unwrapping:', self._definedContexts[idKey]['obj']])
+                        target = common.unwrapWeakref(target)
+                        self._definedContexts[idKey]['obj'] = target
+                    # we may need to unwrap the weakrefs in this Stream
+                    # if it is not stored elsewhere
+                    if target is not None:
+                        target.unwrapWeakref()
+                environLocal.pd(['   target end', target])            
 
     def wrapWeakref(self):
         '''Wrap all stored objects with weakrefs.
@@ -337,7 +643,7 @@ class DefinedContexts(object):
         True
         '''
         for idKey in self._definedContexts.keys():
-            if self._definedContexts[idKey]['obj'] == None:
+            if self._definedContexts[idKey]['obj'] is None:
                 continue # always skip None
             if not common.isWeakref(self._definedContexts[idKey]['obj']):
                 #environLocal.printDebug(['wrapping:', self._definedContexts[idKey]['obj']])
@@ -365,7 +671,7 @@ class DefinedContexts(object):
         postLocationKeys = []
         for idKey in self._definedContexts.keys():
             # make a random UUID
-            if idKey != None:
+            if idKey is not None:
                 newKey = uuid.uuid4()
             else:
                 newKey = idKey # keep None
@@ -451,8 +757,8 @@ class DefinedContexts(object):
     def add(self, obj, offset=None, timeValue=None, idKey=None,
          classString=None):
         '''Add a reference to the DefinedContexts collection. 
-        if offset is None, it is interpreted as a context
-        if offset is a value, it is intereted as location
+        If offset is None, it is interpreted as a context
+        If offset is a value, it is intereted as location, i.e., a Stream.
 
         The `timeValue` argument is used to store the time at which an object is added to locations. This is not the same as `offset` 
 
@@ -498,9 +804,6 @@ class DefinedContexts(object):
             dict['time'] = timeValue
         if not updateNotAdd: # add new/missing information to dictionary
             self._definedContexts[idKey] = dict
-
-
-
 
 
     def remove(self, site):
@@ -682,7 +985,7 @@ class DefinedContexts(object):
     #---------------------------------------------------------------------------
     # for dealing with locations
     def getSites(self, idExclude=None, excludeNone=False):
-        '''Get all defined contexts that are locations; unwrap from weakrefs
+        '''Get all defined contexts that are locations. Note that this unwraps all sites from weakrefs and is thus an expensive operation. 
 
         >>> import music21
         >>> class Mock(music21.Music21Object): 
@@ -800,21 +1103,6 @@ class DefinedContexts(object):
                 return True
         return False
 
-        # the long way to do this
-#         for idKey in self._locationKeys:
-#             objRef = self._definedContexts[idKey]['obj']
-#             if objRef is None:
-#                 continue
-#             if not WEAKREF_ACTIVE: 
-#                 obj = objRef
-#             else:
-#                 obj = common.unwrapWeakref(objRef)
-#             if obj is None:
-#                 continue
-#             if 'SpannerStorage' in obj.classes:
-#                 return True
-#         return False
-
     def getSiteCount(self):
         '''Return the number of non-dead sites, including None. This does not unwrap weakrefs for performance. 
         '''
@@ -890,6 +1178,9 @@ class DefinedContexts(object):
     def purgeLocations(self, rescanIsDead=False):
         '''Clean all locations that refer to objects that no longer exist.
 
+        The `removeOrphanedSites` option removes sites that may have been the result of deepcopy: the element has the site, but the site does not have
+        the element. This results b/c DefinedContexts are shallow-copied, and then elements are re-added. 
+
         >>> import music21
         >>> class Mock(music21.Music21Object): 
         ...     pass
@@ -907,6 +1198,7 @@ class DefinedContexts(object):
         >>> len(aLocations)
         1
         '''
+        # first, check if any sites are dead, and cache the results
         if rescanIsDead:
             for idKey in self._locationKeys:
                 if idKey is None: 
@@ -918,6 +1210,7 @@ class DefinedContexts(object):
                         self._definedContexts[idKey]['obj'])
                 else:
                     obj = self._definedContexts[idKey]['obj']
+
                 if obj is None: # if None, it no longer exists
                     self._definedContexts[idKey]['isDead'] = True
 
@@ -928,47 +1221,37 @@ class DefinedContexts(object):
                 continue
             if self._definedContexts[idKey]['isDead']:
                 self.removeById(idKey)
-
-#         match = []
+        
+# this function was removed b/c 
+# containedById may not always be correct;
+# see purge orphans
+#     def removeNonContainedLocations(self):
+#         '''Remove all locations in which the object that contains this DefinedContexts object is not actually stored within.
+# 
+#         Said another way: this looks at all defined sites (Streams), if that
+#         Stream does not actually have this element, was removing the site 
+#         from the elements sites. 
+#         '''
+#         remove = []
 #         for idKey in self._locationKeys:
-#             if idKey == None: 
+#             if idKey is None: 
 #                 continue
+#             if self._definedContexts[idKey]['isDead']:
+#                 continue # already marked
 #             if WEAKREF_ACTIVE:
-#                 obj = common.unwrapWeakref(self._definedContexts[idKey]['obj'])
+#                 obj = common.unwrapWeakref(
+#                     self._definedContexts[idKey]['obj'])
 #             else:
 #                 obj = self._definedContexts[idKey]['obj']
-#             if obj == None: # if None, it no longer exists
-#                 match.append(idKey)
-#         for id in match:
-#             self.removeById(id)
-
-
-    def removeNonContainedLocations(self):
-        '''Remove all locations in which the object that contains this DefinedContexts object is not actually stored within.
-
-        Said another way: this looks at all defined sites (Streams), if that
-        Stream does not actually have this element, was removing the site 
-        from the elements sites. 
-        '''
-        remove = []
-        for idKey in self._locationKeys:
-            if idKey is None: 
-                continue
-            if self._definedContexts[idKey]['isDead']:
-                continue # already marked
-            if WEAKREF_ACTIVE:
-                obj = common.unwrapWeakref(
-                    self._definedContexts[idKey]['obj'])
-            else:
-                obj = self._definedContexts[idKey]['obj']
-            if obj is None: # if None, it no longer exists
-                self._definedContexts[idKey]['isDead'] = True
-                continue
-            if not obj.hasElementByObjectId(self.containedById):
-                #environLocal.printDebug(['removeNonContainedLocations', 'obj', obj, 'does not contain id', self.containedById])
-                remove.append(idKey)
-        for idKey in remove:
-            self.removeById(idKey)
+# 
+#             if obj is None: # if None, it no longer exists
+#                 self._definedContexts[idKey]['isDead'] = True
+#                 continue
+#             if not obj.hasElementByObjectId(self.containedById):
+#                 #environLocal.printDebug(['removeNonContainedLocations', 'obj', obj, 'does not contain id', self.containedById])
+#                 remove.append(idKey)
+#         for idKey in remove:
+#             self.removeById(idKey)
 
 
     def _getOffsetBySiteId(self, idKey):
@@ -996,7 +1279,7 @@ class DefinedContexts(object):
         try:
             value = self._definedContexts[idKey]['offset']
         except KeyError:
-            raise DefinedContextsException("Could not find the object with id %d in the Site marked with idKey %d" % (id(self), idKey))
+            raise DefinedContextsException("Could not find the object with id %s in the Site marked with idKey %s" % (id(self), idKey))
         # stored string are assummed to be attributes of the stored object
         if isinstance(value, str):
             if value not in ['highestTime', 'lowestOffset', 'highestOffset']:
@@ -1442,258 +1725,6 @@ class DefinedContexts(object):
                 pass
 
 
-
-
-#-------------------------------------------------------------------------------
-class JSONSerializerException(Exception):
-    pass
-
-
-class JSONSerializer(object):
-    '''Class that provides JSON output and input routines. Objects can inherit this class directly, or gain its functional through inheriting Music21Object. 
-    '''
-    # note that, since this inherits form object, other classes that inherit
-    # this class need to give object last
-    # e.g. class Text(music21.JSONSerializer, object):
-
-    def __init__(self):
-        pass
-
-    #---------------------------------------------------------------------------
-    # override these methods for json functionality
-
-    def _autoGatherAttributes(self):
-        '''Gather just the instance data members that are proceeded by an underscore. 
-        '''
-        post = []
-        # get class names that exclude instance names
-        classNames = []
-        for bundle in inspect.classify_class_attrs(self.__class__):
-            if (bundle.name.startswith('_') and not 
-                bundle.name.startswith('__')):
-                classNames.append(bundle.name)
-        #environLocal.pd(['classNames', classNames])
-        for name in dir(self):
-            if name.startswith('_') and not name.startswith('__'):
-                attr = getattr(self, name)
-                #environLocal.pd(['inspect.isroutine()', attr, inspect.isroutine(attr)])
-                if (not inspect.ismethod(attr) and not 
-                    inspect.isfunction(attr) and not inspect.isroutine(attr)): 
-                    # class names stored are class attrs, not needed for 
-                    # reinstantiation
-                    if name not in classNames:
-                        # store the name, not the attr
-                        post.append(name)
-        #environLocal.pd(['auto-derived jsonAttributes', post])
-        return post
-
-    def jsonAttributes(self):
-        '''Define all attributes of this object that should be JSON serialized for storage and re-instantiation. Attributes that name basic Python objects or :class:`~music21.base.JSONSerializer` subclasses, or dictionaries or lists that contain Python objects or :class:`~music21.base.JSONSerializer` subclasses, can be provided.
-        '''
-        #return []
-        return self._autoGatherAttributes()
-
-
-    def jsonComponentFactory(self, idStr):
-        '''Given a stored string during JSON serialization, return an object'
-
-        The subclass that overrides this method will have access to all modules necessary to create whatever objects necessary. 
-        '''
-        from music21 import pitch
-        if '.Microtone' in idStr:
-            return pitch.Microtone()
-        elif '.Accidental' in idStr:
-            return pitch.Accidental()
-        elif '.Pitch' in idStr:
-            return pitch.Pitch()
-        elif '.DurationUnit' in idStr:
-            return pitch.DurationUnit()
-        elif '.Duration' in idStr:
-            return pitch.Duration()
-
-        else:
-            raise JSONSerializerException('cannot instantiate an object from id string: %s' % idStr)
-
-
-    #---------------------------------------------------------------------------
-    # core methods for getting and setting
-
-    def _getJSONDict(self, includeVersion=False):
-        '''Return a dictionary representation for JSON processing. All component objects are similarly encoded as dictionaries. This method is recursively called as needed to store dictionaries of component objects that are :class:`~music21.base.JSONSerializer` subclasses.
-
-        >>> from music21 import *
-        >>> t = metadata.Text('my text')
-        >>> t.language = 'en'
-        >>> post = t.json # cannot show string as self changes in context
-        '''
-        src = {'__class__': str(self.__class__)}
-        # always store the version used to create this data
-        if includeVersion:
-            src['__version__'] = VERSION
-
-        # flat data attributes
-        flatData = {}
-        for attr in self.jsonAttributes():
-            #environLocal.printDebug(['_getJSON', attr])
-            attrValue = getattr(self, attr)
-            # do not store None values; assume initial/unset state
-            if attrValue is None:
-                continue
-
-            # if, stored on this object, is an object w/ a json method
-            if hasattr(attrValue, 'json'):
-                #environLocal.pd(['attrValue', attrValue])
-                flatData[attr] = attrValue._getJSONDict()
-
-            # handle lists; look for objects that have json attributes
-            elif isinstance(attrValue, (list, tuple)):
-                flatData[attr] = []
-                for attrValueSub in attrValue:
-                    if hasattr(attrValueSub, 'json'):
-                        flatData[attr].append(attrValueSub._getJSONDict())
-                    else: # just store normal data
-                        flatData[attr].append(attrValueSub)
-
-            # handle dictionaries; look for objects that have json attributes
-            elif isinstance(attrValue, dict):
-                flatData[attr] = {}
-                for key in attrValue.keys():
-                    attrValueSub = attrValue[key]
-                    # skip None values for efficiency
-                    if attrValueSub is None:
-                        continue
-                    # see if this object stores a json object or otherwise
-                    if hasattr(attrValueSub, 'json'):
-                        flatData[attr][key] = attrValueSub._getJSONDict()
-                    else: # just store normal data
-                        flatData[attr][key] = attrValueSub
-            else:
-                flatData[attr] = attrValue
-        src['__attr__'] = flatData
-        return src
-
-    def _getJSON(self):
-        '''Return the dictionary returned by _getJSONDict() as a JSON string.
-        '''
-        # when called from json property, include version number;
-        # this should mean that only the outermost object has a version number
-        return json.dumps(self._getJSONDict(includeVersion=True))
-
-
-    def _isComponent(self, target):
-        '''Return a boolean if the provided object is a dictionary that defines a __class__ key, the necessary conditions to try to instantiate a component object with the jsonComponentFactory method.
-        '''
-        # on export, check for attribute
-        if isinstance(target, dict) and '__class__' in target.keys():
-            return True
-        return False
-
-    def _buildComponent(self, src):
-        # get instance from subclass overridden method
-        obj = self.jsonComponentFactory(src['__class__'])
-        # assign dictionary (property takes dictionary or string)
-        obj.json = src
-        return obj
-
-    def _setJSON(self, jsonStr):
-        '''Set this object based on a JSON string or instantiated dictionary representation.
-
-        >>> from music21 import *
-        >>> t = metadata.Text('my text')
-        >>> t.language = 'en'
-        >>> tNew = metadata.Text()
-        >>> tNew.json = t.json
-        >>> str(t)
-        'my text'
-        >>> t.language
-        'en'
-        '''
-        #environLocal.printDebug(['_setJSON: srcStr', jsonStr])
-        if isinstance(jsonStr, dict):
-            d = jsonStr # do not loads  
-        else:
-            d = json.loads(jsonStr)
-
-        for attr in d.keys():
-            #environLocal.printDebug(['_setJSON: attr', attr, d[attr]])
-            if attr == '__class__':
-                pass
-            elif attr == '__version__':
-                pass
-            elif attr == '__attr__':
-                for key in d[attr].keys():
-                    attrValue = d[attr][key]
-                    if attrValue == None or isinstance(attrValue, 
-                        (int, float)):
-                        setattr(self, key, attrValue)
-                    # handle a list or tuple, looking for dicts that define objs
-                    elif isinstance(attrValue, (list, tuple)):
-                        subList = []
-                        for attrValueSub in attrValue:
-                            if self._isComponent(attrValueSub):
-                                subList.append(
-                                    self._buildComponent(attrValueSub))
-                            else:
-                                subList.append(attrValueSub)
-                        setattr(self, key, subList)
-                    # handle a dictionary, looking for dicts that define objs
-                    elif isinstance(attrValue, dict):
-                        # could be a data dict or a dict of objects; 
-                        # if an object, will have a __class__ key
-                        if self._isComponent(attrValue):
-                            setattr(self, key, self._buildComponent(attrValue))
-                        # its a data dictionary; could contain objects as
-                        # dictionaries, or flat data                           
-                        else:
-                            subDict = {}
-                            for subKey in attrValue.keys():
-                                # this could be flat data or a obj definition
-                                # in a dictionary
-                                attrValueSub = attrValue[subKey]
-                                # if a dictionary, and defines a __class__, 
-                                # create an object
-                                if self._isComponent(attrValueSub):
-                                    subDict[subKey] = self._buildComponent(
-                                        attrValueSub)
-                                else:
-                                    subDict[subKey] = attrValueSub
-                            #setattr(self, key, subDict)
-                            dst = getattr(self, key)
-                            # updating the dictionary preserves default 
-                            # values created at init
-                            dst.update(subDict) 
-                    else: # assume a string
-                        setattr(self, key, attrValue)
-            else:
-                raise JSONSerializerException('cannot handle json attr: %s'% attr)
-
-    json = property(_getJSON, _setJSON, 
-        doc = '''Get or set string JSON data for this object. This method is only available if a JSONSerializer subclass object has been customized and configured by overriding the following methods: :meth:`~music21.base.JSONSerializer.jsonAttributes`, :meth:`~music21.base.JSONSerializer.jsonComponentFactory`.
-        ''')    
-
-    def jsonPrint(self):
-        print(json.dumps(self._getJSONDict(includeVersion=True), 
-            sort_keys=True, indent=2))
-
-    def jsonWrite(self, fp, format=True):
-        '''Given a file path, write JSON to a file for this object. Default file extension should be .json. File is opened and closed within this method call. 
-        '''
-        f = codecs.open(fp, mode='w', encoding='utf-8')
-        if not format:
-            f.write(json.dumps(self._getJSONDict(includeVersion=True)))
-        else:
-            f.write(json.dumps(self._getJSONDict(includeVersion=True), 
-            sort_keys=True, indent=2))
-        f.close()
-
-    def jsonRead(self, fp):
-        '''Given a file path, read JSON from a file to this object. Default file extension should be .json. File is opened and closed within this method call. 
-        '''
-        f = open(fp)
-        self.json = f.read()
-        f.close()
-
-
 #-------------------------------------------------------------------------------
 class Music21Object(JSONSerializer):
     '''
@@ -1718,12 +1749,7 @@ class Music21Object(JSONSerializer):
     Some of these may be intercepted by the subclassing object (e.g., duration within Note)
     '''
 
-    _duration = None
-    _definedContexts = None
-    id = None
-    _priority = 0 # default is zero
     classSortOrder = 20  # default classSortOrder
-    hideObjectOnPrint = False
     # these values permit fast class comparisons for performance crtical cases
     isStream = False
     isSpanner = False
@@ -1770,13 +1796,16 @@ class Music21Object(JSONSerializer):
         self._activeSite = None
         # cached id in case the weakref has gone away...
         self._activeSiteId = None 
-    
         # if this element has been copied, store the id() of the last source
         self._idLastDeepCopyOf = None
 
         # store classes once when called
         self._classes = None 
+        # private duration storage; managed by property
+        self._duration = None
+        self._priority = 0 # default is zero
 
+        self.hideObjectOnPrint = False
         if "id" in keywords:
             self.id = keywords["id"]            
         else:
@@ -1856,13 +1885,16 @@ class Music21Object(JSONSerializer):
         for name in self.__dict__.keys():
             if name.startswith('__'):
                 continue
+
             part = getattr(self, name)
             # attributes that require special handling
             if name == '_activeSite':
-                #environLocal.printDebug(['creating activeSite reference'])
+                #environLocal.printDebug([self, 'copying activeSite weakref', self._activeSite])
                 # keep a reference, not a deepcopy
                 # do not use activeSite property; simply use same weak ref obj
                 setattr(new, name, self._activeSite)
+                #pass
+
             # use _definedContexts own __deepcopy__, but set contained by id
             elif name == '_definedContexts':
                 newValue = copy.deepcopy(part, memo)
@@ -1876,6 +1908,10 @@ class Music21Object(JSONSerializer):
 
         # must do this after copying
         new._idLastDeepCopyOf = id(self)
+        new.purgeOrphans()
+
+        #environLocal.printDebug([self, 'end deepcopy', 'self._activeSite', self._activeSite])
+
         return new
 
 
@@ -2101,8 +2137,7 @@ class Music21Object(JSONSerializer):
         for dc in self._definedContexts.get(): # get all
             if obj == dc:
                 return True
-        else:
-            return False
+        return False
 
     def addLocation(self, site, offset):
         '''
@@ -2150,6 +2185,19 @@ class Music21Object(JSONSerializer):
         '''
         return self._definedContexts.getSiteIds()
 
+    def hasSite(self, other):
+        '''Return True if other is a site in this Music21Object
+
+        >>> from music21 import *
+        >>> s = stream.Stream()
+        >>> n = note.Note()
+        >>> s.append(n)
+        >>> n.hasSite(s)
+        True
+        >>> n.hasSite(stream.Stream())
+        False
+        '''
+        return id(other) in self._definedContexts.getSiteIds()
 
     def getCommonSiteIds(self, other):
         '''Given another music21 object, return a 
@@ -2316,17 +2364,38 @@ class Music21Object(JSONSerializer):
             self._setActiveSite(None)
 
 
+    def purgeOrphans(self):
+        '''A Music21Object may, due to deep copying or other reasons, have contain a site (with an offset); yet, that site may no longer contain the Music21Object. These lingering sites are called orphans. This methods gets rid of them. 
+        '''
+        orphans = []
+        # TODO: how can this be optimized to not use getSites, so as to 
+        # not unwrap weakrefs?
+        for s in self._definedContexts.getSites():
+            # of the site does not actually have this Music21Object in 
+            # its elements list, it is an orphan and should be removed
+            # note: this permits non-site context Streams to continue
+            if s is None: 
+                continue
+            # NOTE: exclusion of spanner storage found through experimentation
+            # this may not need be necessary
+            if (s.isStream and not s.hasElement(self) and 
+                'SpannerStorage' not in s.classes):
+                #environLocal.pd(['removing orphan:', s])
+                orphans.append(id(s))
+        for i in orphans:        
+            self.removeLocationBySiteId(i)
+
     def purgeLocations(self, rescanIsDead=False):
         '''Remove references to all locations in objects that no longer exist.
         '''
         self._definedContexts.purgeLocations(rescanIsDead=rescanIsDead)
 
 
-    def removeNonContainedLocations(self):
-        '''Remove all locations in which this object does not 
-        actually reside as an element.
-        '''
-        self._definedContexts.removeNonContainedLocations()
+#     def removeNonContainedLocations(self):
+#         '''Remove all locations in which this object does not 
+#         actually reside as an element.
+#         '''
+#         self._definedContexts.removeNonContainedLocations()
 
 
     def getContextByClass(self, className, serialReverseSearch=True,
@@ -2819,17 +2888,15 @@ class Music21Object(JSONSerializer):
         '''
         activeSiteId = id(activeSite)
         self._definedContexts.add(activeSite, offset, idKey=activeSiteId) 
-        
         # if the current activeSite is already set, nothing to do
         # do not create a new weakref 
         if self._activeSiteId == activeSiteId:
             return 
-
         if WEAKREF_ACTIVE:
-                if activeSiteWeakRef is None:
-                    activeSiteWeakRef = common.wrapWeakref(activeSite)
-                self._activeSite = activeSiteWeakRef
-                self._activeSiteId = activeSiteId
+            if activeSiteWeakRef is None:
+                activeSiteWeakRef = common.wrapWeakref(activeSite)
+            self._activeSite = activeSiteWeakRef
+            self._activeSiteId = activeSiteId
         else:
             self._activeSite = activeSite
             self._activeSiteId = activeSiteId
@@ -2952,6 +3019,24 @@ class Music21Object(JSONSerializer):
         doc = '''Get and set the duration of this object as a Duration object.
         ''')
 
+
+    def _getIsGrace(self):
+        return self.duration.isGrace
+
+    isGrace = property(_getIsGrace, doc = '''
+        Return True or False if this music21 object has a GraceDuration.
+
+        >>> from music21 import *
+        >>> n = note.Note()
+        >>> n.isGrace
+        False
+        >>> ng = n.getGrace()
+        >>> ng.isGrace
+        True
+
+        ''')        
+
+
     def _getPriority(self):
         return self._priority
 
@@ -3002,6 +3087,8 @@ class Music21Object(JSONSerializer):
     def unwrapWeakref(self):
         '''Public interface to operation on DefinedContexts.
 
+        NOTE: Any Music21Object subclass that contains private Streams (like Spanner and Variant) must override theses methods
+
         >>> import music21
         >>> aM21Obj = music21.Music21Object()
         >>> bM21Obj = music21.Music21Object()
@@ -3012,12 +3099,14 @@ class Music21Object(JSONSerializer):
         >>> aM21Obj.unwrapWeakref()
 
         '''
-        #environLocal.printDebug(['unwrapWeakref on:', self])
+        environLocal.printDebug(['Music21Object: unwrapWeakref on:', self])
         self._definedContexts.unwrapWeakref()
         # doing direct access; not using property activeSite, as filters
         # through global WEAKREF_ACTIVE setting
         if self._activeSite is not None:
             self._activeSite = common.unwrapWeakref(self._activeSite)
+
+        environLocal.printDebug(['   self._activeSite:', self._activeSite])
 
     def wrapWeakref(self):
         '''Public interface to operation on DefinedContexts.
@@ -3117,6 +3206,8 @@ class Music21Object(JSONSerializer):
         '''
         if fmt == None: # get setting in environment
             fmt = environLocal['writeFormat']
+        elif fmt.startswith('.'):
+            fmt = fmt[1:]
  
         format, ext = common.findFormat(fmt)
         if format not in common.VALID_WRITE_FORMATS:
@@ -3128,24 +3219,33 @@ class Music21Object(JSONSerializer):
         if fp is None:
             fp = environLocal.getTempFile(ext)
 
-        if format in ['text', 'textline', 'musicxml', 'lilypond', 'lily']:        
+        if format in ['text', 'textline', 'musicxml', 'vexflow', 'vexflow.html']:        
             if format == 'text':
                 dataStr = self._reprText()
             elif format == 'textline':
                 dataStr = self._reprTextLine()
             elif format == 'musicxml':
                 dataStr = self.musicxml
-            elif format in ['lilypond', 'lily']:
-                dataStr = self.lily.renderTemplate()
+            elif format.startswith('vexflow'):
+                import music21.vexflow
+                dataStr = music21.vexflow.fromObject(self, mode='html')
 
             f = open(fp, 'w')
             f.write(dataStr)
             f.close()
             return fp
 
-        elif format == 'braille':
-            import music21.braille
-            dataStr = music21.braille.translate.objectToBraille(self)
+        elif format in ['braille', 'lily', 'lilypond']:
+            if format in ['lilypond', 'lily']:
+                import music21.lily.translate
+                conv = music21.lily.translate.LilypondConverter()
+                conv.loadObject(self) 
+                dataStr = conv.templatedString.encode('utf-8')
+            
+            elif format == 'braille':
+                import music21.braille
+                dataStr = music21.braille.translate.objectToBraille(self)
+            
             f = codecs.open(fp, mode='w', encoding='utf-8')
             f.write(dataStr)
             f.close()
@@ -3159,14 +3259,26 @@ class Music21Object(JSONSerializer):
             mf.close()
             return fp
 
-        elif fmt in ['pdf', 'lily.pdf',]:
-            return self.lily.createPDF()
-        elif fmt in ['png', 'lily.png']:
-            return self.lily.createPNG()
-        elif fmt in ['svg', 'lily.svg']:
-            return self.lily.createSVG()
+        elif format in ['pdf', 'lily.pdf',]:
+            if fp.endswith('.pdf'):
+                fp = fp[:-4]
+            import music21.lily.translate
+            conv = music21.lily.translate.LilypondConverter(self)
+            return conv.createPDF(fp)
+        elif format in ['png', 'lily.png']:
+            if fp.endswith('.png'):
+                fp = fp[:-4]
+            import music21.lily.translate
+            conv = music21.lily.translate.LilypondConverter(self)
+            return conv.createPNG(fp)
+        elif format in ['svg', 'lily.svg']:
+            if fp.endswith('.svg'):
+                fp = fp[:-4]
+            import music21.lily.translate
+            conv = music21.lily.translate.LilypondConverter(self)
+            return conv.createSVG(fp)
         else:
-            raise Music21ObjectException('cannot support writing in this format, %s yet' % format)
+            raise Music21ObjectException('cannot yet support writing in the %s format' % format)
 
 
 
@@ -3200,6 +3312,7 @@ class Music21Object(JSONSerializer):
             lily.pdf
             lily.svg
             braille
+            vexflow
 
         N.B. score.write('lily') returns a bare lilypond file,
         score.show('lily') gives a png of a rendered lilypond file.
@@ -3233,15 +3346,19 @@ class Music21Object(JSONSerializer):
         # TODO: the lilypondFormat is not yet consulted
         elif fmt in ['lily.pdf', 'pdf']:
             #return self.lily.showPDF()
-            environLocal.launch('pdf', self.lily.createPDF(), app=app)
-        elif fmt in ['lily.png', 'png']:
+            import music21.lily.translate
+            conv = music21.lily.translate.LilypondConverter(self)
+            environLocal.launch('pdf', conv.createPDF(), app=app)
+        elif fmt in ['lily.png', 'png', 'lily', 'lilypond']:
             # TODO check that these use environLocal 
-            return self.lily.showPNG()
+            import music21.lily.translate
+            conv = music21.lily.translate.LilypondConverter(self)
+            return conv.showPNG()
         elif fmt in ['lily.svg', 'svg']:
             # TODO check that these use environLocal 
-            return self.lily.showSVG()
-        elif fmt in ['lily', 'lilypond']:
-            return self.lily.showPNG()
+            import music21.lily.translate
+            conv = music21.lily.translate.LilypondConverter(self)
+            return conv.showSVG()
 
         elif fmt in ['musicxml', 'midi']: # a format that writes a file
             returnedFilePath = self.write(format)
@@ -3250,6 +3367,11 @@ class Music21Object(JSONSerializer):
         elif fmt == 'braille':
             returnedFilePath = self.write(format)
             environLocal.launch(format, returnedFilePath, app=app)
+
+        elif fmt.startswith('vexflow'):
+            returnedFilePath = self.write(format)
+            environLocal.launch(format, returnedFilePath, app=app)
+
 
         else:
             raise Music21ObjectException('no such show format is supported:', fmt)
@@ -4331,33 +4453,30 @@ class Test(unittest.TestCase):
         b.id = "b obj"
 
         post = []
-        for x in range(30):
-            b.id = 'test'
-            b.activeSite = a
-            c = copy.deepcopy(b)
-            c.id = "c obj"
-            post.append(c)
+        b.id = 'test'
+        b.activeSite = a
+        c = copy.deepcopy(b)
+        c.id = "c obj"
+        post.append(c)
 
         # have two locations: None, and that set by assigning activeSite
         self.assertEqual(len(b._definedContexts), 2)
         g = post[-1]._definedContexts
         self.assertEqual(len(post[-1]._definedContexts), 2)
 
-        # this now works
-        self.assertEqual(post[-1].activeSite, a)
-
+        # the active site of a deepcopy should not be the same?
+        #self.assertEqual(post[-1].activeSite, a)
 
         a = Music21Object()
 
         post = []
-        for x in range(30):
-            b = Music21Object()
-            b.id = 'test'
-            b.activeSite = a
-            b.offset = 30
-            c = copy.deepcopy(b)
-            c.activeSite = b
-            post.append(c)
+        b = Music21Object()
+        b.id = 'test'
+        b.activeSite = a
+        b.offset = 30
+        c = copy.deepcopy(b)
+        c.activeSite = b
+        post.append(c)
 
         self.assertEqual(len(post[-1]._definedContexts), 3)
 
@@ -4905,19 +5024,18 @@ class Test(unittest.TestCase):
         s1 = stream.Stream()
         s1.append(n1)
         s2 = copy.deepcopy(s1)
-        n2 = s2[0]
+        n2 = s2[0] # this is a new instance; not the same as n1
         self.assertEqual(s2.hasElement(n1), False)
         self.assertEqual(s2.hasElement(n2), True)
 
-        # yet, n2 still has a site from n1, as locations are transferred
-        # in deep copying
-        self.assertEqual(n2.hasContext(s1), True)
+        # s1 is still a context of n2, but not a site
+        #self.assertEqual(n2.hasContext(s1), True)
+        self.assertEqual(n2.hasSite(s1), False)
+        self.assertEqual(n2.hasContext(s2), True)
+        self.assertEqual(n2.hasSite(s2), True)
+
         self.assertEqual(n2._definedContexts.containedById, id(n2))
 
-        # we can clean this up with the following
-        n2.removeNonContainedLocations()
-        self.assertEqual(n2.hasContext(s1), False)
-        self.assertEqual(n2.hasContext(s2), True)
 
 
     def testGetContextByClassA(self):
@@ -5227,6 +5345,19 @@ class Test(unittest.TestCase):
 
         self.assertEqual(str(measures[0].previous()), 'P1: Soprano: Instrument 1') 
 
+
+    def testActiveSiteCopyingA(self):
+        from music21 import note, stream
+        import copy
+
+        n1 = note.Note()
+        s1 = stream.Stream()
+        s1.append(n1)
+        self.assertEqual(n1.activeSite, s1)
+
+        n2 = copy.deepcopy(n1)
+        #self.assertEqual(n2._activeSite, s1)
+        
 
 #-------------------------------------------------------------------------------
 # define presented order in documentation
