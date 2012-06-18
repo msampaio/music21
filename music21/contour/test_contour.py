@@ -230,6 +230,16 @@ class TestUtils(unittest.TestCase):
         self.assertEqual(contour.possible_cseg([[2, 2], [2]]), Contour([0, 1, 2]))
         self.assertEqual(contour.possible_cseg([[0, 2], [1]]), "Impossible cseg")
 
+    def test_oscillation(self):
+        self.assertEqual(Contour([0, 1]).oscillation(), 0)
+        self.assertEqual(Contour([0, 1, 0]).oscillation(), 1)
+        self.assertEqual(Contour([0, 1, 0, 2]).oscillation(), 2)
+
+    def test_oscillation_index(self):
+        self.assertEqual(Contour([0, 1]).oscillation_index(), 0)
+        self.assertEqual(Contour([0, 1, 0]).oscillation_index(), 0.5)
+        self.assertEqual(Contour([0, 1, 0, 2, 0]).oscillation_index(), 0.75)
+        self.assertEqual(Contour([0, 1, 2, 3, 0]).oscillation_index(), 0.25)
 
 if __name__ == '__main__':
     unittest.main()
