@@ -713,7 +713,7 @@ class Contour(MutableSequence):
     def oscillation_index(self):
         """Returns index of direction changes of a given cseg."""
 
-        return self.oscilation() / float(len(self) - 1)
+        return self.oscillation() / float(len(self) - 1)
 
     def __repr__(self):
         return "< {0} >".format(" ".join([str(x) for x in self[:]]))
