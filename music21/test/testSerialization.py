@@ -80,32 +80,159 @@ class Test(unittest.TestCase):
 
         temp = converter.freezeStr(s)
         post = converter.unfreezeStr(temp)
-
         self.assertEqual(len(post.notes), 2)
         self.assertEqual(str(post.notes[0].pitch), 'D2')
 
 
     def testBasicD(self):
-        from music21 import stream, note, converter, spanner
+        from music21 import stream, note, converter, spanner, variant
         import copy
 
         s = stream.Stream()
         n1 = note.Note('d2', quarterLength=2.0)
         n2 = note.Note('e2', quarterLength=2.0)
         sp = spanner.Slur(n1, n2)
+
         s.append(n1)
         s.append(n2)
         s.append(sp)
 
         # the deepcopy is what creates the bug in the preservation of a weakref
-        #s = copy.deepcopy(s)
 
-        temp = converter.freezeStr(s)
+        #temp = converter.freezeStr(s)
+
+        sCopy = copy.deepcopy(s)
+        temp = converter.freezeStr(sCopy)
 
         post = converter.unfreezeStr(temp)
-
         self.assertEqual(len(post.notes), 2)
         self.assertEqual(str(post.notes[0].pitch), 'D2')
+        spPost = post.spanners[0]
+        self.assertEqual(spPost.getComponents(), [post.notes[0], post.notes[1]])
+        self.assertEqual(spPost.getComponentIds(), [id(post.notes[0]), id(post.notes[1])])
+
+
+    def testBasicE(self):
+        from music21 import stream, note, corpus, converter
+        s = corpus.parse('bwv66.6')
+
+        temp = converter.freezeStr(s, fmt='pickle')        
+        sPost = converter.unfreezeStr(temp)
+        #sPost.show()
+        self.assertEqual(len(s.flat.notes), len(sPost.flat.notes))
+
+        self.assertEqual(len(s.parts[0].notes), len(sPost.parts[0].notes))
+        #print s.parts[0].notes
+        #sPost.parts[0].notes
+
+
+    def testBasicF(self):
+        from music21 import stream, note, converter, spanner
+        
+        s = stream.Score()
+        s.repeatAppend(note.Note('G4'), 5)
+        for i, syl in enumerate(['se-', 'ri-', 'al-', 'iz-', 'ing']):
+            s.notes[i].addLyric(syl)
+        s.append(spanner.Slur(s.notes[0], s.notes[-1]))
+        
+        # file writing
+        #converter.freeze(s, fmt='jsonpickle', fp='/_scratch/test.json')
+        #converter.freeze(s, fmt='pickle', fp='/_scratch/test.p')
+    
+        data = converter.freezeStr(s, fmt='pickle')
+        sPost = converter.unfreezeStr(data)
+        self.assertEqual(len(sPost.notes), 5)
+        #sPost.show()
+
+    def testBasicG(self):
+        from music21 import stream, note, converter, spanner
+        
+        s = stream.Score()
+        s.repeatAppend(note.Note('G4'), 5)
+        for i, syl in enumerate(['se-', 'ri-', 'al-', 'iz-', 'ing']):
+            s.notes[i].addLyric(syl)
+        s.append(spanner.Slur(s.notes[0], s.notes[-1]))
+            
+        data = converter.freezeStr(s, fmt='jsonpickle')
+        #print data
+        sPost = converter.unfreezeStr(data)
+        self.assertEqual(len(sPost.notes), 5)
+        #sPost.show()
+
+
+    def testBasicH(self):
+        from music21 import stream, note, corpus, converter
+        s = corpus.parse('bwv66.6')
+
+        temp = converter.freezeStr(s, fmt='jsonpickle')        
+        sPost = converter.unfreezeStr(temp)
+        #sPost.show()
+        self.assertEqual(len(s.flat.notes), len(sPost.flat.notes))
+
+        self.assertEqual(len(s.parts[0].notes), len(sPost.parts[0].notes))
+
+        #sPost.show()
+
+    def testBasicJ(self):
+        from music21 import stream, note, converter
+
+        p1 = stream.Part()
+        for m in range(3):
+            m = stream.Measure()
+            for n in range(4):
+                m.append(note.Note('C4'))
+            p1.append(m)
+
+        p2 = stream.Part()
+        for m in range(3):
+            m = stream.Measure()
+            for n in range(4):
+                m.append(note.Note('G4'))
+            p2.append(m)
+
+        s = stream.Score()
+        s.insert(0, p1)
+        s.insert(0, p2)
+        #s.show()
+
+        temp = converter.freezeStr(s, fmt='pickle')        
+        sPost = converter.unfreezeStr(temp)
+        self.assertEqual(len(sPost.parts), 2)
+        self.assertEqual(len(sPost.parts[0].getElementsByClass('Measure')), 3)
+        self.assertEqual(len(sPost.parts[1].getElementsByClass('Measure')), 3)
+        self.assertEqual(len(sPost.flat.notes), 24)
+
+
+    def testBasicI(self):
+        from music21 import stream, note, converter
+
+        p1 = stream.Part()
+        p1.repeatAppend(note.Note('C4'), 12)
+        p1.makeMeasures(inPlace = True)
+        p2 = stream.Part()
+        p2.repeatAppend(note.Note('G4'), 12)
+        p2.makeMeasures(inPlace = True)
+        s = stream.Score()
+        s.insert(0, p1)
+        s.insert(0, p2)
+        #s.show()
+
+        temp = converter.freezeStr(s, fmt='pickle')        
+        sPost = converter.unfreezeStr(temp)
+        self.assertEqual(len(sPost.parts), 2)
+        self.assertEqual(len(sPost.parts[0].getElementsByClass('Measure')), 3)
+        self.assertEqual(len(sPost.parts[1].getElementsByClass('Measure')), 3)
+        self.assertEqual(len(sPost.flat.notes), 24)
+
+
+
+
+    def xtestBasicK(self):
+        # this fails due to finding a weakref
+        from music21 import corpus, converter
+        s = corpus.parse('beethoven/opus133')
+        data = converter.freezeStr(s, fmt='pickle')
+
 
 
 

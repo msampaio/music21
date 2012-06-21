@@ -27,7 +27,7 @@ available after importing music21.
 <class 'music21.base.Music21Object'>
 
 >>> music21.VERSION_STR
-'0.6.3.b3'
+'1.0.0'
 
 Alternatively, after doing a complete import, these classes are available
 under the module "base":
@@ -39,8 +39,8 @@ under the module "base":
 
 #-------------------------------------------------------------------------------
 # string and tuple must be the same
-VERSION = (0, 6, 3)
-VERSION_STR = "%s.%s.%s.b3" % (VERSION[0], VERSION[1], VERSION[2])
+VERSION = (1, 0, 0)
+VERSION_STR = "%s.%s.%s" % (VERSION[0], VERSION[1], VERSION[2])
 #-------------------------------------------------------------------------------
 
 import codecs
@@ -51,7 +51,7 @@ import json
 import sys
 import types
 import unittest, doctest
-import uuid
+#import uuid
 import inspect
 
 #-------------------------------------------------------------------------------
@@ -563,14 +563,18 @@ class DefinedContexts(JSONSerializer):
 
         new = self.__class__()
         locations = [] #self._locationKeys[:]
+        #environLocal.pd(['DefinedContexts.__deepcopy__', 'self._definedContexts.keys()', self._definedContexts.keys()])
         for idKey in self._definedContexts.keys():
             dict = self._definedContexts[idKey]
             if dict['isDead']:
                 continue # do not copy dead references
             post = {}
             post['obj'] = dict['obj'] # already a weak ref
+
             # not copying the offset in deepcopying means that 
             # the old site becomes a context, not a site
+            # this is still experimental
+            # post['offset'] = None
 
             post['offset'] = dict['offset']
             if post['offset'] is not None:
@@ -609,21 +613,22 @@ class DefinedContexts(JSONSerializer):
         False
         '''
         self.purgeLocations(rescanIsDead=True)
+
+        #environLocal.pd(['self', self, 'self._definedContexts.keys()', self._definedContexts.keys()])
         for idKey in self._definedContexts.keys():
             if WEAKREF_ACTIVE:
             #if common.isWeakref(self._definedContexts[idKey]['obj']):
                 target = self._definedContexts[idKey]['obj']
-                environLocal.pd(['   target start', target])            
-                if target is not None:
-                    if common.isWeakref(target):
-                        environLocal.printDebug(['unwrapping:', self._definedContexts[idKey]['obj']])
-                        target = common.unwrapWeakref(target)
-                        self._definedContexts[idKey]['obj'] = target
+                if target is None:
+                    continue
+                if common.isWeakref(target):
+                    #environLocal.printDebug(['unwrapping:', self._definedContexts[idKey]['obj']])
+                    target = common.unwrapWeakref(target)
+                    self._definedContexts[idKey]['obj'] = target
                     # we may need to unwrap the weakrefs in this Stream
                     # if it is not stored elsewhere
-                    if target is not None:
-                        target.unwrapWeakref()
-                environLocal.pd(['   target end', target])            
+#                     if target is not None:
+#                         self._definedContexts[idKey]['obj'].unwrapWeakref()
 
     def wrapWeakref(self):
         '''Wrap all stored objects with weakrefs.
@@ -669,10 +674,11 @@ class DefinedContexts(JSONSerializer):
         # need to store self._locationKeys as well
         post = {}
         postLocationKeys = []
+        counter = common.SingletonCounter()
+
         for idKey in self._definedContexts.keys():
-            # make a random UUID
             if idKey is not None:
-                newKey = uuid.uuid4()
+                newKey = counter() # uuid.uuid4()
             else:
                 newKey = idKey # keep None
             # might want to store old id?
@@ -683,6 +689,10 @@ class DefinedContexts(JSONSerializer):
         self._definedContexts = post
         self._locationKeys = postLocationKeys
         #environLocal.printDebug(['post freezeids', self._definedContexts])
+
+        # clear this for setting later
+        self.containedById = counter()
+        self._lastID = -1 # set to inactive
 
     def unfreezeIds(self):
         '''Restore keys to be the id() of the object they contain.
@@ -714,6 +724,10 @@ class DefinedContexts(JSONSerializer):
         True
         '''
         #environLocal.printDebug(['defined context entering unfreeze ids', self._definedContexts])
+
+        # for encoding to serial, this should be done after weakref unwrapping     
+        # for decoding to serial, this should be done before weakref wrapping
+
         post = {}
         postLocationKeys = []
         for idKey in self._definedContexts.keys():
@@ -842,12 +856,15 @@ class DefinedContexts(JSONSerializer):
             siteId = id(site)
         try:
             del self._definedContexts[siteId]
+            #environLocal.pd(['removed site w/o exception:', siteId, 'self._definedContexts.keys()', self._definedContexts.keys()])
         except:    
             raise DefinedContextsException('an entry for this object (%s) is not stored in DefinedContexts' % site)
         # also delete from location keys
         if siteId in self._locationKeys:
             self._locationKeys.pop(self._locationKeys.index(siteId))
 
+        #environLocal.pd(['removed site:', 'self._definedContexts.getSites()', self.getSites()])
+        
 
     def removeById(self, idKey):
         '''Remove a defined contexts entry by id key, which is id() of the object. 
@@ -856,9 +873,10 @@ class DefinedContexts(JSONSerializer):
         if idKey == self._lastID:
             self._lastID = -1 # cannot be None
             self._lastOffset = None
-
-        if idKey == None:
+        if idKey is None:
             raise Exception('trying to remove None idKey')
+
+        #environLocal.pd(['removeById', idKey, 'self._definedContexts.keys()', self._definedContexts.keys()])
         del self._definedContexts[idKey]
         if idKey in self._locationKeys:
             self._locationKeys.pop(self._locationKeys.index(idKey))
@@ -1103,6 +1121,19 @@ class DefinedContexts(JSONSerializer):
                 return True
         return False
 
+    def hasVariantSite(self):
+        '''
+        Return True if this object is found in 
+        any Variant. This is determined by looking for 
+        a VariantStorage Stream class as a Site.
+        '''
+        for idKey in self._locationKeys:
+            if self._definedContexts[idKey]['isDead']:
+                continue 
+            if self._definedContexts[idKey]['class'] == 'VariantStorage':
+                return True
+        return False
+
     def getSiteCount(self):
         '''Return the number of non-dead sites, including None. This does not unwrap weakrefs for performance. 
         '''
@@ -1210,49 +1241,21 @@ class DefinedContexts(JSONSerializer):
                         self._definedContexts[idKey]['obj'])
                 else:
                     obj = self._definedContexts[idKey]['obj']
-
                 if obj is None: # if None, it no longer exists
                     self._definedContexts[idKey]['isDead'] = True
-
         # use previously set isDead entry, so as not to
         # unwrap all references
+        remove = []
         for idKey in self._locationKeys:
             if idKey is None: 
                 continue
             if self._definedContexts[idKey]['isDead']:
-                self.removeById(idKey)
+                remove.append(idKey)
+        for idKey in remove:
+            # this call changes the ._locationKeys list, and thus must be 
+            # out side _locationKeys loop
+            self.removeById(idKey)
         
-# this function was removed b/c 
-# containedById may not always be correct;
-# see purge orphans
-#     def removeNonContainedLocations(self):
-#         '''Remove all locations in which the object that contains this DefinedContexts object is not actually stored within.
-# 
-#         Said another way: this looks at all defined sites (Streams), if that
-#         Stream does not actually have this element, was removing the site 
-#         from the elements sites. 
-#         '''
-#         remove = []
-#         for idKey in self._locationKeys:
-#             if idKey is None: 
-#                 continue
-#             if self._definedContexts[idKey]['isDead']:
-#                 continue # already marked
-#             if WEAKREF_ACTIVE:
-#                 obj = common.unwrapWeakref(
-#                     self._definedContexts[idKey]['obj'])
-#             else:
-#                 obj = self._definedContexts[idKey]['obj']
-# 
-#             if obj is None: # if None, it no longer exists
-#                 self._definedContexts[idKey]['isDead'] = True
-#                 continue
-#             if not obj.hasElementByObjectId(self.containedById):
-#                 #environLocal.printDebug(['removeNonContainedLocations', 'obj', obj, 'does not contain id', self.containedById])
-#                 remove.append(idKey)
-#         for idKey in remove:
-#             self.removeById(idKey)
-
 
     def _getOffsetBySiteId(self, idKey):
         '''Main method for getting an offset from a location key.
@@ -1321,7 +1324,7 @@ class DefinedContexts(JSONSerializer):
 
 
     def getOffsetByObjectMatch(self, obj):
-        '''For a given object return the 
+        '''For a given object, return the 
         offset using a direct object match. 
         The stored id value is not used; 
         instead, the id() of both the stored 
@@ -1351,10 +1354,11 @@ class DefinedContexts(JSONSerializer):
                 compareObj = common.unwrapWeakref(dict['obj'])
             else:
                 compareObj = dict['obj']
-            if compareObj is None:
+            if compareObj is None: # mark isDead for later removal
                 dict['isDead'] = True
                 continue
             if id(compareObj) == id(obj):
+                #environLocal.pd(['found object as site', obj, id(obj), 'idKey', idKey])
                 return self._getOffsetBySiteId(idKey) #dict['offset']
         raise DefinedContextsException('an entry for this object (%s) is not stored in DefinedContexts' % obj)
 
@@ -1753,6 +1757,7 @@ class Music21Object(JSONSerializer):
     # these values permit fast class comparisons for performance crtical cases
     isStream = False
     isSpanner = False
+    isVariant = False
 
     # define order to present names in documentation; use strings
     _DOC_ORDER = ['searchActiveSiteByAttr', 'getContextAttr', 'setContextAttr']
@@ -1894,7 +1899,11 @@ class Music21Object(JSONSerializer):
                 # do not use activeSite property; simply use same weak ref obj
                 setattr(new, name, self._activeSite)
                 #pass
-
+            elif name == 'id':
+                # if the id of this source is set to its obj ide, do not copy
+                if part != id(self):
+                    newValue = copy.deepcopy(part, memo)
+                    setattr(new, name, newValue)
             # use _definedContexts own __deepcopy__, but set contained by id
             elif name == '_definedContexts':
                 newValue = copy.deepcopy(part, memo)
@@ -2307,20 +2316,29 @@ class Music21Object(JSONSerializer):
             post.append(obj.spannerParent)
         return post
 
-        # get reference to actual spanner stored in each SpannerStorage obj
-        # these are the Spanners
 
-#         found = []
-#         for site in self._definedContexts.getSites():
-#             if site is None:
-#                 continue
-#             if 'SpannerStorage' in site.classes:
-#                 found.append(site)
-#         post = []
-# 
-#         for obj in found:
-#             post.append(obj.spannerParent)
-#         return post
+    def hasVariantSite(self):
+        '''Return True if this object is found in 
+        any Variant
+        This is determined by looking 
+        for a VariantStorage Stream class as a Site.
+
+
+        >>> from music21 import *
+        >>> n1 = note.Note()
+        >>> n2 = note.Note()
+        >>> n3 = note.Note()
+        >>> v1 = variant.Variant([n1, n2])
+        >>> n1.hasSpannerSite()
+        False
+        >>> n1.hasVariantSite()
+        True
+        >>> n2.hasVariantSite()
+        True
+        >>> n3.hasVariantSite()
+        False
+        '''
+        return self._definedContexts.hasVariantSite()
 
     def removeLocationBySite(self, site):
         '''Remove a location in the :class:`~music21.base.DefinedContexts` object.
@@ -2339,7 +2357,9 @@ class Music21Object(JSONSerializer):
         '''
         if not self._definedContexts.isSite(site):
             raise Music21ObjectException('supplied site (%s) is not a site in this object: %s' % (site, self))
+        #environLocal.pd(['removed location by site:', 'self', self, 'site', site])
         self._definedContexts.remove(site)
+
         # if activeSite is set to that site, reassign to None
         if self._getActiveSite() == site:
             self._setActiveSite(None)
@@ -2364,9 +2384,12 @@ class Music21Object(JSONSerializer):
             self._setActiveSite(None)
 
 
-    def purgeOrphans(self):
+    def purgeOrphans(self, excludeStorageStreams=True):
         '''A Music21Object may, due to deep copying or other reasons, have contain a site (with an offset); yet, that site may no longer contain the Music21Object. These lingering sites are called orphans. This methods gets rid of them. 
+
+        The `excludeStorageStreams` are SpannerStorage and VariantStorage.
         '''
+        #environLocal.pd(['purging orphans'])
         orphans = []
         # TODO: how can this be optimized to not use getSites, so as to 
         # not unwrap weakrefs?
@@ -2376,18 +2399,53 @@ class Music21Object(JSONSerializer):
             # note: this permits non-site context Streams to continue
             if s is None: 
                 continue
-            # NOTE: exclusion of spanner storage found through experimentation
-            # this may not need be necessary
-            if (s.isStream and not s.hasElement(self) and 
-                'SpannerStorage' not in s.classes):
-                #environLocal.pd(['removing orphan:', s])
-                orphans.append(id(s))
+            if s.isStream and not s.hasElement(self):
+                if excludeStorageStreams:
+                    # only get those that are not Storage Streams
+                    if ('SpannerStorage' not in s.classes 
+                        and 'VariantStorage' not in s.classes):
+                        #environLocal.pd(['removing orphan:', s])
+                        orphans.append(id(s))
+                else: # get all 
+                    orphans.append(id(s))
         for i in orphans:        
             self.removeLocationBySiteId(i)
+
+
+    def purgeUndeclaredIds(self, declaredIds, excludeStorageStreams=True):
+        '''Remove all sites except those that are declared with the `declaredIds` list. 
+
+        The `excludeStorageStreams` are SpannerStorage and VariantStorage.
+
+        This method is used in Stream serialization to remove lingering sites that are the result of temporary Streams. 
+        '''
+        orphans = []
+        # TODO: this can be optimized to get actually get sites
+        for s in self._definedContexts.getSites():
+            if s is None: 
+                continue
+            idTarget = id(s)
+            if idTarget in declaredIds: # skip all declared ids
+                continue # do nothing
+            if s.isStream:
+                if excludeStorageStreams:
+                    # only get those that are not Storage Streams
+                    if ('SpannerStorage' not in s.classes 
+                        and 'VariantStorage' not in s.classes):
+                        #environLocal.pd(['removing orphan:', s])
+                        orphans.append(idTarget)
+                else: # get all 
+                    orphans.append(idTarget)
+
+        for i in orphans:   
+            #environLocal.pd(['purgeingUndeclaredIds', i])     
+            self.removeLocationBySiteId(i)        
+
 
     def purgeLocations(self, rescanIsDead=False):
         '''Remove references to all locations in objects that no longer exist.
         '''
+        # NOTE: this method is overridden on Spanner and and Variant
         self._definedContexts.purgeLocations(rescanIsDead=rescanIsDead)
 
 
@@ -2909,27 +2967,33 @@ class Music21Object(JSONSerializer):
         #there is a problem if a new activeSite is being set and no offsets have 
         # been provided for that activeSite; when self.offset is called, 
         # the first case here would match
+        #environLocal.pd(['Music21Object._getOffset', 'self.id', self.id, 'id(self)', id(self), self.__class__])
 
         activeSiteId = None
         if self.activeSite is not None:
             activeSiteId = id(self.activeSite)
+            self._activeSiteId = id(self.activeSite)
         elif self._activeSiteId is not None:
             activeSiteId = self._activeSiteId
         
-        if activeSiteId is not None and self._definedContexts.hasSiteId(activeSiteId):
-        # if activeSiteId is not None and activeSiteId in self._definedContexts.coordinates:
+        if (activeSiteId is not None and 
+            self._definedContexts.hasSiteId(activeSiteId)):
             return self._definedContexts.getOffsetBySiteId(activeSiteId)
             #return self._definedContexts.coordinates[activeSiteId]['offset']
         elif self.activeSite is None: # assume we want self
             return self._definedContexts.getOffsetBySite(None)
         else:
             # try to look for it in all objects
-            environLocal.printDebug(['doing a manual activeSite search: probably means that id(self.activeSite) (%s) is not equal to self._activeSiteId (%s)' % (id(self.activeSite), self._activeSiteId)])
-            offset = self._definedContexts.getOffsetByObjectMatch(self.activeSite)
+            environLocal.printDebug(['doing a manual activeSite search: probably means that id(self.activeSite) (%s) is not equal to self._activeSiteId (%r)' % (id(self.activeSite), self._activeSiteId)])
+            #environLocal.pd(['activeSite', self.activeSite, 'self._definedContexts.hasSiteId(activeSiteId)', self._definedContexts.hasSiteId(activeSiteId)])
+            #environLocal.pd(['self.hasSite(self.activeSite)', self.hasSite(self.activeSite)])
+
+            offset = self._definedContexts.getOffsetByObjectMatch(
+                    self.activeSite)
             return offset
 
-            environLocal.printDebug(['self._definedContexts', self._definedContexts._definedContexts])
-            raise Exception('request within %s for offset cannot be made with activeSite of %s (id: %s)' % (self.__class__, self.activeSite, activeSiteId))            
+            #environLocal.printDebug(['self._definedContexts', self._definedContexts._definedContexts])
+        raise Exception('request within %s for offset cannot be made with activeSite of %s (id: %s)' % (self.__class__, self.activeSite, activeSiteId))            
 
     def _setOffset(self, value):
         '''Set the offset for the activeSite. 
@@ -3099,14 +3163,18 @@ class Music21Object(JSONSerializer):
         >>> aM21Obj.unwrapWeakref()
 
         '''
-        environLocal.printDebug(['Music21Object: unwrapWeakref on:', self])
+        #environLocal.printDebug(['Music21Object: unwrapWeakref on:', self])
+
+        self.purgeOrphans()
+
+        # this purgesLocations too
         self._definedContexts.unwrapWeakref()
         # doing direct access; not using property activeSite, as filters
         # through global WEAKREF_ACTIVE setting
         if self._activeSite is not None:
             self._activeSite = common.unwrapWeakref(self._activeSite)
 
-        environLocal.printDebug(['   self._activeSite:', self._activeSite])
+        #environLocal.printDebug(['   self._activeSite:', self._activeSite])
 
     def wrapWeakref(self):
         '''Public interface to operation on DefinedContexts.
@@ -3127,10 +3195,6 @@ class Music21Object(JSONSerializer):
         # through global WEAKREF_ACTIVE setting
         self._activeSite = common.wrapWeakref(self._activeSite)
         # this is done both here and in unfreezeIds()
-        # not sure if both are necesary
-        if self._activeSite is not None:
-            obj = common.unwrapWeakref(self._activeSite)
-            self._activeSiteId = id(obj)
 
 
     def freezeIds(self):
@@ -3151,15 +3215,12 @@ class Music21Object(JSONSerializer):
         >>> oldActiveSiteId == newActiveSiteId
         False
         '''
+        counter = common.SingletonCounter()
+
         self._definedContexts.freezeIds()
-
         # _activeSite could be a weak ref; may need to manage
-        if self._activeSite is not None:
-            #environLocal.printDebug(['freezeIds: adjusting _activeSiteId', self._activeSite])
-            self._activeSiteId = uuid.uuid4() # a place holder
-
-        if self._idLastDeepCopyOf is not None:
-            self._idLastDeepCopyOf = None # clear
+        self._activeSiteId = None # uuid.uuid4() # a place holder
+        self._idLastDeepCopyOf = None # clear
 
 
     def unfreezeIds(self):
@@ -3187,10 +3248,14 @@ class Music21Object(JSONSerializer):
         #environLocal.printDebug(['unfreezing ids', self])
         self._definedContexts.unfreezeIds()
 
+        # restore contained by ide
+        self._definedContexts.containedById = id(self)
+
+        # assuming should be called before wrapping weakrefs
         if self._activeSite is not None:
+            # this should not be necessary
             obj = common.unwrapWeakref(self._activeSite)
             self._activeSiteId = id(obj)
-
 
 
 

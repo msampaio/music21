@@ -89,6 +89,7 @@ Module Reference
    moduleFiguredBassSegment
    moduleGraph
    moduleHarmony
+   moduleHumdrum
    moduleHumdrumSpineParser
    moduleInstrument
    moduleInterval
@@ -121,7 +122,9 @@ Module Reference
    moduleTempo
    moduleText
    moduleTinyNotation
+   moduleDemosTheoryAnalysisTheoryAnalyzer
    moduleTrecentoPolyphonicSnippet
+   moduleVariant
    moduleVexflowBase
    moduleVoiceLeading
    moduleVolume

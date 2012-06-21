@@ -40,6 +40,8 @@ class TranslateException(Exception):
 class NoteheadException(TranslateException):
     pass
 
+class XMLBarException(TranslateException):
+    pass
 
 # def mod6IdLocal(spannerObj):
 #     '''
@@ -428,7 +430,7 @@ def tempoIndicationToMx(ti):
 def repeatToMx(r):
     '''
     >>> from music21 import *
-    >>> b = bar.Repeat('light-heavy')
+    >>> b = bar.Repeat(direction='end')
     >>> mxBarline = b.mx
     >>> mxBarline.get('barStyle')
     'light-heavy'
@@ -448,7 +450,7 @@ def repeatToMx(r):
 #         elif self.direction == 'bidirectional':
 #             environLocal.printDebug(['skipping bi-directional repeat'])
     else:
-        raise BarException('cannot handle direction format:', r.direction)
+        raise music21.bar.BarException('cannot handle direction format:', r.direction)
 
     if r.times != None:
         mxRepeat.set('times', r.times)
@@ -461,7 +463,7 @@ def mxToRepeat(mxBarline, inputM21=None):
 
     >>> from music21 import *
     >>> mxRepeat = musicxml.Repeat()
-    >>> mxRepeat.set('direction', 'forward')
+    >>> mxRepeat.set('direction', 'backward')
     >>> mxRepeat.get('times') == None
     True
     >>> mxBarline = musicxml.Barline()
@@ -469,10 +471,15 @@ def mxToRepeat(mxBarline, inputM21=None):
     >>> mxBarline.set('repeatObj', mxRepeat)
     >>> b = bar.Repeat()
     >>> b.mx = mxBarline
+    
+    Test that the music21 style for a backwards repeat is called "final"
+    (because it resembles a final barline) but that the musicxml style
+    is called light-heavy.
+    
     >>> b.style
     'final'
     >>> b.direction
-    'start'
+    'end'
     >>> b.mx.get('barStyle')
     'light-heavy'
     '''
@@ -489,7 +496,7 @@ def mxToRepeat(mxBarline, inputM21=None):
 
     mxRepeat = mxBarline.get('repeatObj')
     if mxRepeat == None:
-        raise BarException('attempting to create a Repeat from an MusicXML bar that does not define a repeat')
+        raise music21.bar.BarException('attempting to create a Repeat from an MusicXML bar that does not define a repeat')
 
     mxDirection = mxRepeat.get('direction')
 
@@ -500,7 +507,7 @@ def mxToRepeat(mxBarline, inputM21=None):
     elif mxDirection.lower() == 'backward':
         r.direction = 'end'
     else:
-        raise bar.BarException('cannot handle mx direction format:', mxDirection)
+        raise music21.bar.BarException('cannot handle mx direction format:', mxDirection)
 
     if mxRepeat.get('times') != None:
         # make into a number
@@ -1012,7 +1019,7 @@ def mxToOffset(mxDirection, mxDivisions):
     '''
     if mxDivisions is None:
         raise TranslateException(
-        "cannont determine MusicXML duration without a reference to a measure (%s)" % mxNote)
+        "cannont determine MusicXML duration without a reference to a measure (%s)" % mxDirection)
     if mxDirection.offset is None:
         return 0.0
     else:
@@ -1577,7 +1584,7 @@ def mxToInstrument(mxScorePart, inputM21=None):
     # note: transposition values is not set in this operation, but in 
     # mxToStreamPart
     if inputM21 is None:
-        i = instrument.Instrument()
+        i = music21.instrument.Instrument()
     else:
         i = inputM21
 
@@ -2600,7 +2607,16 @@ def mxToNote(mxNote, spannerBundle=None, inputM21=None):
 
     #n.pitch.mx = mxNote # required info will be taken from entire note
     mxToPitch(mxNote, n.pitch)
-    #n.duration.mx = mxNote
+
+    if mxGrace is not None:
+        #environLocal.pd(['mxGrace', mxGrace, mxNote, n.duration])
+        # in some casses grace notes may not have an assigned duration type
+        # this default type is set here, before assigning to n.duration
+        if mxNote.type is None:
+            #environLocal.pd(['mxToNote', 'mxNote that is a grace missing duration type'])
+            mxNote.type = 'eighth'    
+
+    # the n.duration object here will be configured based on mxNote
     mxToDuration(mxNote, n.duration)
     n.beams.mx = mxNote.beamList
     
@@ -2699,7 +2715,7 @@ def mxToRest(mxNote, inputM21=None):
     try:
         #r.duration.mx = mxNote
         mxToDuration(mxNote, r.duration)
-    except duration.DurationException:
+    except music21.duration.DurationException:
         #environLocal.printDebug(['failed extaction of duration from musicxml', 'mxNote:', mxNote, r])
         raise
 
@@ -2968,11 +2984,15 @@ def _addToStaffReference(mxObject, target, staffReference):
 
 
 def mxToMeasure(mxMeasure, spannerBundle=None, inputM21=None):
-    '''Translate an mxMeasure (a MusicXML :class:`~music21.musicxml.Measure` object) into a music21 :class:`~music21.stream.Measure`.
+    '''Translate an mxMeasure (a MusicXML :class:`~music21.musicxml.Measure` object) 
+    into a music21 :class:`~music21.stream.Measure`.
 
-    If an `inputM21` object reference is provided, this object will be configured and returned; otherwise, a new :class:`~music21.stream.Measure` object is created.  
+    If an `inputM21` object reference is provided, this object will be 
+    configured and returned; otherwise, a new :class:`~music21.stream.Measure` object is created.  
 
-    The `spannerBundle` that is passed in is used to accumulate any created Spanners. This Spanners are not inserted into the Stream here. 
+    The `spannerBundle` that is passed in is used to accumulate any created Spanners. 
+    This Spanners are not inserted into the Stream here. 
+        
     '''
     from music21 import stream
     from music21 import chord
@@ -3769,6 +3789,9 @@ def mxToStreamPart(mxScore, partId, spannerBundle=None, inputM21=None):
     '''Load a part into a new Stream or one provided by `inputM21` given an mxScore and a part name.
 
     The `spannerBundle` reference, when passed in, is used to accumulate Spanners. These are not inserted here. 
+
+    Though it is incorrect MusicXML, PDFtoMusic creates empty measures when it should create full 
+    measures of rests (possibly hidden).  This routine fixes that bug.  See http://musescore.org/en/node/15129 
     '''
     #environLocal.printDebug(['calling Stream._setMXPart'])
 
@@ -3862,8 +3885,20 @@ def mxToStreamPart(mxScore, partId, spannerBundle=None, inputM21=None):
         # offsets within measure; if the .highestTime value is greater
         # use this as the next offset
 
-        if m.highestTime >= lastTimeSignature.barDuration.quarterLength:
-            mOffsetShift = m.highestTime
+        mHighestTime = m.highestTime
+        lastTimeSignatureQuarterLength = lastTimeSignature.barDuration.quarterLength
+
+        if mHighestTime >= lastTimeSignatureQuarterLength :
+            mOffsetShift = mHighestTime
+        
+        elif mHighestTime == 0.0 and len(m.flat.notesAndRests) == 0:
+            ## this routine fixes a bug in PDFtoMusic and other MusicXML writers
+            ## that omit empty rests in a Measure.  It is a very quick test if
+            r = note.Rest()
+            r.duration.quarterLength = lastTimeSignatureQuarterLength 
+            m.insert(0.0, r)
+            mOffsetShift = lastTimeSignatureQuarterLength
+                        
         else: # use time signature
             # for the first measure, this may be a pickup
             # must detect this when writing, as next measures offsets will be 
@@ -3873,11 +3908,11 @@ def mxToStreamPart(mxScore, partId, spannerBundle=None, inputM21=None):
                 if m.barDurationProportion() < 1.0:
                     m.padAsAnacrusis()
                     #environLocal.printDebug(['incompletely filled Measure found on musicxml import; interpreting as a anacrusis:', 'padingLeft:', m.paddingLeft])
-                mOffsetShift = m.highestTime
+                mOffsetShift = mHighestTime
             # assume that, even if measure is incomplete, the next bar should
             # start at the duration given by the time signature, not highestTime
             else:
-                mOffsetShift = lastTimeSignature.barDuration.quarterLength 
+                mOffsetShift = lastTimeSignatureQuarterLength
         oMeasure += mOffsetShift
 
     # if we have multiple staves defined, add more parts, and transfer elements
@@ -5364,6 +5399,28 @@ spirit</words>
         raw = s.musicxml
         self.assertEqual(raw.count('slash="no"'), 1)
         self.assertEqual(raw.count('slash="yes"'), 1)
+        
+        
+    def testBarException(self):
+        from music21 import musicxml
+        from music21 import bar
+        mxBarline = musicxml.Barline()
+        mxBarline.set('barStyle', 'light-heavy')
+        #Rasing the BarException
+        self.assertRaises( bar.BarException, mxToRepeat, mxBarline)
+        
+        mxRepeat = musicxml.Repeat()
+        mxRepeat.set('direction', 'backward')
+        mxBarline.set('repeatObj', mxRepeat)
+        
+        #all fine now, no exceptions here
+        mxToRepeat(mxBarline)
+        
+        #Raising the BarException       
+        mxBarline.set('barStyle', 'wunderbar')
+        self.assertRaises( bar.BarException, mxToRepeat, mxBarline)
+        
+        
         
 
 

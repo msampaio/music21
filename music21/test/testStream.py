@@ -481,7 +481,7 @@ class Test(unittest.TestCase):
 
     def testOverlapsA(self):
         a = Stream()
-        # here, the thir item overlaps with the first
+        # here, the third item overlaps with the first
         for offset, dur in [(0,12), (3,2), (11,3)]:
             n = note.Note('G#')
             n.duration = duration.Duration()
@@ -2908,7 +2908,6 @@ class Test(unittest.TestCase):
 
 
     def testInsertAndShiftNoDuration(self):
-        import random
         from music21 import note
         offsets = [0, 2, 4, 6, 8, 10, 12]
         n = note.Note()
@@ -2917,17 +2916,17 @@ class Test(unittest.TestCase):
         s.repeatInsert(n, offsets)
         # qL, insertOffset, newHighOffset, newHighTime
         data = [
-                 (.25, 0, 12, 14),
-                 (3, 0, 12, 14),
-                 (6.5, 0, 12, 14),
-                 (.25, 4, 12, 14),
-                 (3, 4, 12, 14),
-                 (6.5, 4, 12, 14),
-                 (1, 2, 12, 14),
-                 (2, 2, 12, 14),
-                 (1, 3, 12, 14), 
+                 (0, 12, 14),
+                 (0, 12, 14),
+                 (0, 12, 14),
+                 (4, 12, 14),
+                 (4, 12, 14),
+                 (4, 12, 14),
+                 (2, 12, 14),
+                 (2, 12, 14),
+                 (3, 12, 14), 
             ]
-        for qL, insertOffset, newHighOffset, newHighTime in data:
+        for insertOffset, newHighOffset, newHighTime in data:
             sProc = copy.deepcopy(s)        
             self.assertEqual(sProc.highestOffset, 12)
             self.assertEqual(sProc.highestTime, 14)
@@ -4910,7 +4909,7 @@ class Test(unittest.TestCase):
         self.assertEqual(s1.activeSite, s2)
         junk = s1.semiFlat
         self.assertEqual(s1.activeSite, s2)
-        junk = s1.flat
+        junk = s1.flat  # the order of these two calls ensures that _getFlatFromSemiflat is called
         self.assertEqual(s1.activeSite, s2)
         
         # this works fine
@@ -7173,7 +7172,7 @@ class Test(unittest.TestCase):
         # TODO: 
         # we now have 2 variants that have been stripped of their groups
         match = [e.groups for e in s.variants]
-        self.assertEqual(str(match), '[[], []]')
+        self.assertEqual(str(match), "[['default'], ['default']]")
 
     def testActivateVariantsC(self):
         '''This tests a two-measure variant
@@ -7368,7 +7367,9 @@ class Test(unittest.TestCase):
         s2.teardownSerializationScaffold()
 
         self.assertEqual(s2.hasElement(n1), True)
-        self.assertEqual(s1 in n1.getSites(), True)
+        # the scaffold has removes all non-conatined sites, so n1
+        # no longer has s1 as a site
+        self.assertEqual(s1 in n1.getSites(), False)
         self.assertEqual(s2 in n1.getSites(), True)
 
 

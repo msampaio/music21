@@ -1594,6 +1594,11 @@ class ConcreteScale(Scale):
         True
         >>> sc.getScaleDegreeFromPitch('d#', comparisonAttribute='pitchClass')
         1
+        >>> sc.getScaleDegreeFromPitch('e') == None
+        True
+        >>> sc.getScaleDegreeFromPitch('e', comparisonAttribute='step')
+        1
+        
 
 
         >>> sc = scale.HarmonicMinorScale('a')
@@ -1612,6 +1617,153 @@ class ConcreteScale(Scale):
             direction=direction)
         return post
 
+    def getScaleDegreeAndAccidentalFromPitch(self, pitchTarget, 
+            direction=DIRECTION_ASCENDING, comparisonAttribute='name'):
+        '''
+        Given a scale (or :class:`~music21.key.Key` object) and a pitch, return a two-element
+        tuple of the degree of the scale and an accidental (or None) needed to get this
+        pitch.
+        
+        >>> from music21 import *
+        >>> cmaj = key.Key('C')
+        >>> cmaj.getScaleDegreeAndAccidentalFromPitch(pitch.Pitch('E'))
+        (3, None)
+        >>> cmaj.getScaleDegreeAndAccidentalFromPitch(pitch.Pitch('E-'))
+        (3, <accidental flat>)
+        
+        
+        The Direction of a melodic minor scale is significant
+        
+        >>> amin = scale.MelodicMinorScale('a')
+        >>> amin.getScaleDegreeAndAccidentalFromPitch(pitch.Pitch('G'), direction=scale.DIRECTION_DESCENDING)
+        (7, None)
+        >>> amin.getScaleDegreeAndAccidentalFromPitch(pitch.Pitch('G'), direction=scale.DIRECTION_ASCENDING)
+        (7, <accidental flat>)
+        >>> amin.getScaleDegreeAndAccidentalFromPitch(pitch.Pitch('G-'), direction=scale.DIRECTION_ASCENDING)
+        (7, <accidental double-flat>)
+        
+        Returns (None, None) if for some reason this scale does not have this step (a whole-tone scale,
+        for instance)
+        '''        
+        scaleStep = self.getScaleDegreeFromPitch(pitchTarget, direction, comparisonAttribute)
+        if scaleStep is not None:
+            return (scaleStep, None)
+        else:
+            scaleStepNormal = self.getScaleDegreeFromPitch(pitchTarget, direction, comparisonAttribute='step')
+            pitchesFound = self.pitchesFromScaleDegrees([scaleStepNormal])
+            if len(pitchesFound) == 0:
+                return (None, None)
+            else:
+                foundPitch = pitchesFound[0]
+            if foundPitch.accidental is None:
+                foundAlter = 0
+            else:
+                foundAlter = foundPitch.accidental.alter
+            
+            if pitchTarget.accidental is None:
+                pitchAlter = 0
+            else:
+                pitchAlter = pitchTarget.accidental.alter
+            
+            alterDiff = pitchAlter - foundAlter
+            
+            if alterDiff == 0: 
+                # should not happen...
+                return (scaleStepNormal, None)
+            else:
+                alterAccidental = pitch.Accidental(alterDiff)
+                return (scaleStepNormal, alterAccidental)
+    
+    # uses "traditional" chromatic solfeg and mostly Shearer Hullah (if needed)
+    _solfegSyllables = {1: {-2: 'def',
+                            -1: 'de',
+                             0: 'do',
+                             1: 'di',
+                             2: 'dis',
+                             },
+                        2: {-2: 'raf',
+                            -1: 'ra',
+                             0: 're',
+                             1: 'ri',
+                             2: 'ris',
+                             },
+                        3: {-2: 'mef',
+                            -1: 'me',
+                             0: 'mi',
+                             1: 'mis',
+                             2: 'mish',
+                             },
+                        4: {-2: 'fef',
+                            -1: 'fe',
+                             0: 'fa',
+                             1: 'fi',
+                             2: 'fis',
+                             },
+                        5: {-2: 'sef',
+                            -1: 'se',
+                             0: 'sol',
+                             1: 'si',
+                             2: 'sis',
+                             },
+                        6: {-2: 'lef',
+                            -1: 'le',
+                             0: 'la',
+                             1: 'li',
+                             2: 'lis',
+                             },
+                        7: {-2: 'tef',
+                            -1: 'te',
+                             0: 'ti',
+                             1: 'tis',
+                             2: 'tish',
+                             },
+                        }
+    _humdrumSolfegSyllables = copy.deepcopy(_solfegSyllables)
+    _humdrumSolfegSyllables[3][1] = 'my'
+    _humdrumSolfegSyllables[5] = {-2: 'sef', -1: 'se', 0: 'so', 1:'si', 2:'sis'}
+    _humdrumSolfegSyllables[7][1] = 'ty'
+    
+    def solfeg(self, pitchTarget=None, direction=DIRECTION_ASCENDING, variant="music21", chromatic=True):
+        '''
+        Returns the chromatic solfege (or diatonic if chromatic is False) for a given pitch in a given
+        scale.
+        
+        The `variant` method lets one specify either the default `music21` or `humdrum` solfeg representation
+        for altered notes.
+         
+         
+        >>> from music21 import *
+        >>> eflatMaj = key.Key('E-')
+        >>> eflatMaj.solfeg(pitch.Pitch('G'))
+        'mi'
+        >>> eflatMaj.solfeg(pitch.Pitch('A'))
+        'fi'
+        >>> eflatMaj.solfeg(pitch.Pitch('A'), chromatic=False)
+        'fa'        
+        >>> eflatMaj.solfeg(pitch.Pitch('G#'), variant='music21') #default
+        'mis'
+        >>> eflatMaj.solfeg(pitch.Pitch('G#'), variant='humdrum')
+        'my'
+        '''
+        (scaleDeg, accidental) = self.getScaleDegreeAndAccidentalFromPitch(pitchTarget, direction)
+        if variant == 'music21':
+            syllableDict = self._solfegSyllables
+        elif variant == 'humdrum':
+            syllableDict = self._humdrumSolfegSyllables
+        else:
+            raise ScaleException("Unknown solfeg variant %s" % variant)
+        if scaleDeg > 7:
+            raise ScaleException("Cannot call solfeg on non-7-degree scales")
+        elif scaleDeg is None:
+            raise ScaleException("Unknown scale degree for this pitch")
+        
+        if chromatic is True:
+            if accidental is None:
+                return syllableDict[scaleDeg][0]
+            else:                
+                return syllableDict[scaleDeg][accidental.alter]
+        else:
+            return syllableDict[scaleDeg][0]
 
     def next(self, pitchOrigin=None, direction='ascending', stepSize=1, 
         getNeighbor=True):
