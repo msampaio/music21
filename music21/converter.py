@@ -87,9 +87,16 @@ from music21.romanText import translate as romanTextTranslate
 
 from music21.noteworthy import translate as noteworthyTranslate
 
+# the jsonpickle is provided as an extension
+from music21.ext import jsonpickle
+
 from music21 import environment
 _MOD = 'converter.py'
 environLocal = environment.Environment(_MOD)
+
+
+
+
 
 #-------------------------------------------------------------------------------
 class ArchiveManagerException(Exception):
@@ -262,17 +269,38 @@ class PickleFilter(object):
 
 #-------------------------------------------------------------------------------
 class StreamFreezer(object):
-    '''This class is used to freeze a Stream, preparing it for pickling. 
+    '''This class is used to freeze a Stream, preparing it for serialization and providing conversion routines.
+
+    In general, use the :func:`~music21.converter.freeze` and :func:`~music21.converter.unfreeze` functions for serializing to a file. Use the :func:`~music21.converter.unfreeze`
+
+    >>> from music21 import *
+    >>> s = stream.Stream()
+    >>> s.repeatAppend(note.Note('C4'), 8) 
+    >>> temp = [s[n].transpose(n, inPlace=True) for n in range(len(s))]
+
+    >>> sf = StreamFreezer(s) # provide a Stream at init
+    >>> data = sf.writeStr(fmt='pickle') # pickle is default format; jsonpickle
+    >>> sfOut = StreamFreezer() 
+    >>> sfOut.openStr(data)
+    >>> s = sfOut.stream
+    >>> s.show('t')
+    {0.0} <music21.note.Note C>
+    {1.0} <music21.note.Note D->
+    {2.0} <music21.note.Note D>
+    {3.0} <music21.note.Note E->
+    {4.0} <music21.note.Note E>
+    {5.0} <music21.note.Note F>
+    {6.0} <music21.note.Note G->
+    {7.0} <music21.note.Note G>
+
     '''
     def __init__(self, streamObj=None):
         # must make a deepcopy, as we will be altering DefinedContexts
-
         self.stream = None
         if streamObj is not None:
-            #self.stream = copy.deepcopy(streamObj)
-            self.stream = streamObj
-            # call _elementsChanged to clear cache
-            self.stream._elementsChanged()
+            # deepcopy necessary because we mangle sites in the objects
+            # before serialization
+            self.stream = copy.deepcopy(streamObj)
             #self.stream = streamObj
 
     def _getPickleFp(self, dir):
@@ -282,13 +310,26 @@ class StreamFreezer(object):
         streamStr = str(time.time())
         return os.path.join(dir, 'm21-' + common.getMd5(streamStr) + '.p')
 
+    def _getJsonFp(self, dir):
+        if dir == None:
+            raise ValueError
+        # cannot get data from stream, as offsets are broken
+        streamStr = str(time.time())
+        return os.path.join(dir, 'm21-' + common.getMd5(streamStr) + '.json')
+
 
     def _packStream(self, streamObj):
         '''Prepare the passed in Stream in place, return storage dictionary format
         '''        
+        # do all things necessary to setup the stream
         streamObj.setupSerializationScaffold()
-        storage = {'stream': self.stream, 'm21Version': music21.VERSION}
+        storage = {'stream': streamObj, 'm21Version': music21.VERSION}
         return storage
+
+    def _teardownStream(self, streamObj):
+        '''Call this after setting packing and writing
+        '''
+        streamObj.teardownSerializationScaffold()
     
     def _unpackStream(self, storage):
         '''Convert from storage dictionary to Stream.
@@ -301,12 +342,38 @@ class StreamFreezer(object):
         return streamObj
 
     #---------------------------------------------------------------------------
-    def writePickle(self, fp=None):
-        '''For a supplied Stream, write a pickled version.
+    def _parseWriteFmt(self, fmt):
+        '''Parse a passed-in write format
+
+        >>> from music21 import *
+        >>> sf = converter.StreamFreezer()
+        >>> sf._parseWriteFmt(None)
+        'pickle'
+        >>> sf._parseWriteFmt('JSON')
+        'jsonpickle'
         '''
+        if fmt is None: # this is the default
+            return 'pickle'
+        fmt = fmt.strip().lower()
+        if fmt in ['p', 'pickle']:
+            return 'pickle'
+        elif fmt in ['jsonpickle', 'json']:
+            return 'jsonpickle'            
+        elif fmt in ['jsonnative']:
+            return 'jsonnative'
+
+    def write(self, fmt=None, fp=None):
+        '''For a supplied Stream, write a serialized version.
+        '''
+
+        fmt = self._parseWriteFmt(fmt)
+
         if fp is None:
             dir = environLocal.getRootTempDir()
-            fp = self._getPickleFp(dir)
+            if fmt.startswith('json'):
+                fp = self._getJsonFp(dir)
+            else:
+                fp = self._getPickleFp(dir)
         elif os.sep in fp: # assume its a complete path
             fp = fp
         else:
@@ -316,33 +383,55 @@ class StreamFreezer(object):
         storage = self._packStream(self.stream)
 
         environLocal.printDebug(['writing fp', fp])
-        f = open(fp, 'wb') # binary
-        # a negative protocal value will get the highest protocal; 
-        # this is generally desirable 
-        # packStream() returns a storage dictionary
-        pickleMod.dump(storage, f, protocol=-1)
-        f.close()
+
+        if fmt == 'pickle':
+            f = open(fp, 'wb') # binary
+            # a negative protocal value will get the highest protocal; 
+            # this is generally desirable 
+            # packStream() returns a storage dictionary
+            pickleMod.dump(storage, f, protocol=-1)
+            f.close()
+        elif fmt == 'jsonpickle':
+            data = jsonpickle.encode(storage)
+            f = open(fp, 'w') 
+            f.write(data)
+            f.close()
+        else:
+            raise ConverterException('bad StreamFreezer format: %s' % fmt)
+
+
+        # must restore the passed-in Stream
+        self._teardownStream(self.stream)
         return fp
 
-    def writePickleInMemory(self):
-        '''Return a pickled file-like object. 
-        '''
-        f = StringIO.StringIO()
-        storage = self._packStream(self.stream)
-        pickleMod.dump(storage, f, protocol=-1)
-        #f.close()
-        # perhaps try to append a '\n'
-        # f.write()
-        return f
-
-    def writePickleStr(self):
+    def writeStr(self, fmt=None):
         '''Return a pickled as String
         '''
+        fmt = self._parseWriteFmt(fmt)
         storage = self._packStream(self.stream)
-        return pickleMod.dumps(storage, protocol=-1)
+
+        if fmt == 'pickle':
+            out = pickleMod.dumps(storage, protocol=-1)
+        elif fmt == 'jsonpickle':
+            out = jsonpickle.encode(storage)
+        else:
+            raise ConverterException('bad StreamFreezer format: %s' % fmt)
+
+        # must restore the passed-in Stream
+        self._teardownStream(self.stream)
+        return out
 
 
-    def openPickle(self, fp):
+    def _parseOpenFmt(self, storage):
+        '''Look at the file and determine the format
+        '''
+        if storage.startswith('{"m21Version": {"py/tuple"'):
+            return 'jsonpickle'
+        else:
+            return 'pickle'
+
+
+    def open(self, fp):
         '''For a supplied file path to a pickled stream, unpickle
         '''
         if os.sep in fp: # assume its a complete path
@@ -351,24 +440,39 @@ class StreamFreezer(object):
             dir = environLocal.getRootTempDir()
             fp = os.path.join(dir, fp)
 
-        #environLocal.printDebug(['opening fp', fp])
-        f = open(fp, 'rb')
-        storage = pickleMod.load(f)
+        f = open(fp, 'r')
+        fileData = f.read() # TODO: do not read entire file
         f.close()
+
+        fmt = self._parseOpenFmt(fileData)
+        if fmt == 'pickle':
+            #environLocal.printDebug(['opening fp', fp])
+            f = open(fp, 'rb')
+            storage = pickleMod.load(f)
+            f.close()
+        elif fmt == 'jsonpickle':
+            f = open(fp, 'r')
+            data = f.read()
+            f.close()
+            storage = jsonpickle.decode(data)
+        else:
+            raise ConverterException('bad StreamFreezer format: %s' % fmt)
+
         self.stream = self._unpackStream(storage)
 
-    def openPickleInMemory(self, fileLike):
-        '''Pass in a file-like object and have it be unpickled
-        '''
-        # TODO: this does not yet work
-        storage = pickleMod.load(fileLike)
-        self.stream = self._unpackStream(storage)
 
-    def openPickleStr(self, fileLike):
+    def openStr(self, fileData):
         '''Open a String as a pickle
         '''
-        # TODO: this does not yet work
-        storage = pickleMod.loads(fileLike)
+        fmt = self._parseOpenFmt(fileData)
+
+        if fmt == 'pickle':
+            storage = pickleMod.loads(fileData)
+        elif fmt == 'jsonpickle':
+            storage = jsonpickle.decode(fileData)
+        else:
+            raise ConverterException('bad StreamFreezer format: %s' % fmt)
+
         self.stream = self._unpackStream(storage)
 
 
@@ -1120,52 +1224,93 @@ def parse(value, *args, **keywords):
 
 
 
-def freeze(streamObj, fp=None):
-    '''Given a StreamObject and a file path, pickle and store the Stream to a file.
+def freeze(streamObj, fmt=None, fp=None):
+    '''Given a StreamObject and a file path, serialize and store the Stream to a file.
+
+    This function is based on the :class:`~music21.converter.StreamFreezer` object. 
+
+    The serialization format is defined by the `fmt` argument; 'pickle' (the default), 'jsonpickle' or 'jsonnative' are presently supported.
 
     If no file path is given, a temporary file is used.
 
     The file path is returned.
+    
+    >>> from music21 import *
+    >>> c = converter.parse('c4 d e f', '4/4')
+    >>> c.show('text')
+    {0.0} <music21.meter.TimeSignature 4/4>
+    {0.0} <music21.note.Note C>
+    {1.0} <music21.note.Note D>
+    {2.0} <music21.note.Note E>
+    {3.0} <music21.note.Note F>
+    >>> fp = converter.freeze(c, fmt='pickle')
+    >>> #_DOCS_SHOW fp
+    '/tmp/music21/sjiwoe.p'
+
+    The file can then be "defrosted" back into a Stream using the :func:`~music21.converter.unfreeze` method.
+
+    >>> d = converter.unfreeze(fp)
+    >>> d.show('text')
+    {0.0} <music21.meter.TimeSignature 4/4>
+    {0.0} <music21.note.Note C>
+    {1.0} <music21.note.Note D>
+    {2.0} <music21.note.Note E>
+    {3.0} <music21.note.Note F>
     '''
     v = StreamFreezer(streamObj)
-    return v.writePickle(fp) # returns fp
+    return v.write(fmt=fmt, fp=fp) # returns fp
 
 
 def unfreeze(fp):
-    '''Given a file path of a pickled Stream, attempt to parse the file into a Stream.
+    '''Given a file path of a serialized Stream, defrost the file into a Stream.
+    
+    This function is based on the :class:`~music21.converter.StreamFreezer` object. 
+    
+    See the documentation for :meth:`~music21.converter.freeze` for demos.
     '''
     v = StreamFreezer()
-    v.openPickle(fp)
+    v.open(fp)
     return v.stream
 
-def freezeInMemory(streamObj):
-    '''Given a StreamObject and a file path, pickle and return a file-like object.
 
-    The object is returned.
+
+def freezeStr(streamObj, fmt=None):
+    '''Given a StreamObject and a file path, serialize and return a serialization string.
+
+    This function is based on the :class:`~music21.converter.StreamFreezer` object. 
+
+    The serialization format is defined by the `fmt` argument; 'pickle' (the default), 'jsonpickle' or 'jsonnative' are presently supported.
+
+    >>> from music21 import *
+    >>> c = converter.parse('c4 d e f', '4/4')
+    >>> c.show('text')
+    {0.0} <music21.meter.TimeSignature 4/4>
+    {0.0} <music21.note.Note C>
+    {1.0} <music21.note.Note D>
+    {2.0} <music21.note.Note E>
+    {3.0} <music21.note.Note F>
+    >>> data = converter.freezeStr(c, fmt='pickle')
+    >>> len(data) > 20 # pickle implementation dependent
+    True
+    >>> d = converter.unfreezeStr(data)
+    >>> d.show('text')
+    {0.0} <music21.meter.TimeSignature 4/4>
+    {0.0} <music21.note.Note C>
+    {1.0} <music21.note.Note D>
+    {2.0} <music21.note.Note E>
+    {3.0} <music21.note.Note F>
+
     '''
     v = StreamFreezer(streamObj)
-    return v.writePickleInMemory() # returns fp
-
-def unfreezeInMemory(fileLike):
-    '''Given a file path of a pickled Stream, attempt to parse the file into a Stream.
-    '''
-    v = StreamFreezer()
-    v.openPickleInMemory(fileLike)
-    return v.stream
-
-def freezeStr(streamObj):
-    '''Given a StreamObject and a file path, pickle and return a file-like object.
-
-    A string is returned.
-    '''
-    v = StreamFreezer(streamObj)
-    return v.writePickleStr() # returns a string
+    return v.writeStr(fmt=fmt) # returns a string
 
 def unfreezeStr(strData):
-    '''Given a file path of a pickled Stream, attempt to parse the file into a Stream.
+    '''Given a serialization string, defrost into a Stream.
+
+    This function is based on the :class:`~music21.converter.StreamFreezer` object. 
     '''
     v = StreamFreezer()
-    v.openPickleStr(strData)
+    v.openStr(strData)
     return v.stream
 
 
@@ -1218,7 +1363,7 @@ class TestExternal(unittest.TestCase):
         s = corpus.parse('bach')
 
         aConverter = StreamFreezer(s)
-        fp = aConverter.writePickle()
+        fp = aConverter.write()
 
         aConverter.openPickle(fp)
         #aConverter.stream
@@ -1797,7 +1942,7 @@ class Test(unittest.TestCase):
 
 #-------------------------------------------------------------------------------
 # define presented order in documentation
-_DOC_ORDER = [parse, parseFile, parseData, parseURL, Converter, ConverterMusicXML, ConverterHumdrum]
+_DOC_ORDER = [parse, parseFile, parseData, parseURL, freeze, unfreeze, freezeStr, unfreezeStr, Converter, ConverterMusicXML, ConverterHumdrum]
 
 
 if __name__ == "__main__":
