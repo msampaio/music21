@@ -51,7 +51,7 @@ class GraphPlot(Graph):
         self.setTicks('y', [[b, str(b)] for b in range(min(y), max(y) + 1)])
 
         ax.plot(x, y, 'o-', color=getColor(self.colors[0]), linewidth=1.8, label=str(self.data))
-        ax.legend(prop=matplotlib.font_manager.FontProperties(size=10))
+        ax.legend(prop=matplotlib.font_manager.FontProperties(size=10), loc='best')
 
         self._adjustAxisSpines(ax)
         self._applyFormatting(ax)
