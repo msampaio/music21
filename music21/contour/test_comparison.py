@@ -51,9 +51,12 @@ class TestUtils(unittest.TestCase):
         cseg1 = contour.Contour([0, 1, 2, 3])
         cseg2 = contour.Contour([0, 2, 1, 3])
         cseg3 = contour.Contour([0, 2, 1, 3, 4])
+        cseg4 = contour.Contour([0, 1, 0])
+        cseg5 = contour.Contour([0, 1, 2, 0])
         self.assertEqual(comparison.all_contour_mutually_embedded(cseg1, cseg2), 17.0 / 22)
         self.assertEqual(comparison.all_contour_mutually_embedded(cseg1, cseg3), 29.0 / 37)
         self.assertEqual(comparison.all_contour_mutually_embedded(cseg2, cseg3), 33.0 / 37)
+        self.assertEqual(comparison.all_contour_mutually_embedded(cseg4, cseg5), 0.8)
 
 
 if __name__ == '__main__':
