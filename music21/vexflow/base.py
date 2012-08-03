@@ -39,7 +39,7 @@ environLocal = environment.Environment(_MOD)
 Unique Identifiers used for namespace collision avoidance
 '''
 global _UIDCounter 
-_UIDCounter = 0L
+_UIDCounter = 0   # no need for Long int -- python automatically converts
 
 '''
 Vexflow generateCode() and fromObject() methods currently accept these modes
@@ -1846,7 +1846,10 @@ class VexflowPart(object):
                     voiceParams['name'] = voiceParams['name'][:-1] + str(index)
                     theseVoices += [VexflowVoice(thisVoice, \
                         params=voiceParams)]
-                    previousKeySignature = thisVoice.keySignature
+                    try:
+                        previousKeySignature = thisVoice.keySignature
+                    except AttributeError: ### SHOULDNT HAPPEN
+                        pass
             thisStave.setVoices(theseVoices)
             self.staves += [thisStave]
 

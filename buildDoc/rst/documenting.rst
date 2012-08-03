@@ -153,6 +153,7 @@ write documentation/test-code like this::
    >>> c2 = note.Note('C-')
    >>> c2.step
    'C'
+   
    '''
    
 and what you'll get in your documentation is:
@@ -170,7 +171,7 @@ code and also to give an example like so::
 
    >>> d1 = note.Note("D-")
    >>> assert(d1.name == 'D-')  #_DOCS_HIDE
-   >>> #_DOCS_SHOW d1.show('lily')
+   >>> #_DOCS_SHOW d1.show('lily.png')
    
 in this case, the assertion code is omitted from the documentation 
 generated from the module, while the lilypond file is not generated

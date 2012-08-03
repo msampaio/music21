@@ -11,7 +11,100 @@
 #-------------------------------------------------------------------------------
 
 
-'''Translation routines for roman numeral analysis text files, as defined and demonstrated by Dmitri Tymoczko.
+'''
+Translation routines for roman numeral analysis text files, as defined 
+and demonstrated by Dmitri Tymoczko.  Also used for the ClerqTemperley
+format which is similar but a little different.
+
+This module is really only needed for people extending the parser,
+for others it's simple to get Harmony, RomanNumeral, Key (or KeySignature) 
+and other objects out of an rntxt file by running this:
+
+>>> from music21 import *
+>>> monteverdi = corpus.parse('monteverdi/madrigal.3.1.rntxt')
+>>> monteverdi.show('text')
+{0.0} <music21.metadata.Metadata object at 0x...>
+{0.0} <music21.stream.Part ...>
+    {0.0} <music21.stream.Measure 1 offset=0.0>
+        {0.0} <music21.key.KeySignature of 1 flat>
+        {0.0} <music21.meter.TimeSignature 4/4>
+        {0.0} <music21.roman.RomanNumeral vi in F major>
+        {3.0} <music21.roman.RomanNumeral V[no3] in F major>
+    {4.0} <music21.stream.Measure 2 offset=4.0>
+        {0.0} <music21.roman.RomanNumeral I in F major>
+        {3.0} <music21.roman.RomanNumeral IV in F major>
+    ...
+
+Then the stream can be analyzed with something like this, storing
+the data to make a histogram of scale degree usage within a key:
+
+>>> degreeDictionary = {}
+>>> for el in monteverdi.recurse():
+...    if 'RomanNumeral' in el.classes:
+...         print el.figure, el.key
+...         for p in el.pitches:
+...              degree, accidental = el.key.getScaleDegreeAndAccidentalFromPitch(p)
+...              if accidental is None:
+...                   degreeString = str(degree)
+...              else:
+...                   degreeString = str(degree) + str(accidental.modifier)
+...              if degreeString not in degreeDictionary:
+...                   degreeDictionary[degreeString] = 1
+...              else:
+...                   degreeDictionary[degreeString] += 1
+...              print (p, degreeString)
+    vi F major
+    (D5, '6')
+    (F5, '1')
+    (A5, '3')
+    V[no3] F major
+    (C5, '5')
+    (G5, '2')
+    I F major
+    (F4, '1')
+    (A4, '3')
+    (C5, '5')
+    ...
+    V6 g minor
+    (F#5, '7#')
+    (A5, '2')
+    (D6, '5')
+    i g minor
+    (G4, '1')
+    (B-4, '3')
+    (D5, '5')
+    ...
+
+Now if we'd like we can get a Histogram of the data.
+It's a little complex, but worth seeing in full:
+
+>>> import operator
+>>> histo = graph.GraphHistogram()
+>>> i = 0
+>>> data = []
+>>> xlabels = []
+>>> values = []
+>>> for deg,value in sorted(degreeDictionary.iteritems(), key=operator.itemgetter(1), reverse=True):
+...    data.append((i, degreeDictionary[deg]), )
+...    xlabels.append((i+.5, deg), )
+...    values.append(degreeDictionary[deg])
+...    i += 1 
+>>> histo.setData(data)
+
+
+These commands give nice labels for the data; optional:
+
+>>> histo.setIntegerTicksFromData(values, 'y')
+>>> histo.setTicks('x', xlabels)
+>>> histo.setAxisLabel('x', 'ScaleDegree')
+
+Now generate the histogram:
+
+>>> #_DOCS_HIDE histo.process()
+
+.. image:: images/romanTranslatePitchDistribution.*
+    :width: 600
+    
 '''
 import unittest
 import music21
@@ -303,11 +396,11 @@ def romanTextToStreamScore(rtHandler, inputM21=None):
 
                     elif isinstance(a, romanTextModule.RTAnalyticKey):
                         # just a change in analyzed key, not a change in anything else
-                        try: # this sets the key, not the keysignature
+                        #try: # this sets the key, not the keysignature
                             kCurrent, pl = _getKeyAndPrefix(a)
                             prefixLyric += pl
-                        except:
-                            raise TranslateRomanTextException('cannot get key from %s in line %s' % (a.src, t.src))
+                        #except:
+                        #    raise TranslateRomanTextException('cannot get key from %s in line %s' % (a.src, t.src))
 
                     elif isinstance(a, romanTextModule.RTBeat):
                         # set new offset based on beat
@@ -365,11 +458,71 @@ def romanTextToStreamScore(rtHandler, inputM21=None):
                 # may need to adjust duration of last chord added
                 previousRn.quarterLength = tsCurrent.barDuration.quarterLength - o
                 p.append(m)
+
+    fixPickupMeasure(p)
     p.makeBeams(inPlace=True)
     p.makeAccidentals(inPlace=True)
     s.insert(0, p)
     return s
 
+def fixPickupMeasure(partObject):
+    '''
+    fix a pickup measure if any.
+
+    We determine a pickup measure by being measure 0 and not having an RN object at the beginning.
+
+
+    Demonstration: an otherwise incorrect part
+    
+    >>> from music21 import *
+    >>> p = stream.Part()
+    >>> m0 = stream.Measure()
+    >>> m0.number = 0
+    >>> k0 = key.Key('G')
+    >>> m0.insert(0, k0)
+    >>> m0.insert(0, meter.TimeSignature('4/4'))
+    >>> m0.insert(2, roman.RomanNumeral('V', k0))
+    >>> m1 = stream.Measure()
+    >>> m1.number = 1
+    >>> m2 = stream.Measure()
+    >>> m2.number = 2
+    >>> p.insert(0, m0)
+    >>> p.insert(4, m1)
+    >>> p.insert(8, m2)
+    
+    After running fixPickupMeasure()
+    
+    >>> romanText.translate.fixPickupMeasure(p)
+    >>> p.show('text')
+    {0.0} <music21.stream.Measure 0 offset=0.0>
+        {0.0} <music21.key.Key of G major>
+        {0.0} <music21.meter.TimeSignature 4/4>
+        {0.0} <music21.roman.RomanNumeral V in G major>
+    {2.0} <music21.stream.Measure 1 offset=2.0>
+    <BLANKLINE>
+    {6.0} <music21.stream.Measure 2 offset=6.0>
+    <BLANKLINE>
+    >>> m0.paddingLeft
+    2.0
+    '''
+    m0 = partObject.measure(0)
+    if m0 is None:
+        return
+    rnObjects = m0.getElementsByClass('RomanNumeral')
+    if len(rnObjects) == 0:
+        return
+    if rnObjects[0].offset == 0:
+        return
+    newPadding = rnObjects[0].offset
+    for el in m0:
+        if el.offset < newPadding: # should be zero for Clefs, etc.
+            pass
+        else:
+            el.offset = el.offset - newPadding
+    m0.paddingLeft = newPadding
+    for el in partObject: # adjust all other measures backwards
+        if el.offset > 0:
+            el.offset -= newPadding
 
 def romanTextToStreamOpus(rtHandler, inputM21=None):
     '''Return either a Score object, or, if a multi-movement work is defined, an Opus object. 
@@ -612,7 +765,7 @@ _DOC_ORDER = []
 
 
 if __name__ == "__main__":
-    music21.mainTest(Test)
+    music21.mainTest()#Test)
 
 #------------------------------------------------------------------------------
 # eof

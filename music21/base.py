@@ -101,10 +101,11 @@ try:
 except ImportError:
     _missingImport.append('scipy')
 
-try:
-    import PIL
-except ImportError:
-    _missingImport.append('PIL')
+# used for better PNG processing in lily -- not very important
+#try:
+#    import PIL
+#except ImportError:
+#    _missingImport.append('PIL')
 
 # as this is only needed for one module, and error messages print
 # to standard io, this has been removed
@@ -186,9 +187,13 @@ class JSONSerializer(object):
 
 
     def jsonComponentFactory(self, idStr):
-        '''Given a stored string during JSON serialization, return an object. This method effectively converts a string class specification into a vanilla instance ready for specialization via stored data attributes. 
+        '''
+        Given a stored string during JSON serialization, return an object. 
+        This method effectively converts a string class specification into 
+        a vanilla instance ready for specialization via stored data attributes. 
 
-        A subclass that overrides this method will have access to all modules necessary to create whatever objects necessary. 
+        A subclass that overrides this method will have access to all 
+        modules necessary to create whatever objects necessary. 
 
         '''
         # keep in alpha
@@ -255,7 +260,11 @@ class JSONSerializer(object):
     # core methods for getting and setting
 
     def _getJSONDict(self, includeVersion=False):
-        '''Return a dictionary representation for JSON processing. All component objects are similarly encoded as dictionaries. This method is recursively called as needed to store dictionaries of component objects that are :class:`~music21.base.JSONSerializer` subclasses.
+        '''
+        Return a dictionary representation for JSON processing. 
+        All component objects are similarly encoded as dictionaries. 
+        This method is recursively called as needed to store dictionaries 
+        of component objects that are :class:`~music21.base.JSONSerializer` subclasses.
 
         >>> from music21 import *
         >>> t = metadata.Text('my text')
@@ -319,7 +328,11 @@ class JSONSerializer(object):
 
 
     def _isComponent(self, target):
-        '''Return a boolean if the provided object is a dictionary that defines a __class__ key, the necessary conditions to try to instantiate a component object with the jsonComponentFactory method.
+        '''
+        Return a boolean if the provided object is a 
+        dictionary that defines a __class__ key, the necessary 
+        conditions to try to instantiate a component object 
+        with the jsonComponentFactory method.
         '''
         # on export, check for attribute
         if isinstance(target, dict) and '__class__' in target.keys():
@@ -334,7 +347,9 @@ class JSONSerializer(object):
         return obj
 
     def _setJSON(self, jsonStr):
-        '''Set this object based on a JSON string or instantiated dictionary representation.
+        '''
+        Set this object based on a JSON string 
+        or instantiated dictionary representation.
 
         >>> from music21 import *
         >>> t = metadata.Text('my text')
@@ -3304,8 +3319,7 @@ class Music21Object(JSONSerializer):
             if format in ['lilypond', 'lily']:
                 import music21.lily.translate
                 conv = music21.lily.translate.LilypondConverter()
-                conv.loadObject(self) 
-                dataStr = conv.templatedString.encode('utf-8')
+                dataStr = conv.textFromMusic21Object(self).encode('utf-8')
             
             elif format == 'braille':
                 import music21.braille
@@ -3328,19 +3342,22 @@ class Music21Object(JSONSerializer):
             if fp.endswith('.pdf'):
                 fp = fp[:-4]
             import music21.lily.translate
-            conv = music21.lily.translate.LilypondConverter(self)
+            conv = music21.lily.translate.LilypondConverter()
+            conv.loadFromMusic21Object(self)
             return conv.createPDF(fp)
         elif format in ['png', 'lily.png']:
             if fp.endswith('.png'):
                 fp = fp[:-4]
             import music21.lily.translate
-            conv = music21.lily.translate.LilypondConverter(self)
+            conv = music21.lily.translate.LilypondConverter()
+            conv.loadFromMusic21Object(self)
             return conv.createPNG(fp)
         elif format in ['svg', 'lily.svg']:
             if fp.endswith('.svg'):
                 fp = fp[:-4]
             import music21.lily.translate
-            conv = music21.lily.translate.LilypondConverter(self)
+            conv = music21.lily.translate.LilypondConverter()
+            conv.loadFromMusic21Object(self)
             return conv.createSVG(fp)
         else:
             raise Music21ObjectException('cannot yet support writing in the %s format' % format)
@@ -3412,17 +3429,20 @@ class Music21Object(JSONSerializer):
         elif fmt in ['lily.pdf', 'pdf']:
             #return self.lily.showPDF()
             import music21.lily.translate
-            conv = music21.lily.translate.LilypondConverter(self)
+            conv = music21.lily.translate.LilypondConverter()
+            conv.loadFromMusic21Object(self)
             environLocal.launch('pdf', conv.createPDF(), app=app)
         elif fmt in ['lily.png', 'png', 'lily', 'lilypond']:
             # TODO check that these use environLocal 
             import music21.lily.translate
-            conv = music21.lily.translate.LilypondConverter(self)
+            conv = music21.lily.translate.LilypondConverter()
+            conv.loadFromMusic21Object(self)
             return conv.showPNG()
         elif fmt in ['lily.svg', 'svg']:
             # TODO check that these use environLocal 
             import music21.lily.translate
-            conv = music21.lily.translate.LilypondConverter(self)
+            conv = music21.lily.translate.LilypondConverter()
+            conv.loadFromMusic21Object(self)
             return conv.showSVG()
 
         elif fmt in ['musicxml', 'midi']: # a format that writes a file
@@ -3728,8 +3748,13 @@ class Music21Object(JSONSerializer):
 
     def splitAtDurations(self):
         '''
-        Takes a Note and returns a list of Notes with only a single
-        duration.DurationUnit in each. Ties are added. 
+        Takes a Music21Object (e.g., a note.Note) and returns a list of similar
+        objects with only a single
+        duration.DurationUnit in each. Ties are added if the object supports ties. 
+
+        Articulations only appear on the first note.  Same with lyrics.
+        
+        Fermatas should be on last note, but not done yet.
 
         >>> from music21 import *
         >>> a = note.Note()
@@ -3747,40 +3772,67 @@ class Music21Object(JSONSerializer):
         'half'
         >>> b[1].duration.type
         'whole'
+        
+        
+        >>> c = note.Note()
+        >>> c.quarterLength = 2.5
+        >>> d, e = c.splitAtDurations()
+        >>> d.duration.type
+        'half'
+        >>> e.duration.type
+        'eighth'
+        >>> d.tie.type
+        'start'
+        >>> print e.tie
+        <music21.tie.Tie stop>
+        
+        Assume c is tied to the next note.  Then the last split note should also be tied
+        
+        >>> c.tie = tie.Tie()
+        >>> d, e = c.splitAtDurations()
+        >>> e.tie.type
+        'start'
+        
+        
+        Rests have no ties:
+        
+        >>> f = note.Rest()
+        >>> f.quarterLength = 2.5
+        >>> g, h = f.splitAtDurations()
+        >>> (g.duration.type, h.duration.type)
+        ('half', 'eighth')
+        >>> g.tie is None
+        True
         '''
-        # Note: this method is not used used in any critical code and could possible be removed.
-
         if self.duration == None:
             raise Exception('cannot split an element that has a Duration of None')
 
         returnNotes = []
+        linkageType = self.duration.linkage
+        for i in range(len(self.duration.components)):
+            tempNote = copy.deepcopy(self)
+            if i != 0:
+                # clear articulations from remaining parts
+                if hasattr(tempNote, 'articulations'):
+                    tempNote.articulations = []
+                if hasattr(tempNote, 'lyrics'):
+                    tempNote.lyrics = []
 
-        if len(self.duration.components) == (len(self.duration.linkages) - 1):
-            for i in range(len(self.duration.components)):
-                tempNote = copy.deepcopy(self)
-                if i != 0:
-                    # clear articulations from remaining parts
-                    if hasattr(tempNote, 'articulations'):
-                        tempNote.articulations = []
-
-                
-                # note that this keeps durations 
-                tempNote.duration = self.duration.components[i]
-                if i != (len(self.duration.components) - 1):
-                    tempNote.tie = self.duration.linkages[i]                
-                    # last note just gets the tie of the original Note
-                returnNotes.append(tempNote)
-        else: 
-            for i in range(len(self.duration.components)):
-                tempNote = copy.deepcopy(self)
-                tempNote.duration = self.duration.components[i]
-                if i != (len(self.duration.components) - 1):
+            tempNote.duration = self.duration.components[i]
+            if i != (len(self.duration.components) - 1): # if not last note, use linkage
+                if linkageType is None:
+                    pass
+                elif linkageType == 'tie':
                     tempNote.tie = tie.Tie()
-                else:
-                    # last note just gets the tie of the original Note
-                    if self.tie is None:
-                        self.tie = tie.Tie("stop")
-                returnNotes.append(tempNote)                
+            else:
+                # last note just gets the tie of the original Note
+                if hasattr(self, 'tie') and self.tie is None:
+                    tempNote.tie = tie.Tie("stop")
+                elif hasattr(self, 'tie') and self.tie is not None and self.tie.type == 'stop':
+                    tempNote.tie = tie.Tie("stop")
+                elif hasattr(self, 'tie'):
+                    tempNote.tie = copy.deepcopy(self.tie)
+            returnNotes.append(tempNote)                
         return returnNotes
 
 
@@ -4249,7 +4301,7 @@ class ElementWrapper(Music21Object):
         '''Test ElementWrapper equality
 
         >>> import music21
-        >>> import note
+        >>> from music21 import note
         >>> n = note.Note("C#")
         >>> a = music21.ElementWrapper(n)
         >>> a.offset = 3.0
@@ -4328,7 +4380,8 @@ class ElementWrapper(Music21Object):
         In other words, it is essentially the same object in a different context
              
         >>> import music21
-        >>> import note
+        >>> from music21 import note
+
         >>> aE = music21.ElementWrapper(obj = "hello")
         
         >>> bE = copy.copy(aE)

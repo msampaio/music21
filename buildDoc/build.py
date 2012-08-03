@@ -130,6 +130,7 @@ from music21 import tinyNotation
 
 from music21.trecento import cadencebook as trecentoCadencebook
 from music21.trecento import polyphonicSnippet as trecentoPolyphonicSnippet
+from music21.trecento import tonality as trecentoTonality
 
 from music21 import variant
 from music21.vexflow import base as vexflow
@@ -269,8 +270,9 @@ MODULES = [
     tinyNotation,
     demosTheoryAnalysisTheoryAnalyzer,
     # trecento
-    #    trecentoCadencebook
+    trecentoCadencebook,
     trecentoPolyphonicSnippet,
+    trecentoTonality,
 
     variant,
     vexflow,
@@ -1637,7 +1639,7 @@ class Documentation(RestructuredWriter):
         self.dirRst = os.path.join(self.dir, 'rst')
         self.dirBuildHtml = os.path.join(self.dirBuild, 'html')
         #self.dirBuildLatex = os.path.join(self.dirBuild, 'latex')
-        #self.dirBuildPdf = os.path.join(self.dirBuild, 'pdf')
+        self.dirBuildPdf = os.path.join(self.dirBuild, 'pdf')
         self.dirBuildDoctrees = os.path.join(self.dir, 'doctrees')
 
         for fp in [self.dirBuild, self.dirBuildHtml, 
