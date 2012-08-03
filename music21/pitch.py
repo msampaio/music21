@@ -11,7 +11,7 @@
 #-------------------------------------------------------------------------------
 '''
 Classes and functions for creating and manipulating pitches, pitch-space, and accidentals.
-Used extensively by note.py
+Used extensively by note.py8
 '''
 
 import os
@@ -606,6 +606,33 @@ class Microtone(music21.JSONSerializer):
 
 
 #-------------------------------------------------------------------------------
+
+def _getSpanishCardinal(int):
+    if int == 1:
+        return ''
+    elif int == 2:
+        return 'doble'
+    elif int == 3:
+        return 'triple'
+    elif int == 4:
+        return 'cuádruple'
+
+def _getSpanishSolfege(pitch):
+        if pitch == 'A':
+            return 'la '
+        if pitch == 'B':
+            return 'si '
+        if pitch == 'C':
+            return 'do '
+        if pitch == 'D':
+            return 're '
+        if pitch == 'E':
+            return 'mi '
+        if pitch == 'F':
+            return 'fa '
+        if pitch == 'G':
+            return 'sol '
+        
 class Accidental(music21.Music21Object):
     '''
     Accidental class, representing the symbolic and numerical representation of pitch deviation from a pitch name (e.g., G, B). 
@@ -621,7 +648,7 @@ class Accidental(music21.Music21Object):
     Natural-sharp etc. (for canceling a previous flat) are not yet supported.
 
 
-    >>> from music21 import pitch
+    >>> from music21 import *
     >>> a = pitch.Accidental('sharp')
     >>> a.name, a.alter, a.modifier
     ('sharp', 1.0, '#')
@@ -1131,7 +1158,7 @@ class Pitch(music21.Music21Object):
     
     '''
     # define order to present names in documentation; use strings
-    _DOC_ORDER = ['name', 'nameWithOctave', 'step', 'pitchClass', 'octave', 'midi']
+    _DOC_ORDER = ['name', 'nameWithOctave', 'step', 'pitchClass', 'octave', 'midi', 'german', 'french', 'spanish', 'italian','dutch']
     # documentation for all attributes (not properties or methods)
     _DOC_ATTR = {
     }
@@ -2305,7 +2332,244 @@ class Pitch(music21.Music21Object):
         >>> print pitch.Pitch('B#').german
         His
     ''')
+    
+    def _getDutch(self):
+        if self.accidental is not None:
+            tempAlter = self.accidental.alter
+        else:
+            tempAlter = 0
+        tempStep = self.step
+        if tempAlter != int(tempAlter):
+            raise PitchException('Quarter-tones not supported')
+        else:
+            tempAlter = int(tempAlter)
+        if tempAlter == 0:
+            return tempStep
+        if tempAlter > 0:
+            return tempStep + (tempAlter * 'is')
+        else:
+            if tempStep in ['C','D','F','G','B']:
+                firstFlatName = 'es'
+            else:
+                firstFlatName = 's'
+            multipleFlats = abs(tempAlter) - 1
+            return tempStep + firstFlatName + (multipleFlats * 'es')
+        
+    dutch = property(_getDutch,
+                      doc ='''
+        Read-only attribute. Returns the name 
+        of a Pitch in the German system 
+        (where B-flat = B, B = H, etc.)
+        (Microtones and Quartertones raise an error).
+        
+        
+        >>> from music21 import *
+        >>> print pitch.Pitch('B-').dutch
+        Bes
+        >>> print pitch.Pitch('B').dutch
+        B
+        >>> print pitch.Pitch('E-').dutch
+        Es
+        >>> print pitch.Pitch('C#').dutch
+        Cis
+        >>> print pitch.Pitch('A--').dutch
+        Ases
+        >>> p1 = pitch.Pitch('C')
+        >>> p1.accidental = pitch.Accidental('half-sharp')
+        >>> p1.dutch
+        Traceback (most recent call last):
+        PitchException: Quarter-tones not supported
+    ''')
+        
+    
+    def _getItalian(self):
+        if self.accidental is not None:
+            tempAlter = self.accidental.alter
+        else:
+            tempAlter = 0
+        tempStep = self.step
+        if tempAlter != int(tempAlter):
+            raise PitchException('Incompatible with quarter-tones')
+        else:
+            tempAlter = int(tempAlter)
+            
+        cardinalityMap = {1: " ", 2: " doppio ", 3: " triplo ", 4: " quadruplo "}
+        solfeggeMap = {"C": "do", "D": "re", "E": "mi", "F": "fa", "G": "sol", "A": "la", "B": "si"}
+        
+        if tempAlter == 0:
+            return solfeggeMap[tempStep]
+        elif tempAlter > 0:
+            if tempAlter > 4:
+                raise PitchException('Entirely too many sharps')
+            return solfeggeMap[tempStep] + cardinalityMap[tempAlter] + "diesis"
+        else: # flats
+            tempAlter = tempAlter*-1
+            if tempAlter > 4:
+                raise PitchException('Entirely too many flats')
+            return solfeggeMap[tempStep] + cardinalityMap[tempAlter] + "bemolle"
+    
+    italian = property(_getItalian, 
+        doc ='''
+        Read-only attribute. Returns the name 
+        of a Pitch in the Italian system 
+        (F-sharp is fa diesis, C-flat is do bemolle, etc.)
+        (Microtones and Quartertones raise an error).  
+        
+        
+        >>> from music21 import *
+        >>> print pitch.Pitch('B-').italian
+        si bemolle
+        >>> print pitch.Pitch('B').italian
+        si
+        >>> print pitch.Pitch('E-9').italian
+        mi bemolle
+        >>> print pitch.Pitch('C#').italian
+        do diesis
+        >>> print pitch.Pitch('A--4').italian
+        la doppio bemolle
+        >>> p1 = pitch.Pitch('C')
+        >>> p1.accidental = pitch.Accidental('half-sharp')
+        >>> p1.italian
+        Traceback (most recent call last):
+        PitchException: Incompatible with quarter-tones
+    
+        
+        Note these rarely used pitches:
+        
+        
+        >>> print pitch.Pitch('E####').italian
+        mi quadruplo diesis
+        >>> print pitch.Pitch('D---').italian
+        re triplo bemolle
+    ''')
+    
 
+        
+    
+    def _getSpanish(self):
+        if self.accidental is not None:
+            tempAlter = self.accidental.alter
+        else:
+            tempAlter = 0
+        tempStep = self.step
+        solfege = _getSpanishSolfege(tempStep)
+        if tempAlter != int(tempAlter):
+            raise PitchException('Unsupported accidental type.')
+        else:
+            if tempAlter == 0:
+                return solfege
+            elif abs(tempAlter) > 4:
+                raise PitchException('Unsupported accidental type.')
+            elif tempAlter in [-4,-3,-2,-1]:
+                return solfege + _getSpanishCardinal(abs(tempAlter)) + ' bèmol'
+            elif tempAlter in [1,2,3,4]:
+                return solfege + _getSpanishCardinal(abs(tempAlter)) + ' sostenido'
+    
+    spanish = property(_getSpanish, 
+        doc ='''
+        Read-only attribute. Returns the name 
+        of a Pitch in Spanish
+        (Microtones and Quartertones raise an error).
+        
+        
+        >>> from music21 import *
+        >>> print pitch.Pitch('B-').spanish
+        si bèmol
+        >>> print pitch.Pitch('E-').spanish
+        mi bèmol
+        >>> print pitch.Pitch('C#').spanish
+        do sostenido
+        >>> print pitch.Pitch('A--').spanish
+        la doble bèmol
+        >>> p1 = pitch.Pitch('C')
+        >>> p1.accidental = pitch.Accidental('half-sharp')
+        >>> p1.spanish
+        Traceback (most recent call last):
+        PitchException: Unsupported accidental type.
+    
+        
+        Note these rarely used pitches:
+        
+        
+        >>> print pitch.Pitch('B--').spanish
+        si doble bèmol
+        >>> print pitch.Pitch('B#').spanish
+        si sostenido
+    ''')
+    
+
+    def _getFrench(self):
+        if self.accidental is not None:
+            tempAlter = self.accidental.alter
+        else:
+            tempAlter = 0
+        tempStep = self.step
+        if tempAlter != int(tempAlter):
+            raise PitchException('On ne peut pas utiliser les microtones avec "french." Quelle Dommage!')
+        elif abs(tempAlter) > 4.0:
+            raise PitchException('On ne peut pas utiliser les altération avec puissance supérieure à quatre avec "french." Ça me fait une belle jambe!')
+        else:
+            tempAlter = int(tempAlter)
+        if tempStep == 'A':
+            tempStep = 'la'
+        if tempStep == 'B':
+            tempStep = 'si'
+        if tempStep == 'C':
+            tempStep = 'do'
+        if tempStep == 'D':
+            tempStep = 'ré'
+        if tempStep == 'E':
+            tempStep = 'mi'
+        if tempStep == 'F':
+            tempStep = 'fa'
+        if tempStep == 'G':
+            tempStep = 'sol'
+        
+        if tempAlter == 0:
+            return tempStep
+        elif abs(tempAlter) == 1.0:
+            tempNumberedStep = tempStep
+        elif abs(tempAlter) == 2.0:
+            tempNumberedStep = tempStep + ' double'
+        elif abs(tempAlter) == 3.0:
+            tempNumberedStep = tempStep + ' triple'
+        elif abs(tempAlter) == 4.0:  
+            tempNumberedStep = tempStep + ' quadruple'
+        
+        if tempAlter/abs(tempAlter) == 1.0: #sharps are positive
+            tempName = tempNumberedStep + ' dièse'
+            return tempName
+        else: # flats are negative
+            tempName = tempNumberedStep + ' bémol'
+            return tempName
+        
+    
+    french = property(_getFrench, 
+        doc ='''
+        Read-only attribute. Returns the name 
+        of a Pitch in the French system 
+        (where A = la, B = si, B-flat = si bémol, C-sharp = do dièse, etc.)
+        (Microtones and Quartertones raise an error).  Note that 
+        do is used instead of the also acceptable ut.
+        
+        
+        >>> from music21 import *
+        >>> print pitch.Pitch('B-').french
+        si bémol
+        >>> print pitch.Pitch('B').french
+        si
+        >>> print pitch.Pitch('E-').french
+        mi bémol
+        >>> print pitch.Pitch('C#').french
+        do dièse
+        >>> print pitch.Pitch('A--').french
+        la double bémol
+        >>> p1 = pitch.Pitch('C')
+        >>> p1.accidental = pitch.Accidental('half-sharp')
+        >>> p1.french
+        Traceback (most recent call last):
+        PitchException: On ne peut pas utiliser les microtones avec "french." Quelle Dommage!
+    ''')
 
     def _getFrequency(self):        
         return self._getfreq440()
@@ -4351,7 +4615,7 @@ class Test(unittest.TestCase):
 
 
     def testQuarterToneA(self):
-        import stream, note, scale, pitch
+        import stream, note, scale
 
         p1 = Pitch('D#~')
         #environLocal.printDebug([p1, p1.accidental])
@@ -4381,7 +4645,7 @@ class Test(unittest.TestCase):
         for x in range(1, 10):
             n = note.Note(sc.pitchFromDegree(x % sc.getDegreeMaxUnique()))
             n.quarterLength = .5
-            n.pitch.accidental = pitch.Accidental(alterList[x])
+            n.pitch.accidental = Accidental(alterList[x])
             s.append(n)
 
         match = [str(n.pitch) for n in s.notes]

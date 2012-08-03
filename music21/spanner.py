@@ -175,12 +175,13 @@ class Spanner(music21.Music21Object):
     >>> sp1._components.spannerParent == sp1
     True
     '''
-    isSpanner = True
+    # this class attribute provides performance optimized class selection
+    isSpanner = True 
 
     def __init__(self, *arguments, **keywords):
         music21.Music21Object.__init__(self)
 
-        self._cache = common.DefaultHash()    
+        self._cache = {} #common.DefaultHash()    
 
         # store this so subclasses can replace
         if self.__module__ != '__main__':
@@ -265,6 +266,7 @@ class Spanner(music21.Music21Object):
                 newValue = copy.deepcopy(part, memo)
                 newValue.containedById = id(new)
                 setattr(new, name, newValue)
+
             # do not deepcopy _components, as this will copy the 
             # contained objects
             elif name == '_components':
@@ -282,15 +284,28 @@ class Spanner(music21.Music21Object):
     #---------------------------------------------------------------------------
     # as _components is private Stream, unwrap/wrap methods need to override
     # Music21Object to get at these objects 
+    # this is the same as with Variants
+
+    def purgeOrphans(self):
+        self._components.purgeOrphans()
+        music21.Music21Object.purgeOrphans(self)
+
+    def purgeLocations(self, rescanIsDead=False):
+        # must override Music21Object to purge locations from the contained
+        # Stream
+        # base method to perform purge on the Sream
+        self._components.purgeLocations(rescanIsDead=rescanIsDead)
+        music21.Music21Object.purgeLocations(self, rescanIsDead=rescanIsDead)
+            
     def unwrapWeakref(self):
         '''Overridden method for unwrapping all Weakrefs.
         '''
         # call base method: this gets defined contexts and active site
         music21.Music21Object.unwrapWeakref(self)
         # for contained objects that have weak refs
+        #environLocal.pd(['spanner unwrapping contained stream'])
         self._components.unwrapWeakref()
         # this presently is not a weakref but in case of future changes
-
 
     def wrapWeakref(self):
         '''Overridden method for unwrapping all Weakrefs.
@@ -298,6 +313,21 @@ class Spanner(music21.Music21Object):
         # call base method: this gets defined contexts and active site
         music21.Music21Object.wrapWeakref(self)
         self._components.wrapWeakref()
+
+
+    def freezeIds(self):
+        music21.Music21Object.freezeIds(self)
+        self._components.freezeIds()
+
+    def unfreezeIds(self):
+        music21.Music21Object.unfreezeIds(self)
+        self._components.unfreezeIds()
+
+
+    def getSpannerStorageId(self):
+        '''Return the object id of the SpannerStorage object
+        '''
+        return id(self._components)
 
     #---------------------------------------------------------------------------
     def __getitem__(self, key):
@@ -378,11 +408,7 @@ class Spanner(music21.Music21Object):
     def getComponentIds(self):
         '''Return all id() for all stored objects.
         '''
-#         post = []
-#         for c in self._components._elements:
-#             post.append(id(c))
-#         return post
-        if self._cache['componentIds'] is None:
+        if 'componentIds' not in self._cache or self._cache['componentIds'] is None:
             self._cache['componentIds'] = [id(c) for c in self._components._elements]
         return self._cache['componentIds']
 
@@ -427,8 +453,8 @@ class Spanner(music21.Music21Object):
 
         self._components._elementsChanged()
         # always clear cache
-        if self._cache > 0:
-            self._cache = common.DefaultHash()
+        if len(self._cache) > 0:
+            self._cache = {} #common.DefaultHash()
 
     def hasComponent(self, component):  
         '''Return True if this Spanner has the component.'''
@@ -457,6 +483,9 @@ class Spanner(music21.Music21Object):
         if common.isNum(old):
             # this must be id(obj), not obj.id
             e = self._components.getElementByObjectId(old)
+            # e here is the old element that was spanned by this Spanner
+            
+
             #environLocal.printDebug(['current Spanner.componentIds()', self.getComponentIds()])
             #environLocal.printDebug(['Spanner.replaceComponent:', 'getElementById result', e, 'old target', old])
             if e is not None:
@@ -468,9 +497,11 @@ class Spanner(music21.Music21Object):
             self._components.replace(old, new, allTargetSites=False)
             #environLocal.printDebug(['Spanner.replaceComponent:', 'old', e, 'new', new])
 
+        # while this Spanner now has proper elements in its _components Stream, the element replaced likely has a site left-over from its previous Spanner
+
         # always clear cache
-        if self._cache > 0:
-            self._cache = common.DefaultHash()
+        if len(self._cache) > 0:
+            self._cache = {} #common.DefaultHash()
 
         #environLocal.printDebug(['replaceComponent()', 'id(old)', id(old), 'id(new)', id(new)])
 
@@ -636,8 +667,8 @@ class SpannerBundle(object):
     If a Stream or Stream subclass is provided as an argument, all Spanners on this Stream will be accumulated herein. 
     '''
     def __init__(self, *arguments, **keywords):
-        self._cache = common.DefaultHash()    
-        self._storage = []
+        self._cache = {} #common.DefaultHash()    
+        self._storage = [] # a simple List, not a Stream
         for arg in arguments:
             if common.isListLike(arg):
                 for e in arg:
@@ -659,8 +690,8 @@ class SpannerBundle(object):
 
     def append(self, other):
         self._storage.append(other)
-        if self._cache > 0:
-            self._cache = common.DefaultHash()
+        if len(self._cache) > 0:
+            self._cache = {} #common.DefaultHash()
 
     def __len__(self):
         return len(self._storage)
@@ -693,8 +724,8 @@ class SpannerBundle(object):
             self._storage.remove(item)
         else:
             raise SpannerBundleException('cannot match object for removal: %s' % item)
-        if self._cache > 0:
-            self._cache = common.DefaultHash()
+        if len(self._cache) > 0:
+            self._cache = {} #common.DefaultHash()
 
     def __repr__(self):
         return '<music21.spanner.SpannerBundle of size %s>' % self.__len__()
@@ -710,6 +741,14 @@ class SpannerBundle(object):
     list = property(_getList, 
         doc='''Return the bundle as a list.
         ''')
+
+    def getSpannerStorageIds(self):
+        '''Return all SpannerStorage ids from all contained Spanners
+        '''
+        post = []
+        for x in self._storage:
+            post.append(x.getSpannerStorageId())
+        return post
 
     def getByIdLocal(self, idLocal=None):
         '''Get spanners by `idLocal` or `complete` status.
@@ -732,7 +771,7 @@ class SpannerBundle(object):
         1
         '''
         cacheKey = 'idLocal-%s' % idLocal
-        if self._cache[cacheKey] is None:
+        if cacheKey not in self._cache or self._cache[cacheKey] is None:
             post = self.__class__()
             for sp in self._storage:
                 if sp.idLocal == idLocal:
@@ -797,7 +836,7 @@ class SpannerBundle(object):
 
         idTarget = id(component)
         cacheKey = 'getByComponent-%s' % idTarget
-        if self._cache[cacheKey] is None:
+        if cacheKey not in self._cache or self._cache[cacheKey] is None:
             post = self.__class__()
             for sp in self._storage: # storage is a list of spanners
                 if idTarget in sp.getComponentIds():
@@ -815,27 +854,23 @@ class SpannerBundle(object):
         '''
         #environLocal.printDebug(['SpannerBundle.replaceComponent()', 'old', old, 'new', new, 'len(self._storage)', len(self._storage)])
 
-# TODO: should return this, but get strange errors
-#         if len(self._storage) == 0:
-#             return
-
-        # this call is affecting objects
         if common.isNum(old): # assume this is an id
             idTarget = old
         else:
             idTarget = id(old)
 
         #post = self.__class__() # return a bundle of spanners that had changes
-        for sp in self._storage: # a list
+        for sp in self._storage: # Spanners in a list
             #environLocal.printDebug(['looking at spanner', sp, sp.getComponentIds()])
+
             # must check to see if this id is in this spanner
             if idTarget in sp.getComponentIds():
                 sp.replaceComponent(old, new)
                 #post.append(sp)
                 #environLocal.printDebug(['replaceComponent()', sp, 'old', old, 'id(old)', id(old), 'new', new, 'id(new)', id(new)])
 
-        if self._cache > 0:
-            self._cache = common.DefaultHash()
+        if len(self._cache) > 0:
+            self._cache = {} #common.DefaultHash()
 
     def getByClass(self, className):
         '''Given a spanner class, return a bundle of all Spanners of the desired class. 
@@ -865,7 +900,7 @@ class SpannerBundle(object):
 #         return post
 
         cacheKey = 'getByClass-%s' % className
-        if self._cache[cacheKey] is None:
+        if cacheKey not in self._cache or self._cache[cacheKey] is None:
             post = self.__class__()
             for sp in self._storage:
                 if common.isStr(className):

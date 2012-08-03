@@ -31,18 +31,19 @@ def setupURLCorpusParseApp(agenda):
     Augments an agenda with the data and commands related to the URL Corpus Parse App.
     
     
-    
-    >>> agenda = music21.webapps.Agenda()
+    >>> from music21 import *
+    >>> agenda = webapps.Agenda()
     >>> agenda.addData('measureEnd','4')
     >>> agenda.addData('workName',"'bwv7.7'")
     >>> agenda.addData('command',"commands.reduction")
     >>> agenda.addData('output',"musicxmlDownload")
-    >>> setupURLCorpusParseApp(agenda)
-    >>> processor = music21.webapps.CommandProcessor(agenda)
+    >>> webapps.apps.setupURLCorpusParseApp(agenda)
+
+    >>> processor = webapps.CommandProcessor(agenda)
     >>> processor.executeCommands()
     >>> (responseData, responseContentType) = processor.getOutput()
     >>> responseContentType
-    'application/vnd.recordare.musicxml+xml'
+    'application/vnd.recordare.musicxml+xml; charset=utf-8'
     >>> converter.parse(responseData).flat.highestOffset
     16.5
     '''

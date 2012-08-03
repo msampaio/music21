@@ -5,6 +5,7 @@
 #
 # Authors:      Michael Scott Cuthbert
 #               Christopher Ariza
+#               Carl Lian
 #
 # Copyright:    (c) 2009-2012 The music21 Project
 # License:      LGPL
@@ -149,6 +150,137 @@ class TwelveToneRow(ToneRow):
         #environLocal.printDebug(['calling matrix start: len row:', self.row, 'len self', len(self)])
 
         return matrixObj
+    
+    def pitches(self):
+        
+        '''
+        Convenience method showing the pitch classes of a serial.TwelveToneRow as a list.
+        
+        >>> from music21 import *
+        >>> L = [5*i for i in range(0,12)]
+        >>> quintupleRow = serial.pcToToneRow(L)
+        >>> quintupleRow.pitches()
+        [0, 5, 10, 3, 8, 1, 6, 11, 4, 9, 2, 7]
+        
+        '''
+        
+        pitchlist = [p.pitchClass for p in self]
+        return pitchlist
+    
+    def noteNames(self):
+        
+        '''
+        Convenience method showing the note names of a serial.TwelveToneRow as a list.
+        
+        >>> from music21 import *
+        >>> chromatic = serial.pcToToneRow(range(0,12))
+        >>> chromatic.noteNames()
+        ['C', 'C#', 'D', 'E-', 'E', 'F', 'F#', 'G', 'G#', 'A', 'B-', 'B']
+        
+        '''
+        
+        notelist = [p.name for p in self]
+        return notelist
+    
+    def isAllInterval(self):
+        
+        '''
+        Describes whether or not a twelve-tone row is an all-interval row.
+        
+        >>> from music21 import *
+        >>> chromatic = serial.pcToToneRow(range(0,12))
+        >>> chromatic.pitches()
+        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+        >>> chromatic.isAllInterval()
+        False
+        >>> bergLyric = serial.pcToToneRow(serial.RowBergLyricSuite().row)
+        >>> bergLyric.pitches()
+        [5, 4, 0, 9, 7, 2, 8, 1, 3, 6, 10, 11]
+        >>> bergLyric.isAllInterval()
+        True
+        '''
+        
+        if len(self) != 12:
+            raise SerialException("isAllInterval requires a 12-tone-row")
+            #as of the writing this is unnecessary because pcToToneRow will return an exception,
+            #but this is here in case this is ever changed.
+        else:
+            pitchList = [p.pitchClass for p in self]
+            intervalList = []
+            for i in range(0,11):
+                consecutivePitchInterval = (pitchList[i+1] - pitchList[i]) % 12
+                intervalList.append(consecutivePitchInterval)
+            tempAllInterval = True
+            for i in range(1,11):
+                if i not in intervalList:
+                    tempAllInterval = False
+            return tempAllInterval
+        
+    def zeroCenteredRowTransformation(self,transformationType,index):
+        
+        '''
+        
+        Returns a serial.TwelveToneRow object giving a transformation of a twelve-tone row.
+        Admissible transformations are 'P' (prime, transposition), 'I' (inversion),
+        'R' (retrograde), and 'RI' (retrograde inversion). Note that in this convention, 
+        the transformations P3 and I3 start on the pitch class 3, and the transformations
+        R3 and RI3 end on the pitch class 3.
+        
+        >>> from music21 import *
+        >>> chromatic = serial.pcToToneRow(range(0,12))
+        >>> chromatic.pitches()
+        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+        >>> chromaticP3 = chromatic.zeroCenteredRowTransformation('P',3)
+        >>> chromaticP3.pitches()
+        [3, 4, 5, 6, 7, 8, 9, 10, 11, 0, 1, 2]
+        >>> chromaticI6 = chromatic.zeroCenteredRowTransformation('I',6)
+        >>> chromaticI6.pitches()
+        [6, 5, 4, 3, 2, 1, 0, 11, 10, 9, 8, 7]
+        >>> schoenberg = serial.pcToToneRow(serial.RowSchoenbergOp26().row)
+        >>> schoenberg.pitches()
+        [3, 7, 9, 11, 1, 0, 10, 2, 4, 6, 8, 5]
+        >>> schoenbergR8 = schoenberg.zeroCenteredRowTransformation('R',8)
+        >>> schoenbergR8.pitches()
+        [10, 1, 11, 9, 7, 3, 5, 6, 4, 2, 0, 8]
+        >>> schoenbergRI9 = schoenberg.zeroCenteredRowTransformation('RI',9)
+        >>> schoenbergRI9.noteNames()
+        ['G', 'E', 'F#', 'G#', 'B-', 'D', 'C', 'B', 'C#', 'E-', 'F', 'A']
+        
+        '''
+    
+        if int(index) != index:
+            raise SerialException("Transformation must be by an integer.")
+        else:
+            pitchList = [p.pitchClass for p in self]
+            firstPitch = pitchList[0]
+            transformedPitchList = []
+            if transformationType == 'P':
+                for i in range(0,12):
+                    newPitch = (pitchList[i] - firstPitch + index) % 12
+                    transformedPitchList.append(newPitch)
+                newRow = pcToToneRow(transformedPitchList)
+                return newRow
+            elif transformationType == 'I':
+                for i in range(0,12):
+                    newPitch = (index + firstPitch - pitchList[i]) % 12
+                    transformedPitchList.append(newPitch)
+                newRow = pcToToneRow(transformedPitchList)
+                return newRow
+            elif transformationType == 'R':
+                for i in range(0,12):
+                    newPitch = (index + pitchList[11-i] - firstPitch) % 12
+                    transformedPitchList.append(newPitch)
+                newRow = pcToToneRow(transformedPitchList)
+                return newRow
+            elif transformationType == 'RI':
+                for i in range(0,12):
+                    newPitch = (index - pitchList[11-i] + firstPitch) % 12
+                    transformedPitchList.append(newPitch)
+                newRow = pcToToneRow(transformedPitchList)
+                return newRow            
+            else:
+                raise SerialException("Invalid transformation type.")
+            
         
 
 

@@ -56,7 +56,8 @@ __all__ = ['base',
            'scala', 
            'test', 'trecento',
            'vexflow',
-           'webapps', 
+           'webapps',
+           'contour',
            
            # individual modules 
            # KEEP ALPHABETICAL unless necessary for load reasons, if so
