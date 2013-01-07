@@ -470,6 +470,11 @@ class _EnvironmentCore(object):
             return self._ref['directoryScratch']
 
     def getTempFile(self, suffix=''):
+        '''
+        gets a temporary file with a suffix that will work for a bit.
+        note that the file is closed after finding, so some older versions
+        of python/OSes, etc. will immediately delete the file.
+        '''
         # get the root dir, which may be the user-specified dir
         rootDir = self.getRootTempDir()
 
@@ -744,7 +749,6 @@ class Environment(object):
         Erase could be called from os or command-line arguments after opening
         the file and then a short time delay.
 
-        TODO: Move showImageDirectfrom lilyString.py ; add MIDI
         TODO: Switch to module subprocess to prevent hanging.
         '''
         return _environStorage['instance'].launch(fmt, fp, 
@@ -786,7 +790,7 @@ class Environment(object):
 
     def warn(self, msg, header=None):
         '''To print a warning to the user, send a list of strings to this
-        method. 
+        method. Similar to printDebug but even if debug is off.
         '''
         if common.isStr(msg):
             msg = [msg] # make into a list

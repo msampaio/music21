@@ -90,10 +90,10 @@ def getMissingImportStr(modNameList):
     that gives instructions on how to expand music21 with optional packages.
     
     >>> from music21 import *
-    >>> common.getMissingImportStr(['PIL'])
-    'Certain music21 functions might need the optional package PIL; if you run into errors, install it by following the instructions at http://mit.edu/music21/doc/html/installAdditional.html'
-    >>> common.getMissingImportStr(['PIL', 'numpy'])
-    'Certain music21 functions might need these optional packages: PIL, numpy; if you run into errors, install it by following the instructions at http://mit.edu/music21/doc/html/installAdditional.html'
+    >>> common.getMissingImportStr(['matplotlib'])
+    'Certain music21 functions might need the optional package matplotlib; if you run into errors, install it by following the instructions at http://mit.edu/music21/doc/html/installAdditional.html'
+    >>> common.getMissingImportStr(['matplotlib', 'numpy'])
+    'Certain music21 functions might need these optional packages: matplotlib, numpy; if you run into errors, install it by following the instructions at http://mit.edu/music21/doc/html/installAdditional.html'
 
     '''
     if len(modNameList) == 0:
@@ -1457,7 +1457,7 @@ def getCorpusContentDirs():
     dir = getCorpusFilePath()
     post = []
     # dirs to exclude; all files will be retained
-    exclude = ['__init__.py', 'base.py', 'metadataCache', 'virtual.py'] 
+    exclude = ['__init__.py', 'base.py', 'metadataCache', 'virtual.py', 'chorales.py'] 
     for fn in os.listdir(dir):
         if fn not in exclude:
             if not fn.endswith('.pyc') and not fn.startswith('.'):

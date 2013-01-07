@@ -471,6 +471,22 @@ class Contour(MutableSequence):
 
         return [p, i, r, ri]
 
+    def class_four_forms(self):
+        """Returns four csegclass representative forms. This method is
+        similar to class_representatives, but the first cseg form is
+        the normal, not prime form.
+
+        >>> Contour([0, 1, 3, 2]).class_representatives()
+        [< 0 1 3 2 >, < 3 2 0 1 >, < 2 3 1 0 >, < 1 0 2 3 >]
+        """
+
+        t = self.translation()
+        i = t.inversion()
+        r = t.retrogression()
+        ri = i.retrogression()
+
+        return [t, i, r, ri]
+
     def subsets(self, n):
         """Returns adjacent and non-adjacent subsets of a given
         contour.

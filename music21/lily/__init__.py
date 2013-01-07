@@ -1,13 +1,9 @@
 # -*- coding: utf-8 -*-
 
-__all__ = ["translate", "lilyString", "test"]
+__all__ = ["translate", "lilyObjects"]
 
 import translate
-
-from lilyString import TRANSPARENCY_START
-from lilyString import TRANSPARENCY_STOP
-from lilyString import LilyString
-
+import lilyObjects
 #------------------------------------------------------------------------------
 # eof
 
